@@ -1,0 +1,50 @@
+{
+  "p1": {
+    "name": "p1",
+    "config": {
+      "numBars": 7,
+      "barWidth": 7,
+      "barGap": 4,
+      "maxHeight": 23,
+      "borderRadius": 2,
+      "glowIntensity": 3,
+      "colorMode": "gradient",
+      "color1": "#ffffff",
+      "color2": "#f97316",
+      "selectedPreset": null
+    },
+    "updatedAt": "2025-10-09T17:01:27.226Z"
+  },
+  "p2": {
+    "name": "p2",
+    "config": {
+      "numBars": 5,
+      "barWidth": 20,
+      "barGap": 4,
+      "maxHeight": 34,
+      "borderRadius": 11,
+      "glowIntensity": 8,
+      "colorMode": "gradient",
+      "color1": "#06b6d4",
+      "color2": "#a5f3fc",
+      "selectedPreset": "Arctic"
+    },
+    "updatedAt": "2025-10-09T17:06:43.869Z"
+  },
+  "p3": {
+    "name": "p3",
+    "config": {
+      "numBars": 8,
+      "barWidth": 12,
+      "barGap": 6,
+      "maxHeight": 35,
+      "borderRadius": 2,
+      "glowIntensity": 24,
+      "colorMode": "solid",
+      "color1": "#fb923c",
+      "color2": "#fbbf24",
+      "selectedPreset": "Peach"
+    },
+    "updatedAt": "2025-10-09T17:16:44.227Z"
+  }
+}
