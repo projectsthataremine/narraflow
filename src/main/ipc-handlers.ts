@@ -14,22 +14,44 @@ import type {
   PasteTextRequest,
   PasteTextResponse,
   UIState,
+  PillConfig,
 } from '../types/ipc-contracts';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
 import { AudioSessionManager } from '../audio/session';
 import { PasteSimulator } from '../paste/paste';
+import { SettingsManager } from './settings-manager';
 
 let audioSessionManager: AudioSessionManager | null = null;
 let transcriptionWorker: Worker | null = null;
 let currentMainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
 let monitorTrackingInterval: NodeJS.Timeout | null = null;
+let settingsManager: SettingsManager | null = null;
+
+// Constants for window positioning
+const GLOW_SPACE = 40; // 20px top + 20px bottom for glow effect
+const BOTTOM_PADDING = 20; // Additional spacing from screen bottom
+
+/**
+ * Set overlay window reference and start monitor tracking
+ */
+export function setOverlayWindow(window: BrowserWindow): void {
+  overlayWindow = window;
+
+  // Start tracking for always-visible testing mode
+  if (window.isVisible()) {
+    startMonitorTracking(window);
+  }
+}
 
 /**
  * Initialize IPC handlers
  */
 export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   currentMainWindow = mainWindow;
+  overlayWindow = mainWindow; // Default to mainWindow for now
   audioSessionManager = new AudioSessionManager();
+  settingsManager = new SettingsManager();
 
   // Initialize worker thread
   const workerPath = path.join(__dirname, '../../worker/worker/worker.js');
@@ -38,7 +60,8 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   transcriptionWorker = new Worker(workerPath);
 
   transcriptionWorker.on('message', (message) => {
-    console.log('[Main] Worker message received:', message.type);
+    // Disabled audio pipeline logging for now
+    // console.log('[Main] Worker message received:', message.type);
     if (message.type === 'TranscribeResponse') {
       // Handle transcription result
       handleTranscriptionResult(mainWindow, message);
@@ -46,17 +69,19 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       // Send error to renderer
       sendErrorNotification(mainWindow, 'Error, please try again');
     } else if (message.type === 'WorkerReady') {
-      console.log('[Main] Worker ready');
+      // console.log('[Main] Worker ready');
     }
   });
 
   transcriptionWorker.on('error', (error) => {
-    console.error('[Main] Worker error:', error);
+    // Disabled for now
+    // console.error('[Main] Worker error:', error);
   });
 
   transcriptionWorker.on('exit', (code) => {
     if (code !== 0) {
-      console.error(`[Main] Worker stopped with exit code ${code}`);
+      // Disabled for now
+      // console.error(`[Main] Worker stopped with exit code ${code}`);
     }
   });
 
@@ -163,6 +188,28 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       return response;
     }
   });
+
+  // Handle Pill Config Update (forward from settings to overlay)
+  ipcMain.on(IPC_CHANNELS.PILL_CONFIG_UPDATE, (event, data: { config: PillConfig }) => {
+    console.log('[Main] Saving and forwarding pill config to overlay:', data.config);
+
+    // Save config to disk
+    if (settingsManager) {
+      settingsManager.setPillConfig(data.config);
+    }
+
+    // Forward to overlay window
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, data);
+    }
+  });
+}
+
+/**
+ * Get saved pill config (for loading on startup)
+ */
+export function getSavedPillConfig(): PillConfig | null {
+  return settingsManager ? settingsManager.getPillConfig() : null;
 }
 
 /**
@@ -200,12 +247,12 @@ function positionWindowAtCursor(mainWindow: BrowserWindow): void {
   const cursorPoint = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursorPoint);
 
-  // Center horizontally on the display, position near bottom
+  // Use workArea to account for menu bar and dock
+  const { x: workX, y: workY, width: workWidth, height: workHeight } = display.workArea;
   const windowBounds = mainWindow.getBounds();
-  const x = display.bounds.x + (display.bounds.width - windowBounds.width) / 2;
-  const y = display.bounds.y + display.bounds.height - windowBounds.height - 100; // 100px from bottom
+  const x = workX + Math.floor((workWidth - windowBounds.width) / 2);
+  const y = workY + workHeight - windowBounds.height;
 
-  console.log(`Positioning window at (${x}, ${y}) on display ${display.id}`);
   mainWindow.setPosition(Math.floor(x), Math.floor(y));
 }
 
@@ -245,20 +292,12 @@ function stopMonitorTracking(): void {
 export function sendUIStateUpdate(mainWindow: BrowserWindow, state: UIState): void {
   console.log('Sending UI state update:', state.mode);
 
-  // Show/hide window based on mode
-  if (state.mode !== 'hidden') {
-    console.log('Showing window');
-
-    // Position window at cursor
+  // TESTING: Keep window always visible
+  if (!mainWindow.isVisible()) {
+    console.log('Showing window for testing');
     positionWindowAtCursor(mainWindow);
     mainWindow.show();
-
-    // Start tracking mouse for multi-monitor support
     startMonitorTracking(mainWindow);
-  } else {
-    console.log('Hiding window');
-    stopMonitorTracking();
-    mainWindow.hide();
   }
 
   // Send state to renderer

@@ -10,14 +10,17 @@ export default defineConfig({
     outDir: path.join(__dirname, 'dist/renderer'),
     emptyOutDir: true,
     rollupOptions: {
-      input: path.join(__dirname, 'src/ui/index.html'),
+      input: {
+        ui: path.join(__dirname, 'src/ui/index.html'),
+        settings: path.join(__dirname, 'src/settings/index.html'),
+      },
     },
   },
   server: {
     port: 5173,
     fs: {
-      // Deny access to dist folder to prevent serving compiled files
-      deny: [path.join(__dirname, 'dist')],
+      // Allow access to project root for serving HTML files
+      allow: [path.join(__dirname, 'src')],
     },
   },
   resolve: {

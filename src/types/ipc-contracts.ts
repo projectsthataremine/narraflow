@@ -30,6 +30,18 @@ export interface UIState {
   vadProbability?: number;
 }
 
+export interface PillConfig {
+  numBars: number;
+  barWidth: number;
+  barGap: number;
+  maxHeight: number;
+  borderRadius: number;
+  glowIntensity: number;
+  color1: string;
+  color2: string;
+  useGradient: boolean;
+}
+
 // ============================================================================
 // IPC Messages: Renderer → Main
 // ============================================================================
@@ -126,6 +138,7 @@ export const IPC_CHANNELS = {
   VAD_UPDATE: 'ipc:vad-update',
   ERROR_NOTIFICATION: 'ipc:error-notification',
   UI_STATE_UPDATE: 'ipc:ui-state-update',
+  PILL_CONFIG_UPDATE: 'ipc:pill-config-update',
   TRANSCRIBE: 'worker:transcribe',
   REWRITE_TEXT: 'worker:rewrite-text',
 } as const;

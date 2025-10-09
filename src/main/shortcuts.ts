@@ -7,13 +7,13 @@ import { globalShortcut, BrowserWindow } from 'electron';
 import { startRecordingDirect, stopRecordingDirect } from './ipc-handlers';
 
 let isRecording = false;
-let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
 
 /**
  * Register global shortcuts
  */
 export function registerShortcuts(window: BrowserWindow): boolean {
-  mainWindow = window;
+  overlayWindow = window;
 
   // Register Command+B
   const success = globalShortcut.register('CommandOrControl+B', () => {
@@ -35,17 +35,18 @@ export function registerShortcuts(window: BrowserWindow): boolean {
  * MVP: Toggle recording on each press
  */
 function handleHotkeyPress(): void {
-  if (!mainWindow) {
+  if (!overlayWindow) {
     return;
   }
 
   console.log('Hotkey pressed, isRecording:', isRecording);
 
   if (!isRecording) {
-    // Start recording
+    // Show overlay and start recording
+    overlayWindow.show();
     startRecording();
   } else {
-    // Stop recording
+    // Stop recording and hide overlay
     stopRecording();
   }
 }
@@ -104,6 +105,11 @@ async function stopRecording(): Promise<void> {
       return;
     }
     console.log('Recording stopped successfully');
+
+    // Hide overlay after stopping
+    if (overlayWindow) {
+      overlayWindow.hide();
+    }
   } catch (error) {
     console.error('Error stopping recording:', error);
   }
@@ -114,7 +120,7 @@ async function stopRecording(): Promise<void> {
  */
 export function unregisterShortcuts(): void {
   globalShortcut.unregisterAll();
-  mainWindow = null;
+  overlayWindow = null;
   isRecording = false;
 }
 

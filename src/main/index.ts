@@ -5,38 +5,51 @@
 
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
-import { setupIPCHandlers, cleanupIPC } from './ipc-handlers';
+import { setupIPCHandlers, cleanupIPC, setOverlayWindow, getSavedPillConfig } from './ipc-handlers';
 import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { ensurePermissions } from './permissions';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
 
 let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
+
+// TESTING: Show dock icon for development
+// TODO: Re-enable dock hiding for production
+// if (process.platform === 'darwin') {
+//   app.dock.hide();
+// }
 
 /**
- * Create main window
+ * Create overlay window (Recording Pill)
+ * Appears at bottom-center when Command+B is pressed
  */
-function createWindow(): void {
+function createOverlayWindow(): void {
   const preloadPath = path.join(__dirname, 'preload.js');
-  console.log('Preload path:', preloadPath);
-  console.log('__dirname:', __dirname);
 
-  // Get primary display size - use workArea to exclude menu bar
+  // Get primary display size
   const { screen } = require('electron');
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { x, y, width, height } = primaryDisplay.workArea; // Use workArea to respect menu bar
+  const { x: workX, y: workY, width: workWidth, height: workHeight } = primaryDisplay.workArea;
 
-  mainWindow = new BrowserWindow({
-    width,
-    height,
-    x,
-    y,
+  const windowWidth = 320;
+  const windowHeight = 180;
+  const xPos = workX + Math.floor((workWidth - windowWidth) / 2);
+  const yPos = workY + workHeight - windowHeight; // Align bottom of window to bottom of work area
+
+  overlayWindow = new BrowserWindow({
+    width: windowWidth,
+    height: windowHeight,
+    x: xPos,
+    y: yPos,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
     hasShadow: false,
-    backgroundColor: '#00000000', // Fully transparent
+    roundedCorners: false,
+    show: true, // TESTING: Always show
+    backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -44,33 +57,85 @@ function createWindow(): void {
     },
   });
 
-  // Show window for testing border
-  mainWindow.show();
-  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-
-  // Set window to cover the entire screen including menu bar
-  // Using setFullScreen or screen-saver level to go over menu bar
   if (process.platform === 'darwin') {
-    // On macOS, set the window level to cover everything including menu bar
-    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   }
-
-  // Wait for page to finish loading
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Page finished loading');
-  });
-
-  mainWindow.webContents.on('preload-error', (event, preloadPath, error) => {
-    console.error('Preload error:', preloadPath, error);
-  });
 
   // Load renderer
   if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173/ui/index.html');
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    overlayWindow.loadURL('http://localhost:5173/ui/index.html');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    overlayWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+
+  overlayWindow.webContents.on('did-finish-load', () => {
+    console.log('[Main] Overlay window loaded successfully');
+
+    // Send saved pill config to overlay window
+    const savedConfig = getSavedPillConfig();
+    if (savedConfig && overlayWindow) {
+      console.log('[Main] Sending saved config to overlay window:', savedConfig);
+      overlayWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, { config: savedConfig });
+    }
+  });
+
+  overlayWindow.on('closed', () => {
+    overlayWindow = null;
+  });
+}
+
+/**
+ * Create Settings window (hidden by default)
+ */
+function createSettingsWindow(): void {
+  const preloadPath = path.join(__dirname, 'preload.js');
+
+  mainWindow = new BrowserWindow({
+    width: 900,
+    height: 600,
+    titleBarStyle: 'hidden', // macOS: hide title bar but keep traffic lights
+    trafficLightPosition: { x: 16, y: 16 }, // Position traffic lights in our custom title bar
+    transparent: false,
+    show: true, // TESTING: Show on launch
+    skipTaskbar: false, // TESTING: Show in taskbar
+    resizable: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: preloadPath,
+    },
+  });
+
+  // TESTING: Allow quit on close for development
+  // mainWindow.on('close', (event) => {
+  //   event.preventDefault();
+  //   mainWindow?.hide();
+  // });
+
+  // Load settings UI
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Main] Loading settings from:', 'http://localhost:5173/settings/index.html');
+    mainWindow.loadURL('http://localhost:5173/settings/index.html');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/settings/index.html'));
+  }
+
+  // Log any load failures
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[Main] Settings window failed to load:', errorCode, errorDescription);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Main] Settings window loaded successfully');
+
+    // Send saved pill config to settings window
+    const savedConfig = getSavedPillConfig();
+    if (savedConfig && mainWindow) {
+      console.log('[Main] Sending saved config to settings window:', savedConfig);
+      mainWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, { config: savedConfig });
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -87,22 +152,53 @@ async function initialize(): Promise<void> {
     console.warn('Missing required permissions. App may not function correctly.');
   }
 
-  // Create window
-  createWindow();
+  // Create overlay window (Recording Pill)
+  createOverlayWindow();
 
-  if (!mainWindow) {
-    console.error('Failed to create main window');
+  // Create settings window (hidden)
+  createSettingsWindow();
+
+  if (!overlayWindow) {
+    console.error('Failed to create overlay window');
     app.quit();
     return;
   }
 
   // Setup IPC handlers
-  setupIPCHandlers(mainWindow);
+  setupIPCHandlers(overlayWindow);
 
-  // Register global shortcuts
-  const shortcutSuccess = registerShortcuts(mainWindow);
+  // Set overlay window reference for IPC forwarding
+  setOverlayWindow(overlayWindow);
+
+  // Register global shortcuts (pass overlay window)
+  const shortcutSuccess = registerShortcuts(overlayWindow);
   if (!shortcutSuccess) {
     console.error('Failed to register shortcuts');
+  }
+}
+
+/**
+ * Show/hide overlay window
+ */
+export function showOverlay(): void {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.show();
+  }
+}
+
+export function hideOverlay(): void {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.hide();
+  }
+}
+
+/**
+ * Show settings window
+ */
+export function showSettings(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
   }
 }
 
@@ -120,9 +216,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
+  // Don't recreate windows on activate (app runs in background)
+  console.log('App activated');
 });
 
 app.on('will-quit', () => {

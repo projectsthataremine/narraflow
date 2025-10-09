@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AudioDataProvider from './AudioDataProvider';
 import ThickBarsVisualization from './visualizations/ThickBarsVisualization';
 import ConfigPanel from './ConfigPanel';
+import SettingsApp from './SettingsApp';
 import { api } from './api';
 
 const DEFAULT_CONFIG = {
@@ -17,6 +18,7 @@ const DEFAULT_CONFIG = {
 };
 
 function App() {
+  const [activeTab, setActiveTab] = useState('visualizations'); // 'visualizations' or 'settings'
   const [visualizations, setVisualizations] = useState([]);
   const [presets, setPresets] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -120,35 +122,73 @@ function App() {
   };
 
   return (
-    <div style={{ width: '100%', padding: '20px' }}>
+    <div style={{ width: '100%', padding: '20px', minHeight: '100vh', background: '#2a2a2a' }}>
+      {/* Tab Switcher */}
       <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: '2rem' }}>
-          Mic2Text UI Visualizations
-        </h1>
-        <button
-          onClick={handleAddVisualization}
-          style={{
-            padding: '10px 20px',
-            background: '#8b5cf6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: '500',
-          }}
-        >
-          ➕ Add Visualization
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setActiveTab('visualizations')}
+            style={{
+              padding: '10px 20px',
+              background: activeTab === 'visualizations' ? '#8b5cf6' : '#444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: '500',
+            }}
+          >
+            Visualizations
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            style={{
+              padding: '10px 20px',
+              background: activeTab === 'settings' ? '#8b5cf6' : '#444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: '500',
+            }}
+          >
+            Settings App
+          </button>
+        </div>
+        {activeTab === 'visualizations' && (
+          <button
+            onClick={handleAddVisualization}
+            style={{
+              padding: '10px 20px',
+              background: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: '500',
+            }}
+          >
+            ➕ Add Visualization
+          </button>
+        )}
       </div>
 
-      {/* Grid of visualizations (2 per row) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '20px',
-      }}>
-        {visualizations.map((viz) => (
+      {/* Conditional Content */}
+      {activeTab === 'settings' ? (
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '40px' }}>
+          <SettingsApp />
+        </div>
+      ) : (
+        /* Grid of visualizations (2 per row) */
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '20px',
+        }}>
+          {visualizations.map((viz) => (
           <div key={viz.id} style={{
             border: '2px solid #000',
             borderRadius: '12px',
@@ -259,7 +299,8 @@ function App() {
             </AudioDataProvider>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

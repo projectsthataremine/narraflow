@@ -4,11 +4,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Pill, pillStyles } from './pill';
+import { RecordingPill } from './recording-pill';
 import { ErrorPopup } from './error-popup';
-import type { UIState } from '../types/ipc-contracts';
+import type { UIState, PillConfig } from '../types/ipc-contracts';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
 import { WebAudioCapture } from './audio-capture';
+import { config } from 'process';
 
 // Electron IPC renderer (will be available via preload)
 declare global {
@@ -25,7 +26,19 @@ export const App: React.FC = () => {
     mode: 'hidden',
   });
 
-  const [gradientRotation, setGradientRotation] = useState(0);
+  // Default pill config (matches main process defaults)
+  const [pillConfig, setPillConfig] = useState<PillConfig>({
+    numBars: 10,
+    barWidth: 4,
+    barGap: 6,
+    maxHeight: 60,
+    borderRadius: 12,
+    glowIntensity: 0.6,
+    color1: '#3b82f6',
+    color2: '#8b5cf6',
+    useGradient: true,
+  });
+
   const audioCaptureRef = useRef<WebAudioCapture | null>(null);
   const isRecordingRef = useRef(false);
 
@@ -61,7 +74,8 @@ export const App: React.FC = () => {
     const audioCapture = audioCaptureRef.current;
     if (!audioCapture) return;
 
-    const shouldRecord = uiState.mode === 'loading' || uiState.mode === 'silent' || uiState.mode === 'talking';
+    const shouldRecord =
+      uiState.mode === 'loading' || uiState.mode === 'silent' || uiState.mode === 'talking';
 
     if (shouldRecord && !isRecordingRef.current) {
       // Start recording
@@ -77,22 +91,17 @@ export const App: React.FC = () => {
     } else if (!shouldRecord && isRecordingRef.current) {
       // Stop recording (async to properly release microphone)
       console.log('[App] Stopping audio capture');
-      audioCapture.stop().then(() => {
-        console.log('[App] Audio capture stopped successfully');
-      }).catch((error) => {
-        console.error('[App] Error stopping audio capture:', error);
-      });
+      audioCapture
+        .stop()
+        .then(() => {
+          console.log('[App] Audio capture stopped successfully');
+        })
+        .catch((error) => {
+          console.error('[App] Error stopping audio capture:', error);
+        });
       isRecordingRef.current = false;
     }
   }, [uiState.mode]);
-
-  // Animate gradient rotation for Siri effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGradientRotation((prev) => (prev + 1) % 360);
-    }, 30); // Update every 30ms for smooth animation
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     // Subscribe to UI state updates from main process
@@ -116,8 +125,20 @@ export const App: React.FC = () => {
           message: event.message,
         }));
       });
+
+      window.electron.on(IPC_CHANNELS.PILL_CONFIG_UPDATE, (event: any) => {
+        console.log('[Overlay] Received pill config update:', event.config);
+        setPillConfig(event.config);
+      });
     }
   }, []);
+
+  // Debug: log when pillConfig changes
+  useEffect(() => {
+    if (pillConfig) {
+      console.log('[Overlay] Pill config updated:', pillConfig);
+    }
+  }, [pillConfig]);
 
   const handleErrorDismiss = () => {
     setUiState((prev) => ({
@@ -127,83 +148,31 @@ export const App: React.FC = () => {
   };
 
   return (
-    <>
-      <style>{pillStyles}</style>
-      <style>{borderStyles}</style>
-      {/* Always show border for testing */}
-      <div className="has-glow">
-        <div className="glow">
-          <div className="glow-bg"></div>
-        </div>
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        border: '2px solid red', // Red border for testing
+      }}
+    >
+      {/* Pill positioned at bottom center */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '50%',
+          left: '50%',
+          transform: 'translate(-50%, 50%)',
+          pointerEvents: 'auto',
+        }}
+      >
+        <RecordingPill isRecording={true} config={pillConfig} />
       </div>
-      <Pill mode={uiState.mode} vadProbability={uiState.vadProbability} />
+
       <ErrorPopup message={uiState.message} onDismiss={handleErrorDismiss} />
-    </>
+    </div>
   );
 };
-
-// Siri-style animated border - iOS 18 conic gradient effect
-const borderStyles = `
-  @property --gradient-angle {
-    syntax: '<angle>';
-    initial-value: 0deg;
-    inherits: false;
-  }
-
-  .has-glow {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    pointer-events: none;
-    z-index: 99999;
-  }
-
-  .has-glow::before,
-  .has-glow::after {
-    content: '';
-    position: absolute;
-    inset: -0.5rem 0 0 0;
-    background: conic-gradient(
-      from var(--gradient-angle),
-      #FF0080,
-      #7928CA,
-      #0070F3,
-      #00DFD8,
-      #79FFE1,
-      #FFAA00,
-      #FF4D4D,
-      #FF0080,
-      #7928CA,
-      #0070F3,
-      #00DFD8,
-      #79FFE1,
-      #FFAA00,
-      #FF4D4D,
-      #FF0080
-    );
-    animation: rotation 3s linear infinite;
-  }
-
-  .has-glow::after {
-    filter: blur(20px);
-  }
-
-  .glow {
-    display: none;
-  }
-
-  .glow-bg {
-    display: none;
-  }
-
-  @keyframes rotation {
-    0% {
-      --gradient-angle: 0deg;
-    }
-    100% {
-      --gradient-angle: 360deg;
-    }
-  }
-`;
