@@ -28,3 +28,5 @@ coverage/
 # Model files (too large for git)
 resources/models/*.onnx
 resources/models/llm/*.gguf
+prototype/phase-1/models/*.onnx
+prototype/phase-1/models/sherpa-onnx-whisper-tiny.en/
