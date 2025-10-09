@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022", "WebWorker"],
+    "outDir": "./dist/worker",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/worker/**/*", "src/types/**/*", "src/audio/**/*", "src/rewrite/**/*"],
+  "exclude": ["node_modules", "dist", "tests", "src/ui/**/*", "src/main/**/*", "src/paste/**/*"]
+}

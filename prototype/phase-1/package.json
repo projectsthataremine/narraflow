@@ -1,0 +1,22 @@
+{
+  "name": "mic2text-phase1-prototype",
+  "version": "1.0.0",
+  "description": "Phase 1 prototype: Standalone Node.js audio pipeline (Mic → VAD → Whisper)",
+  "main": "test-audio-pipeline.js",
+  "scripts": {
+    "test": "node test-audio-pipeline.js"
+  },
+  "keywords": [
+    "whisper",
+    "vad",
+    "speech-to-text",
+    "silero"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "naudiodon2": "^2.5.0",
+    "ollama": "^0.6.0",
+    "sherpa-onnx-node": "^1.12.14"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "ignore": [
+    "presets.json",
+    "node_modules/**/*"
+  ],
+  "watch": [
+    "server.js"
+  ]
+}
