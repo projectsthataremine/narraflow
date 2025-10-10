@@ -85,7 +85,15 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
   const startMicrophone = async () => {
     try {
       console.log('[Mic] Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // NOTE: In Chrome/Electron, echoCancellation: false disables ALL audio processing
+      // including autoGainControl, regardless of the autoGainControl setting
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false, // Disables all audio processing including AGC
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
+      });
       mediaStreamRef.current = stream;
       console.log('[Mic] Microphone access granted');
 
@@ -119,16 +127,36 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
         }
         const rms = Math.sqrt(sum / dataArray.length);
 
-        // Apply very light noise gate (ignore background noise below 0.003)
-        const gatedRMS = Math.max(0, rms - 0.003);
+        // ===== WORKING ELECTRON NORMALIZATION LOGIC =====
+        // Aggressive normalization/limiting - compress all talking to 90-100%
+        const NOISE_FLOOR = 0.0065;      // Below this = background noise
+        const TALKING_START = 0.015;     // Any sound above this = talking
 
-        // Non-linear boost: sqrt makes quiet sounds louder, loud sounds not too loud
-        // Then multiply by 3 for good range without always hitting 1.0
-        const amplitude = Math.min(1.0, Math.sqrt(gatedRMS) * 3);
+        let amplitude;
+        let zone = '';
+
+        if (rms < NOISE_FLOOR) {
+          // Background noise - keep minimal
+          amplitude = rms * 5; // Just enough to barely show
+          zone = 'quiet';
+        } else if (rms < TALKING_START) {
+          // Quick ramp from noise floor to talking level (0.0065-0.015)
+          const range = (rms - NOISE_FLOOR) / (TALKING_START - NOISE_FLOOR);
+          amplitude = 0.5 + (range * 0.4); // Quick ramp: 50% → 90%
+          zone = 'ramp';
+        } else {
+          // ANY talking/sound above 0.015 = normalized to 90-100% (tight range)
+          const normalized = Math.min(1.0, (rms - TALKING_START) / 0.025); // Normalize to 0-1
+          amplitude = 0.9 + (normalized * 0.1); // Map to 90-100% (very tight!)
+          zone = 'talking';
+        }
+
+        amplitude = Math.min(1.0, Math.max(0.05, amplitude));
+        // ===== END ELECTRON LOGIC =====
 
         // Log every 60 frames (~1 second)
         if (frameCount % 60 === 0) {
-          console.log('[Mic] RMS:', rms.toFixed(4), 'Gated:', gatedRMS.toFixed(4), 'Amplitude:', amplitude.toFixed(4));
+          console.log('[Mic] RMS:', rms.toFixed(4), 'Zone:', zone, 'Amplitude:', amplitude.toFixed(4));
         }
         frameCount++;
 
