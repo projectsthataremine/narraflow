@@ -1,54 +1,96 @@
 /**
  * Global hotkey registration
- * Manages Command+B press/release for recording control
+ * Manages Command+B for recording control
  */
 
-import { globalShortcut, BrowserWindow } from 'electron';
+import { BrowserWindow } from 'electron';
 import { startRecordingDirect, stopRecordingDirect } from './ipc-handlers';
+import { uIOhook, UiohookKey } from 'uiohook-napi';
 
 let isRecording = false;
 let overlayWindow: BrowserWindow | null = null;
+let commandPressed = false;
+let bPressed = false;
 
 /**
- * Register global shortcuts
+ * Register global shortcuts with Command+B detection
  */
 export function registerShortcuts(window: BrowserWindow): boolean {
   overlayWindow = window;
 
-  // Register Command+B
-  const success = globalShortcut.register('CommandOrControl+B', () => {
-    handleHotkeyPress();
-  });
+  try {
+    console.log('[Shortcuts] Registering uiohook keyboard listener...');
+    console.log('[Shortcuts] Press Command+B to toggle recording');
 
-  if (!success) {
-    console.error('Failed to register global shortcut');
+    // Listen for key down events
+    uIOhook.on('keydown', (event) => {
+      // Command key (Meta is Command on macOS)
+      if (event.keycode === UiohookKey.Meta || event.keycode === UiohookKey.MetaLeft || event.keycode === UiohookKey.MetaRight) {
+        commandPressed = true;
+      }
+
+      // B key
+      if (event.keycode === UiohookKey.B) {
+        bPressed = true;
+      }
+
+      // Check if Command+B is pressed
+      if (commandPressed && bPressed && !isRecording) {
+        console.log('[Shortcuts] Command+B pressed - starting recording');
+        handleKeyPress();
+      }
+    });
+
+    // Listen for key up events
+    uIOhook.on('keyup', (event) => {
+      // Command key released
+      if (event.keycode === UiohookKey.Meta || event.keycode === UiohookKey.MetaLeft || event.keycode === UiohookKey.MetaRight) {
+        commandPressed = false;
+      }
+
+      // B key released
+      if (event.keycode === UiohookKey.B) {
+        bPressed = false;
+        // Stop recording when B is released
+        if (isRecording) {
+          console.log('[Shortcuts] B key released - stopping recording');
+          handleKeyRelease();
+        }
+      }
+    });
+
+    // Start listening for keyboard events
+    uIOhook.start();
+    console.log('Keyboard hook registered for Command+B');
+    return true;
+  } catch (error) {
+    console.error('Failed to register keyboard hook:', error);
     return false;
   }
-
-  console.log('Global shortcut registered: CommandOrControl+B');
-  return true;
 }
 
 /**
- * Handle hotkey press/release
- * Note: Electron's globalShortcut doesn't support press/release detection
- * MVP: Toggle recording on each press
+ * Handle key press (Command+B pressed)
  */
-function handleHotkeyPress(): void {
-  if (!overlayWindow) {
+function handleKeyPress(): void {
+  if (!overlayWindow || isRecording) {
     return;
   }
 
-  console.log('Hotkey pressed, isRecording:', isRecording);
+  console.log('Command+B pressed - starting recording');
+  startRecording();
+}
 
+/**
+ * Handle key release (B released)
+ */
+function handleKeyRelease(): void {
   if (!isRecording) {
-    // Show overlay and start recording
-    overlayWindow.show();
-    startRecording();
-  } else {
-    // Stop recording and hide overlay
-    stopRecording();
+    return;
   }
+
+  console.log('B released - stopping recording');
+  stopRecording();
 }
 
 /**
@@ -59,10 +101,8 @@ async function startRecording(): Promise<void> {
     return;
   }
 
-  console.log('Starting recording...');
   isRecording = true;
 
-  // Directly call the recording handler
   try {
     const success = await startRecordingDirect();
     if (!success) {
@@ -74,16 +114,7 @@ async function startRecording(): Promise<void> {
   } catch (error) {
     console.error('Error starting recording:', error);
     isRecording = false;
-    return;
   }
-
-  // MVP: Auto-stop after 5 seconds (simulates release)
-  // In production, would use native key event monitoring for true press/release
-  setTimeout(() => {
-    if (isRecording) {
-      stopRecording();
-    }
-  }, 5000);
 }
 
 /**
@@ -94,10 +125,8 @@ async function stopRecording(): Promise<void> {
     return;
   }
 
-  console.log('Stopping recording...');
   isRecording = false;
 
-  // Directly call the recording handler
   try {
     const success = await stopRecordingDirect();
     if (!success) {
@@ -105,11 +134,6 @@ async function stopRecording(): Promise<void> {
       return;
     }
     console.log('Recording stopped successfully');
-
-    // Hide overlay after stopping
-    if (overlayWindow) {
-      overlayWindow.hide();
-    }
   } catch (error) {
     console.error('Error stopping recording:', error);
   }
@@ -119,14 +143,13 @@ async function stopRecording(): Promise<void> {
  * Unregister all shortcuts
  */
 export function unregisterShortcuts(): void {
-  globalShortcut.unregisterAll();
+  try {
+    uIOhook.stop();
+  } catch (error) {
+    console.error('Error stopping keyboard hook:', error);
+  }
   overlayWindow = null;
   isRecording = false;
-}
-
-/**
- * Check if shortcut is registered
- */
-export function isShortcutRegistered(): boolean {
-  return globalShortcut.isRegistered('CommandOrControl+B');
+  commandPressed = false;
+  bPressed = false;
 }

@@ -42,17 +42,23 @@ export const App: React.FC = () => {
   const audioCaptureRef = useRef<WebAudioCapture | null>(null);
   const isRecordingRef = useRef(false);
 
-  // Initialize audio capture
+  // Track audio amplitude for visualization (single state, no separate smoothing)
+  const [audioAmplitude, setAudioAmplitude] = useState(0);
+  const amplitudeDecayInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize audio capture with AnalyserNode
   useEffect(() => {
     audioCaptureRef.current = new WebAudioCapture({
       sampleRate: 16000,
-      onAudioData: (chunk: Float32Array) => {
-        // Send audio chunk to main process
-        if (window.electron && isRecordingRef.current) {
-          // Convert Float32Array to regular array for IPC
-          const chunkArray = Array.from(chunk);
-          window.electron.send(IPC_CHANNELS.AUDIO_DATA, { chunk: chunkArray });
-        }
+      onAmplitude: (amplitude: number) => {
+        // AnalyserNode already provides smoothed amplitude (hardware-accelerated)
+        setAudioAmplitude(amplitude);
+
+        // DISABLED: Audio pipeline for transcription (focusing on visualization only)
+        // if (window.electron && isRecordingRef.current) {
+        //   const chunkArray = Array.from(chunk);
+        //   window.electron.send(IPC_CHANNELS.AUDIO_DATA, { chunk: chunkArray });
+        // }
       },
       onError: (error: Error) => {
         console.error('[WebAudioCapture] Error:', error);
@@ -65,6 +71,11 @@ export const App: React.FC = () => {
         audioCaptureRef.current.stop().catch((error) => {
           console.error('[App] Error during cleanup:', error);
         });
+      }
+
+      // Clear decay interval
+      if (amplitudeDecayInterval.current) {
+        clearInterval(amplitudeDecayInterval.current);
       }
     };
   }, []);
@@ -100,6 +111,26 @@ export const App: React.FC = () => {
           console.error('[App] Error stopping audio capture:', error);
         });
       isRecordingRef.current = false;
+
+      // Start smooth amplitude decay to zero
+      if (amplitudeDecayInterval.current) {
+        clearInterval(amplitudeDecayInterval.current);
+      }
+
+      amplitudeDecayInterval.current = setInterval(() => {
+        setAudioAmplitude((prev) => {
+          const decayed = prev * 0.85; // Decay by 15% each frame
+          if (decayed < 0.01) {
+            // Clear interval when amplitude is nearly zero
+            if (amplitudeDecayInterval.current) {
+              clearInterval(amplitudeDecayInterval.current);
+              amplitudeDecayInterval.current = null;
+            }
+            return 0;
+          }
+          return decayed;
+        });
+      }, 50); // 20fps decay
     }
   }, [uiState.mode]);
 
@@ -156,7 +187,6 @@ export const App: React.FC = () => {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        border: '2px solid red', // Red border for testing
       }}
     >
       {/* Pill positioned at bottom center */}
@@ -169,7 +199,11 @@ export const App: React.FC = () => {
           pointerEvents: 'auto',
         }}
       >
-        <RecordingPill isRecording={true} config={pillConfig} />
+        <RecordingPill
+          isRecording={uiState.mode !== 'hidden'}
+          config={pillConfig}
+          audioAmplitude={audioAmplitude}
+        />
       </div>
 
       <ErrorPopup message={uiState.message} onDismiss={handleErrorDismiss} />

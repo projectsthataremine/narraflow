@@ -1,11 +1,11 @@
 /**
  * Web Audio API-based microphone capture for renderer process
- * This properly handles Electron microphone permissions on macOS
+ * Uses AnalyserNode for hardware-accelerated amplitude detection
  */
 
 export interface AudioCaptureConfig {
   sampleRate: number; // Target sample rate (16000 for Whisper)
-  onAudioData?: (chunk: Float32Array) => void;
+  onAmplitude?: (amplitude: number) => void; // 0-1 normalized amplitude
   onError?: (error: Error) => void;
 }
 
@@ -13,16 +13,16 @@ export class WebAudioCapture {
   private audioContext: AudioContext | null = null;
   private mediaStream: MediaStream | null = null;
   private audioSource: MediaStreamAudioSourceNode | null = null;
-  private scriptProcessor: ScriptProcessorNode | null = null;
+  private analyser: AnalyserNode | null = null;
   private isRecording = false;
   private config: AudioCaptureConfig;
-  private audioChunks: Float32Array[] = [];
-  private startTime = 0;
+  private animationFrameId: number | null = null;
+  private dataArray: Uint8Array | null = null;
 
   constructor(config: Partial<AudioCaptureConfig> = {}) {
     this.config = {
       sampleRate: config.sampleRate ?? 16000,
-      onAudioData: config.onAudioData,
+      onAmplitude: config.onAmplitude,
       onError: config.onError,
     };
   }
@@ -55,38 +55,24 @@ export class WebAudioCapture {
       // Create audio source from microphone
       this.audioSource = this.audioContext.createMediaStreamSource(this.mediaStream);
 
-      // Create script processor for audio chunks
-      // Buffer size: 4096 samples (~256ms at 16kHz)
-      this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      // Create AnalyserNode for amplitude detection (hardware-accelerated)
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256; // Small FFT for fast amplitude updates
+      this.analyser.smoothingTimeConstant = 0.3; // Built-in smoothing
 
-      this.scriptProcessor.onaudioprocess = (event) => {
-        if (!this.isRecording) return;
+      // Connect audio graph
+      this.audioSource.connect(this.analyser);
+      // Note: No need to connect to destination for visualization-only
 
-        const inputBuffer = event.inputBuffer;
-        const channelData = inputBuffer.getChannelData(0); // Mono
-
-        // Copy to avoid reference issues
-        const chunk = new Float32Array(channelData.length);
-        chunk.set(channelData);
-
-        // Store chunk
-        this.audioChunks.push(chunk);
-
-        // Callback if provided
-        if (this.config.onAudioData) {
-          this.config.onAudioData(chunk);
-        }
-      };
-
-      // Connect the audio graph
-      this.audioSource.connect(this.scriptProcessor);
-      this.scriptProcessor.connect(this.audioContext.destination);
+      // Prepare data array for amplitude readings
+      this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
 
       this.isRecording = true;
-      this.audioChunks = [];
-      this.startTime = Date.now();
 
-      console.log(`[WebAudioCapture] Started recording at ${this.config.sampleRate}Hz`);
+      // Start amplitude monitoring loop
+      this.monitorAmplitude();
+
+      console.log(`[WebAudioCapture] Started amplitude monitoring at ${this.config.sampleRate}Hz`);
       return true;
     } catch (error) {
       console.error('[WebAudioCapture] Failed to start:', error);
@@ -99,23 +85,56 @@ export class WebAudioCapture {
   }
 
   /**
-   * Stop recording and return accumulated audio buffer
+   * Monitor amplitude using AnalyserNode (runs at ~60fps via requestAnimationFrame)
+   */
+  private monitorAmplitude(): void {
+    if (!this.isRecording || !this.analyser || !this.dataArray) {
+      return;
+    }
+
+    // Get time-domain data (waveform) for amplitude
+    this.analyser.getByteTimeDomainData(this.dataArray);
+
+    // Calculate RMS amplitude from time-domain data
+    let sum = 0;
+    for (let i = 0; i < this.dataArray.length; i++) {
+      const normalized = (this.dataArray[i] - 128) / 128; // Convert from 0-255 to -1 to 1
+      sum += normalized * normalized;
+    }
+    const rms = Math.sqrt(sum / this.dataArray.length);
+
+    // Normalize and boost for better visual response
+    const amplitude = Math.min(1.0, rms * 8);
+
+    // Send amplitude to callback
+    if (this.config.onAmplitude) {
+      this.config.onAmplitude(amplitude);
+    }
+
+    // Continue monitoring
+    this.animationFrameId = requestAnimationFrame(() => this.monitorAmplitude());
+  }
+
+  /**
+   * Stop amplitude monitoring and release microphone
    * CRITICAL: Must stop MediaStream tracks BEFORE closing AudioContext
    */
-  async stop(): Promise<Float32Array | null> {
+  async stop(): Promise<void> {
     if (!this.isRecording) {
-      return null;
+      return;
     }
 
     this.isRecording = false;
 
-    const duration = (Date.now() - this.startTime) / 1000;
-    console.log(`[WebAudioCapture] Stopping, recorded ${duration.toFixed(1)}s`);
+    // Stop animation frame loop
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
 
     // Disconnect audio graph
-    if (this.scriptProcessor) {
-      this.scriptProcessor.disconnect();
-      this.scriptProcessor.onaudioprocess = null;
+    if (this.analyser) {
+      this.analyser.disconnect();
     }
 
     if (this.audioSource) {
@@ -140,24 +159,7 @@ export class WebAudioCapture {
       }
     }
 
-    // Concatenate all chunks into single buffer
-    const totalLength = this.audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const audioBuffer = new Float32Array(totalLength);
-
-    let offset = 0;
-    for (const chunk of this.audioChunks) {
-      audioBuffer.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    const recordedDuration = audioBuffer.length / this.config.sampleRate;
-    console.log(
-      `[WebAudioCapture] Captured ${audioBuffer.length} samples (${recordedDuration.toFixed(1)}s at ${this.config.sampleRate}Hz)`
-    );
-
     this.cleanup();
-
-    return audioBuffer;
   }
 
   /**
@@ -168,39 +170,14 @@ export class WebAudioCapture {
   }
 
   /**
-   * Get recording duration in seconds
-   */
-  getDuration(): number {
-    if (!this.isRecording) {
-      return 0;
-    }
-    return (Date.now() - this.startTime) / 1000;
-  }
-
-  /**
    * Cleanup resources
    */
   private cleanup(): void {
     this.audioContext = null;
     this.mediaStream = null;
     this.audioSource = null;
-    this.scriptProcessor = null;
-    this.audioChunks = [];
-  }
-
-  /**
-   * Calculate RMS (Root Mean Square) level in dB
-   * Used for silence detection
-   */
-  static calculateRMS(buffer: Float32Array): number {
-    let sum = 0;
-    for (let i = 0; i < buffer.length; i++) {
-      sum += buffer[i] * buffer[i];
-    }
-    const rms = Math.sqrt(sum / buffer.length);
-
-    // Convert to dB
-    const dB = 20 * Math.log10(rms);
-    return dB;
+    this.analyser = null;
+    this.dataArray = null;
+    this.animationFrameId = null;
   }
 }

@@ -26,7 +26,8 @@
     "electron": "^30.0.0",
     "node-record-lpcm16": "^1.0.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "uiohook-napi": "^1.5.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.41.0",

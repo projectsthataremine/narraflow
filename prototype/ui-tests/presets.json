@@ -1,50 +1,22 @@
 {
-  "p1": {
-    "name": "p1",
+  "animation-test": {
+    "name": "animation-test",
     "config": {
-      "numBars": 7,
-      "barWidth": 7,
-      "barGap": 4,
-      "maxHeight": 23,
-      "borderRadius": 2,
-      "glowIntensity": 3,
+      "numBars": 11,
+      "barWidth": 2,
+      "barGap": 2,
+      "maxHeight": 28,
+      "borderRadius": 6,
+      "glowIntensity": 0,
       "colorMode": "gradient",
-      "color1": "#ffffff",
-      "color2": "#f97316",
-      "selectedPreset": null
+      "color1": "#10b981",
+      "color2": "#14b8a6",
+      "selectedPreset": "Emerald",
+      "releaseSpeed": 0.05,
+      "attackSpeed": 0.18,
+      "oscillationAmount": 0.09,
+      "oscillationSpeed": 4.6
     },
-    "updatedAt": "2025-10-09T17:01:27.226Z"
-  },
-  "p2": {
-    "name": "p2",
-    "config": {
-      "numBars": 5,
-      "barWidth": 20,
-      "barGap": 4,
-      "maxHeight": 34,
-      "borderRadius": 11,
-      "glowIntensity": 8,
-      "colorMode": "gradient",
-      "color1": "#06b6d4",
-      "color2": "#a5f3fc",
-      "selectedPreset": "Arctic"
-    },
-    "updatedAt": "2025-10-09T17:06:43.869Z"
-  },
-  "p3": {
-    "name": "p3",
-    "config": {
-      "numBars": 8,
-      "barWidth": 12,
-      "barGap": 6,
-      "maxHeight": 35,
-      "borderRadius": 2,
-      "glowIntensity": 24,
-      "colorMode": "solid",
-      "color1": "#fb923c",
-      "color2": "#fbbf24",
-      "selectedPreset": "Peach"
-    },
-    "updatedAt": "2025-10-09T17:16:44.227Z"
+    "updatedAt": "2025-10-10T01:38:14.399Z"
   }
 }

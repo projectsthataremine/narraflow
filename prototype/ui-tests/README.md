@@ -16,6 +16,7 @@ npm run dev
 
 Then open http://localhost:3000 in your browser.
 
+
 ## How It Works
 
 1. **AudioDataProvider** - Generates fake audio amplitude data that simulates human speech patterns:

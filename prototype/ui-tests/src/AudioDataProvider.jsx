@@ -36,7 +36,6 @@ function AudioDataProvider({ children }) {
             phaseRef.current = 'ramping';
             phaseTimeRef.current = 0;
             targetAmplitudeRef.current = 0.5 + Math.random() * 0.45; // Target 50-95%
-            console.log('🎤 Starting to speak, target:', (targetAmplitudeRef.current * 100).toFixed(0) + '%');
           }
           break;
 

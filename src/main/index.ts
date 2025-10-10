@@ -48,7 +48,7 @@ function createOverlayWindow(): void {
     resizable: false,
     hasShadow: false,
     roundedCorners: false,
-    show: true, // TESTING: Always show
+    show: false,
     backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: false,
@@ -97,7 +97,7 @@ function createSettingsWindow(): void {
     titleBarStyle: 'hidden', // macOS: hide title bar but keep traffic lights
     trafficLightPosition: { x: 16, y: 16 }, // Position traffic lights in our custom title bar
     transparent: false,
-    show: true, // TESTING: Show on launch
+    show: true, // TESTING: Show on startup
     skipTaskbar: false, // TESTING: Show in taskbar
     resizable: true,
     webPreferences: {

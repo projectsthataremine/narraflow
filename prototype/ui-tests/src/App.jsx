@@ -15,6 +15,10 @@ const DEFAULT_CONFIG = {
   colorMode: 'gradient', // 'solid' or 'gradient'
   color1: '#a855f7',
   color2: '#60a5fa',
+  attackSpeed: 0.3,         // How fast amplitude rises (0-1)
+  releaseSpeed: 0.035,      // How fast amplitude falls (0-1) - slightly slower for ~100ms more hang time
+  oscillationAmount: 0.08,  // How much bars wiggle independently (0-0.2)
+  oscillationSpeed: 2.5,    // Speed multiplier for oscillations (0-5)
 };
 
 function App() {

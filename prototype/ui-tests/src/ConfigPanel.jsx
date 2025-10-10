@@ -40,6 +40,10 @@ function ConfigPanel({ config, onChange }) {
       color1: randomPreset.color1,
       color2: randomPreset.color2,
       selectedPreset: randomPreset.name,
+      attackSpeed: 0.2 + Math.random() * 0.6, // 0.2-0.8
+      releaseSpeed: 0.02 + Math.random() * 0.15, // 0.02-0.17
+      oscillationAmount: 0.02 + Math.random() * 0.15, // 0.02-0.17
+      oscillationSpeed: 1.0 + Math.random() * 3.0, // 1.0-4.0
     };
 
     onChange(randomConfig);
@@ -152,7 +156,7 @@ function ConfigPanel({ config, onChange }) {
               </label>
               <input
                 type="number"
-                min="20"
+                min="15"
                 max="200"
                 value={config.maxHeight}
                 onChange={(e) => handleChange('maxHeight', parseInt(e.target.value))}
@@ -189,6 +193,82 @@ function ConfigPanel({ config, onChange }) {
                 style={{ ...inputStyle, padding: '5px' }}
               />
               <span style={{ fontSize: '11px', color: '#666' }}>{config.glowIntensity}px</span>
+            </div>
+
+            {/* Attack Speed */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#aaa' }}>
+                Attack Speed
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="0.3"
+                step="0.01"
+                value={config.attackSpeed !== undefined ? config.attackSpeed : 0.3}
+                onChange={(e) => handleChange('attackSpeed', parseFloat(e.target.value))}
+                style={{ ...inputStyle, padding: '5px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                {(config.attackSpeed !== undefined ? config.attackSpeed : 0.3).toFixed(2)}
+              </span>
+            </div>
+
+            {/* Release Speed */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#aaa' }}>
+                Release Speed
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="0.15"
+                step="0.01"
+                value={config.releaseSpeed !== undefined ? config.releaseSpeed : 0.035}
+                onChange={(e) => handleChange('releaseSpeed', parseFloat(e.target.value))}
+                style={{ ...inputStyle, padding: '5px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                {(config.releaseSpeed !== undefined ? config.releaseSpeed : 0.035).toFixed(2)}
+              </span>
+            </div>
+
+            {/* Oscillation Amount */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#aaa' }}>
+                Oscillation Amount
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="0.2"
+                step="0.01"
+                value={config.oscillationAmount !== undefined ? config.oscillationAmount : 0.08}
+                onChange={(e) => handleChange('oscillationAmount', parseFloat(e.target.value))}
+                style={{ ...inputStyle, padding: '5px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                {(config.oscillationAmount !== undefined ? config.oscillationAmount : 0.08).toFixed(2)}
+              </span>
+            </div>
+
+            {/* Oscillation Speed */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#aaa' }}>
+                Oscillation Speed
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.1"
+                value={config.oscillationSpeed !== undefined ? config.oscillationSpeed : 2.5}
+                onChange={(e) => handleChange('oscillationSpeed', parseFloat(e.target.value))}
+                style={{ ...inputStyle, padding: '5px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                {(config.oscillationSpeed !== undefined ? config.oscillationSpeed : 2.5).toFixed(1)}
+              </span>
             </div>
 
           </div>

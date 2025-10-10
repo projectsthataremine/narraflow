@@ -33,15 +33,10 @@ const GLOW_SPACE = 40; // 20px top + 20px bottom for glow effect
 const BOTTOM_PADDING = 20; // Additional spacing from screen bottom
 
 /**
- * Set overlay window reference and start monitor tracking
+ * Set overlay window reference
  */
 export function setOverlayWindow(window: BrowserWindow): void {
   overlayWindow = window;
-
-  // Start tracking for always-visible testing mode
-  if (window.isVisible()) {
-    startMonitorTracking(window);
-  }
 }
 
 /**
@@ -292,12 +287,14 @@ function stopMonitorTracking(): void {
 export function sendUIStateUpdate(mainWindow: BrowserWindow, state: UIState): void {
   console.log('Sending UI state update:', state.mode);
 
-  // TESTING: Keep window always visible
-  if (!mainWindow.isVisible()) {
-    console.log('Showing window for testing');
+  // Show window if needed
+  if (state.mode !== 'hidden' && !mainWindow.isVisible()) {
     positionWindowAtCursor(mainWindow);
     mainWindow.show();
     startMonitorTracking(mainWindow);
+  } else if (state.mode === 'hidden' && mainWindow.isVisible()) {
+    mainWindow.hide();
+    stopMonitorTracking();
   }
 
   // Send state to renderer
