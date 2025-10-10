@@ -5,7 +5,7 @@
 
 export interface AudioCaptureConfig {
   sampleRate: number; // Target sample rate (16000 for Whisper)
-  onAmplitude?: (amplitude: number) => void; // 0-1 normalized amplitude
+  onAmplitude?: (amplitude: number, rms?: number) => void; // 0-1 normalized amplitude, raw RMS
   onError?: (error: Error) => void;
 }
 
@@ -37,13 +37,15 @@ export class WebAudioCapture {
 
     try {
       // Request microphone access - this will trigger macOS permission prompt
+      // NOTE: In Chrome/Electron, echoCancellation: false disables ALL audio processing
+      // including autoGainControl, regardless of the autoGainControl setting
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
           sampleRate: this.config.sampleRate,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
+          echoCancellation: false, // Disables all audio processing including AGC
+          noiseSuppression: false,
+          autoGainControl: false,
         },
       });
 
@@ -87,6 +89,8 @@ export class WebAudioCapture {
   /**
    * Monitor amplitude using AnalyserNode (runs at ~60fps via requestAnimationFrame)
    */
+  private frameCount = 0;
+
   private monitorAmplitude(): void {
     if (!this.isRecording || !this.analyser || !this.dataArray) {
       return;
@@ -103,12 +107,41 @@ export class WebAudioCapture {
     }
     const rms = Math.sqrt(sum / this.dataArray.length);
 
-    // Normalize and boost for better visual response
-    const amplitude = Math.min(1.0, rms * 8);
+    // Aggressive normalization/limiting - compress all talking to 90-100%
+    const NOISE_FLOOR = 0.0065;      // Below this = background noise
+    const TALKING_START = 0.015;     // Any sound above this = talking
+
+    let amplitude;
+    let zone = '';
+
+    if (rms < NOISE_FLOOR) {
+      // Background noise - keep minimal
+      amplitude = rms * 5; // Just enough to barely show
+      zone = 'quiet';
+    } else if (rms < TALKING_START) {
+      // Quick ramp from noise floor to talking level (0.0065-0.015)
+      const range = (rms - NOISE_FLOOR) / (TALKING_START - NOISE_FLOOR);
+      amplitude = 0.5 + (range * 0.4); // Quick ramp: 50% → 90%
+      zone = 'ramp';
+    } else {
+      // ANY talking/sound above 0.015 = normalized to 90-100% (tight range)
+      // Use logarithmic scaling to compress variance
+      const normalized = Math.min(1.0, (rms - TALKING_START) / 0.025); // Normalize to 0-1
+      amplitude = 0.9 + (normalized * 0.1); // Map to 90-100% (very tight!)
+      zone = 'talking';
+    }
+
+    amplitude = Math.min(1.0, Math.max(0.05, amplitude));
+
+    // Debug logging every 30 frames (~0.5 seconds)
+    this.frameCount++;
+    if (this.frameCount % 30 === 0) {
+      console.log(`[Audio] RMS: ${rms.toFixed(4)} | Zone: ${zone} | Amplitude: ${amplitude.toFixed(3)}`);
+    }
 
     // Send amplitude to callback
     if (this.config.onAmplitude) {
-      this.config.onAmplitude(amplitude);
+      this.config.onAmplitude(amplitude, rms);
     }
 
     // Continue monitoring

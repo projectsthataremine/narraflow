@@ -1,9 +1,9 @@
 /**
  * Recording Pill with Bar Visualization
- * GPU-accelerated visualization using CSS transforms and custom properties
+ * Ported from working prototype - oscillation + spike effects
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PillConfig } from '../types/ipc-contracts';
 
 interface RecordingPillProps {
@@ -12,15 +12,16 @@ interface RecordingPillProps {
   audioAmplitude?: number; // 0-1 range from real audio
 }
 
+// Default config matching working prototype preset
 const DEFAULT_CONFIG: PillConfig = {
-  numBars: 10,
-  barWidth: 8,
-  barGap: 4,
-  maxHeight: 60,
-  borderRadius: 4,
-  glowIntensity: 20,
-  color1: '#a855f7',
-  color2: '#60a5fa',
+  numBars: 11,
+  barWidth: 6,
+  barGap: 2,
+  maxHeight: 15,
+  borderRadius: 6,
+  glowIntensity: 0,
+  color1: '#10b981',
+  color2: '#14b8a6',
   useGradient: true,
 };
 
@@ -32,63 +33,99 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
   const animationFrameId = useRef<number | null>(null);
+  const realAmplitudeRef = useRef(0);
+  const smoothedAmplitudeRef = useRef(0);
+
+  // Store config values in ref so animation loop can read them without restarting
+  const configRef = useRef({
+    attackSpeed: 0.18,
+    releaseSpeed: 0.04,
+    oscillationAmount: 0.09,
+    oscillationSpeed: 4.6,
+    spikeSpeed: 1.1,
+    spikeIntensity: 0.4,
+  });
 
   // Generate unique characteristics for each bar (stable across re-renders)
   const barCharacteristics = useRef<Array<{
-    speed: number;      // How fast it oscillates
-    phaseOffset: number; // Starting point in wave cycle
+    speed: number;
+    phaseOffset: number;
   }>>([]);
 
-  // Initialize bar characteristics once
+  // Initialize bar characteristics once (reinitialize when numBars changes)
   useEffect(() => {
-    if (barCharacteristics.current.length === 0) {
+    if (barCharacteristics.current.length !== config.numBars) {
       barCharacteristics.current = Array.from({ length: config.numBars }, () => ({
-        speed: 2.0 + Math.random() * 3.0,         // Random speed 2-5x
-        phaseOffset: Math.random() * Math.PI * 2, // Random starting phase
+        speed: 2.0 + Math.random() * 3.0,
+        phaseOffset: Math.random() * Math.PI * 2,
       }));
     }
   }, [config.numBars]);
 
-  // GPU-accelerated animation loop using CSS custom properties
+  // Update realAmplitudeRef when audioAmplitude prop changes
+  useEffect(() => {
+    realAmplitudeRef.current = audioAmplitude;
+  }, [audioAmplitude]);
+
+  // GPU-accelerated animation loop (exact port from prototype)
   useEffect(() => {
     if (!isRecording || !containerRef.current) {
       return;
     }
 
+    let frameCount = 0;
+
     const animate = () => {
       const time = Date.now() / 1000;
+      const rawAmplitude = realAmplitudeRef.current;
 
-      // Update each bar's CSS custom property (triggers GPU-accelerated transform)
+      // Read config from ref
+      const attackSpeed = configRef.current.attackSpeed;
+      const releaseSpeed = configRef.current.releaseSpeed;
+      const oscAmount = configRef.current.oscillationAmount;
+      const oscSpeed = configRef.current.oscillationSpeed;
+      const spikeSpeed = configRef.current.spikeSpeed;
+      const spikeIntensity = configRef.current.spikeIntensity;
+
+      // Attack/release envelope (same as prototype)
+      if (rawAmplitude > smoothedAmplitudeRef.current) {
+        smoothedAmplitudeRef.current += (rawAmplitude - smoothedAmplitudeRef.current) * attackSpeed;
+      } else {
+        smoothedAmplitudeRef.current += (rawAmplitude - smoothedAmplitudeRef.current) * releaseSpeed;
+      }
+
+      const audioAmplitude = smoothedAmplitudeRef.current;
+      frameCount++;
+
+      // PHASE 2: Fast spike wave (travels left to right)
+      const spikePosition = (time * spikeSpeed) % 1;
+
+      // PHASE 1: Independent bar oscillation (amplitude-sensitive)
       barRefs.current.forEach((bar, i) => {
         if (!bar) return;
 
         const char = barCharacteristics.current[i];
         if (!char) return;
 
-        const barPosition = i / config.numBars; // 0 to 1 across bars
+        // Calculate bar position (0-1 across all bars)
+        // Use NUM_BARS to ensure even distribution, avoiding edge case with last bar
+        const barPosition = config.numBars > 1 ? i / (config.numBars - 1) : 0;
 
-        // EFFECT 1: Fast traveling spike (one bar at a time, ~1 second cycle)
-        const spikePhase = (time * 1.0) % 1; // Complete cycle every 1 second
-        const distanceFromSpike = Math.abs(barPosition - spikePhase);
-        const spike = Math.max(0, 1 - distanceFromSpike * 15) * 0.3; // Sharp peak
+        // Independent oscillation - scaled by audio amplitude
+        const oscillationAmount = Math.sin(time * char.speed * oscSpeed + char.phaseOffset) * oscAmount;
+        const scaledOscillation = oscillationAmount * Math.max(0.05, audioAmplitude);
 
-        // EFFECT 2: Snake/tube wave (slower, organic bulge traveling through)
-        const snakePhase = (time * 0.6) % 1; // Complete cycle every ~1.6 seconds
-        const distanceFromSnake = Math.abs(barPosition - snakePhase);
-        const snake = Math.exp(-distanceFromSnake * distanceFromSnake * 20) * 0.25; // Gaussian bulge
+        // Spike wave - affects only the bar at spikePosition
+        const distance = Math.abs(barPosition - spikePosition);
+        const sharpness = config.numBars * 2;
+        const spikeEffect = Math.max(0, 1 - distance * sharpness) * spikeIntensity * audioAmplitude;
 
-        // EFFECT 3: Independent random oscillation per bar
-        const indie1 = Math.sin(time * char.speed + char.phaseOffset) * 0.12;
-        const indie2 = Math.sin(time * char.speed * 0.4 + char.phaseOffset * 1.8) * 0.08;
-
-        // Combine: Boosted audio amplitude + all three effects
-        const boostedAudio = audioAmplitude * 2.5; // Increase sensitivity
-        const amplitude = Math.max(0.2, Math.min(1.0,
-          boostedAudio + spike + snake + indie1 + indie2
+        // Combine: base audio amplitude + scaled oscillation + spike
+        const finalAmplitude = Math.max(0.05, Math.min(1.5,
+          audioAmplitude + scaledOscillation + spikeEffect
         ));
 
-        // Set CSS custom property (no React re-render!)
-        bar.style.setProperty('--amplitude', amplitude.toString());
+        bar.style.setProperty('--amplitude', finalAmplitude.toString());
       });
 
       animationFrameId.current = requestAnimationFrame(animate);
@@ -101,7 +138,7 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [isRecording, audioAmplitude, config.numBars]);
+  }, [isRecording, config.numBars]);
 
   if (!isRecording) {
     return null;
@@ -126,7 +163,7 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
           ref={(el) => (barRefs.current[index] = el)}
           style={{
             width: `${config.barWidth}px`,
-            height: `${config.maxHeight * 2}px`, // Base height
+            height: `${config.maxHeight * 2}px`,
             background: config.useGradient
               ? `linear-gradient(to bottom, ${config.color1}, ${config.color2}, ${config.color1})`
               : config.color1,
@@ -135,11 +172,9 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
               config.glowIntensity > 0
                 ? `0 0 ${config.glowIntensity}px ${config.color1}aa`
                 : 'none',
-            // GPU-accelerated transform using CSS custom property
             transform: 'scaleY(var(--amplitude, 0.2))',
             transformOrigin: 'center',
             transition: 'transform 0.1s ease-out',
-            // Initialize custom property
             ['--amplitude' as string]: '0.2',
           }}
         />

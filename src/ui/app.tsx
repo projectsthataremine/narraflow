@@ -46,13 +46,19 @@ export const App: React.FC = () => {
   const [audioAmplitude, setAudioAmplitude] = useState(0);
   const amplitudeDecayInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // Debug state for RMS values
+  const [debugRMS, setDebugRMS] = useState(0);
+
   // Initialize audio capture with AnalyserNode
   useEffect(() => {
     audioCaptureRef.current = new WebAudioCapture({
       sampleRate: 16000,
-      onAmplitude: (amplitude: number) => {
+      onAmplitude: (amplitude: number, rms?: number) => {
         // AnalyserNode already provides smoothed amplitude (hardware-accelerated)
         setAudioAmplitude(amplitude);
+        if (rms !== undefined) {
+          setDebugRMS(rms);
+        }
 
         // DISABLED: Audio pipeline for transcription (focusing on visualization only)
         // if (window.electron && isRecordingRef.current) {
@@ -207,6 +213,26 @@ export const App: React.FC = () => {
       </div>
 
       <ErrorPopup message={uiState.message} onDismiss={handleErrorDismiss} />
+
+      {/* Debug RMS display - commented out but kept for future use */}
+      {/* {debugRMS > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: '#00ff00',
+            padding: '10px 15px',
+            borderRadius: '8px',
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            pointerEvents: 'none',
+          }}
+        >
+          RMS: {debugRMS.toFixed(4)}
+        </div>
+      )} */}
     </div>
   );
 };
