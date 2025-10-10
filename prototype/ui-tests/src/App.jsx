@@ -19,6 +19,8 @@ const DEFAULT_CONFIG = {
   releaseSpeed: 0.035,      // How fast amplitude falls (0-1) - slightly slower for ~100ms more hang time
   oscillationAmount: 0.08,  // How much bars wiggle independently (0-0.2)
   oscillationSpeed: 2.5,    // Speed multiplier for oscillations (0-5)
+  spikeSpeed: 1.0,          // Speed of traveling spike (0-3, ~1-1.5s traversal)
+  spikeIntensity: 0.3,      // Amplitude sensitivity of spike (0-1)
 };
 
 function App() {

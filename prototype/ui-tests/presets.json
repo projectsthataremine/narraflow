@@ -3,20 +3,22 @@
     "name": "animation-test",
     "config": {
       "numBars": 11,
-      "barWidth": 2,
+      "barWidth": 6,
       "barGap": 2,
-      "maxHeight": 28,
+      "maxHeight": 15,
       "borderRadius": 6,
       "glowIntensity": 0,
       "colorMode": "gradient",
       "color1": "#10b981",
       "color2": "#14b8a6",
       "selectedPreset": "Emerald",
-      "releaseSpeed": 0.05,
+      "releaseSpeed": 0.06,
       "attackSpeed": 0.18,
       "oscillationAmount": 0.09,
-      "oscillationSpeed": 4.6
+      "oscillationSpeed": 4.6,
+      "spikeSpeed": 1.1,
+      "spikeIntensity": 0.4
     },
-    "updatedAt": "2025-10-10T01:38:14.399Z"
+    "updatedAt": "2025-10-10T01:44:54.281Z"
   }
 }

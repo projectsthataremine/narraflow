@@ -44,6 +44,8 @@ function ConfigPanel({ config, onChange }) {
       releaseSpeed: 0.02 + Math.random() * 0.15, // 0.02-0.17
       oscillationAmount: 0.02 + Math.random() * 0.15, // 0.02-0.17
       oscillationSpeed: 1.0 + Math.random() * 3.0, // 1.0-4.0
+      spikeSpeed: 0.5 + Math.random() * 2.0, // 0.5-2.5
+      spikeIntensity: 0.1 + Math.random() * 0.4, // 0.1-0.5
     };
 
     onChange(randomConfig);
@@ -268,6 +270,44 @@ function ConfigPanel({ config, onChange }) {
               />
               <span style={{ fontSize: '11px', color: '#666' }}>
                 {(config.oscillationSpeed !== undefined ? config.oscillationSpeed : 2.5).toFixed(1)}
+              </span>
+            </div>
+
+            {/* Spike Speed */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#aaa' }}>
+                Spike Speed
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="3"
+                step="0.1"
+                value={config.spikeSpeed !== undefined ? config.spikeSpeed : 1.0}
+                onChange={(e) => handleChange('spikeSpeed', parseFloat(e.target.value))}
+                style={{ ...inputStyle, padding: '5px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                {(config.spikeSpeed !== undefined ? config.spikeSpeed : 1.0).toFixed(1)}
+              </span>
+            </div>
+
+            {/* Spike Intensity */}
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', color: '#aaa' }}>
+                Spike Intensity
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={config.spikeIntensity !== undefined ? config.spikeIntensity : 0.3}
+                onChange={(e) => handleChange('spikeIntensity', parseFloat(e.target.value))}
+                style={{ ...inputStyle, padding: '5px' }}
+              />
+              <span style={{ fontSize: '11px', color: '#666' }}>
+                {(config.spikeIntensity !== undefined ? config.spikeIntensity : 0.3).toFixed(2)}
               </span>
             </div>
 

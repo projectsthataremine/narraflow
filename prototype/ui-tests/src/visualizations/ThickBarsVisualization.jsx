@@ -30,6 +30,8 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
     releaseSpeed: 0.035,
     oscillationAmount: 0.08,
     oscillationSpeed: 2.5,
+    spikeSpeed: 1.0,
+    spikeIntensity: 0.3,
   });
 
   // Use config or defaults
@@ -54,6 +56,8 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
       releaseSpeed: config?.releaseSpeed !== undefined ? config.releaseSpeed : 0.035,
       oscillationAmount: config?.oscillationAmount !== undefined ? config.oscillationAmount : 0.08,
       oscillationSpeed: config?.oscillationSpeed !== undefined ? config.oscillationSpeed : 2.5,
+      spikeSpeed: config?.spikeSpeed !== undefined ? config.spikeSpeed : 1.0,
+      spikeIntensity: config?.spikeIntensity !== undefined ? config.spikeIntensity : 0.3,
     };
   }, [config]);
 
@@ -186,10 +190,12 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
       const releaseSpeed = configRef.current.releaseSpeed;
       const oscAmount = configRef.current.oscillationAmount;
       const oscSpeed = configRef.current.oscillationSpeed;
+      const spikeSpeed = configRef.current.spikeSpeed;
+      const spikeIntensity = configRef.current.spikeIntensity;
 
       // Debug: log config values once
       if (frameCount === 1) {
-        console.log('[Config Debug] attack:', attackSpeed, 'release:', releaseSpeed, 'oscAmount:', oscAmount, 'oscSpeed:', oscSpeed);
+        console.log('[Config Debug] attack:', attackSpeed, 'release:', releaseSpeed, 'oscAmount:', oscAmount, 'oscSpeed:', oscSpeed, 'spikeSpeed:', spikeSpeed, 'spikeIntensity:', spikeIntensity);
       }
 
       if (rawAmplitude > smoothedAmplitudeRef.current) {
@@ -209,12 +215,19 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
       }
       frameCount++;
 
+      // PHASE 2: Fast spike wave (travels left to right)
+      // Position goes from 0 to 1 across all bars, then wraps
+      const spikePosition = (time * spikeSpeed) % 1;
+
       // PHASE 1: Independent bar oscillation (amplitude-sensitive)
       barRefs.current.forEach((bar, i) => {
         if (!bar) return;
 
         const char = barCharacteristics.current[i];
         if (!char) return;
+
+        // Calculate bar position (0-1 across all bars)
+        const barPosition = i / (NUM_BARS - 1);
 
         // Independent oscillation - scaled by audio amplitude
         // When silent (amplitude ~0), oscillation is tiny
@@ -223,9 +236,17 @@ function ThickBarsVisualization({ amplitude = 0, audioHistory = [], config }) {
         const oscillationAmount = Math.sin(time * char.speed * oscSpeed + char.phaseOffset) * oscAmount;
         const scaledOscillation = oscillationAmount * Math.max(0.05, audioAmplitude);
 
-        // Combine: base audio amplitude + scaled oscillation
-        const finalAmplitude = Math.max(0.05, Math.min(1.0,
-          audioAmplitude + scaledOscillation
+        // Spike wave - affects only the bar at spikePosition
+        // Distance from spike position (0 when spike is at this bar)
+        const distance = Math.abs(barPosition - spikePosition);
+        // Sharp falloff - only affects current bar (distance < ~0.1)
+        const sharpness = NUM_BARS * 2; // Higher = sharper (only 1 bar lit)
+        const spikeEffect = Math.max(0, 1 - distance * sharpness) * spikeIntensity * audioAmplitude;
+
+        // Combine: base audio amplitude + scaled oscillation + spike
+        // Allow spike to push above 1.0, but cap at 1.5 for safety
+        const finalAmplitude = Math.max(0.05, Math.min(1.5,
+          audioAmplitude + scaledOscillation + spikeEffect
         ));
 
         bar.style.setProperty('--amplitude', finalAmplitude.toString());
