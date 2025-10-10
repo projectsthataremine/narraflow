@@ -12,13 +12,13 @@
       "color1": "#10b981",
       "color2": "#14b8a6",
       "selectedPreset": "Emerald",
-      "releaseSpeed": 0.06,
+      "releaseSpeed": 0.04,
       "attackSpeed": 0.18,
       "oscillationAmount": 0.09,
       "oscillationSpeed": 4.6,
       "spikeSpeed": 1.1,
       "spikeIntensity": 0.4
     },
-    "updatedAt": "2025-10-10T01:44:54.281Z"
+    "updatedAt": "2025-10-10T03:11:07.404Z"
   }
 }
