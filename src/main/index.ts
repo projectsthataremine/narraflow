@@ -3,9 +3,18 @@
  * Initializes app, creates window, sets up IPC and shortcuts
  */
 
+// Suppress ONNX Runtime warnings
+process.env.ORT_LOGGING_LEVEL = 'error';
+
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
-import { setupIPCHandlers, cleanupIPC, setOverlayWindow, getSavedPillConfig } from './ipc-handlers';
+import {
+  setupIPCHandlers,
+  cleanupIPC,
+  setOverlayWindow,
+  getSavedPillConfig,
+  getSavedHotkeyConfig,
+} from './ipc-handlers';
 import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { ensurePermissions } from './permissions';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
@@ -92,8 +101,8 @@ function createSettingsWindow(): void {
   const preloadPath = path.join(__dirname, 'preload.js');
 
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 600,
+    width: 1200,
+    height: 800,
     titleBarStyle: 'hidden', // macOS: hide title bar but keep traffic lights
     trafficLightPosition: { x: 16, y: 16 }, // Position traffic lights in our custom title bar
     transparent: false,
@@ -170,8 +179,11 @@ async function initialize(): Promise<void> {
   // Set overlay window reference for IPC forwarding
   setOverlayWindow(overlayWindow);
 
-  // Register global shortcuts (pass overlay window)
-  const shortcutSuccess = registerShortcuts(overlayWindow);
+  // Get saved hotkey config
+  const savedHotkey = getSavedHotkeyConfig();
+
+  // Register global shortcuts (pass overlay window and hotkey config)
+  const shortcutSuccess = await registerShortcuts(overlayWindow, savedHotkey);
   if (!shortcutSuccess) {
     console.error('Failed to register shortcuts');
   }

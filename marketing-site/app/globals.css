@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Brand Colors - Extracted from design */
+  --tan: #E8E3D8;
+  --teal-dark: #2D5A52;
+  --teal-light: #A4D4C8;
+  --orange: #E8734E;
+  --terracotta: #B85A3A;
+  --purple: #5A3A6E;
+  --violet: #7B5B8F;
+  --yellow: #F4D06F;
+  --gold: #D4A94F;
+  --black: #000000;
+  --text-dark: #1A1A1A;
+}
+
+@theme inline {
+  /* Color Palette */
+  --color-tan: var(--tan);
+  --color-teal-dark: var(--teal-dark);
+  --color-teal-light: var(--teal-light);
+  --color-orange: var(--orange);
+  --color-terracotta: var(--terracotta);
+  --color-purple: var(--purple);
+  --color-violet: var(--violet);
+  --color-yellow: var(--yellow);
+  --color-gold: var(--gold);
+  --color-black: var(--black);
+  --color-text-dark: var(--text-dark);
+
+  /* Typography */
+  --font-heading: 'Archivo Black', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+body {
+  background: var(--tan);
+  color: var(--text-dark);
+  font-family: var(--font-body);
+}

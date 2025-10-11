@@ -100,16 +100,61 @@ To add real ML models:
 3. **LLaMA**: Download to `resources/models/llm/*.gguf`
 4. Update model loaders in `src/worker/` to use real models
 
+## Architecture
+
+### Two Windows
+
+Mic2Text uses two separate Electron windows:
+
+1. **Home App** (Settings Window)
+   - Configuration and settings interface
+   - Shows on startup in development mode
+   - In production: hidden by default, only shown when user explicitly opens it
+   - **Never appears during recording/transcription/paste** - remains hidden during active use
+   - Located at: `src/settings/`
+
+2. **Visualization** (Overlay Window)
+   - Animated pill showing recording status (loading → silent → talking → processing)
+   - Appears at bottom-center of screen when Command+B is pressed
+   - **Non-intrusive**: Shows WITHOUT stealing focus - cursor stays in your active app (Notes, Slack, etc.)
+   - Transparent, frameless, always-on-top
+   - Located at: `src/ui/`
+
+### Recording Flow
+
+1. **Start**: Press `Command+B` in any app (e.g., Notes)
+   - Visualization appears showing animated pill
+   - Focus remains in your app (cursor doesn't move)
+   - Audio recording starts
+
+2. **Recording**: Speak while holding Command+B
+   - Pill animates based on voice amplitude
+   - All processing happens in background
+
+3. **Transcription**: Release Command+B
+   - Visualization shows "processing" state
+   - Audio sent to Whisper model in worker thread
+   - Focus still remains in your app
+
+4. **Paste**: Text automatically appears
+   - Text copied to clipboard
+   - Cmd+V automatically simulated
+   - Text pastes at cursor position in your app
+   - Visualization disappears
+
+**Key Feature**: Your cursor never leaves your active application. The entire process is non-intrusive.
+
 ## Project Structure
 
 ```
 src/
-  main/         # Electron main process (IPC, hotkeys)
+  main/         # Electron main process (IPC, hotkeys, window management)
   worker/       # Transcription worker (VAD, Whisper, pipeline)
   rewrite/      # Text cleanup (LLaMA stub)
   paste/        # Clipboard and paste simulation
   audio/        # Audio capture and session management
-  ui/           # React UI (Pill, ErrorPopup)
+  ui/           # React UI - Visualization overlay (Pill, ErrorPopup)
+  settings/     # React UI - Home App (configuration)
   types/        # TypeScript contracts
 
 tests/

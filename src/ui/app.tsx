@@ -8,8 +8,8 @@ import { RecordingPill } from './recording-pill';
 import { ErrorPopup } from './error-popup';
 import type { UIState, PillConfig } from '../types/ipc-contracts';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
-import { WebAudioCapture } from './audio-capture';
-import { config } from 'process';
+import { AudioVisualizer } from './audio-visualizer';
+import { AudioRecorder } from './audio-recorder';
 
 // Electron IPC renderer (will be available via preload)
 declare global {
@@ -39,43 +39,48 @@ export const App: React.FC = () => {
     useGradient: true,
   });
 
-  const audioCaptureRef = useRef<WebAudioCapture | null>(null);
+  // Separate modules for visualization and recording
+  const visualizerRef = useRef<AudioVisualizer | null>(null);
+  const recorderRef = useRef<AudioRecorder | null>(null);
   const isRecordingRef = useRef(false);
+  const sharedStreamRef = useRef<MediaStream | null>(null);
 
-  // Track audio amplitude for visualization (single state, no separate smoothing)
+  // Track audio amplitude for pill visualization
   const [audioAmplitude, setAudioAmplitude] = useState(0);
   const amplitudeDecayInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug state for RMS values
-  const [debugRMS, setDebugRMS] = useState(0);
-
-  // Initialize audio capture with AnalyserNode
+  // Initialize both audio modules
   useEffect(() => {
-    audioCaptureRef.current = new WebAudioCapture({
+    // Initialize visualizer for pill animation
+    visualizerRef.current = new AudioVisualizer({
       sampleRate: 16000,
       onAmplitude: (amplitude: number, rms?: number) => {
-        // AnalyserNode already provides smoothed amplitude (hardware-accelerated)
         setAudioAmplitude(amplitude);
-        if (rms !== undefined) {
-          setDebugRMS(rms);
-        }
-
-        // DISABLED: Audio pipeline for transcription (focusing on visualization only)
-        // if (window.electron && isRecordingRef.current) {
-        //   const chunkArray = Array.from(chunk);
-        //   window.electron.send(IPC_CHANNELS.AUDIO_DATA, { chunk: chunkArray });
-        // }
       },
       onError: (error: Error) => {
-        console.error('[WebAudioCapture] Error:', error);
+        console.error('[AudioVisualizer] Error:', error);
+      },
+    });
+
+    // Initialize recorder for transcription
+    recorderRef.current = new AudioRecorder({
+      sampleRate: 16000,
+      onError: (error: Error) => {
+        console.error('[AudioRecorder] Error:', error);
       },
     });
 
     return () => {
-      // Cleanup on unmount (properly release microphone)
-      if (audioCaptureRef.current?.isActive()) {
-        audioCaptureRef.current.stop().catch((error) => {
-          console.error('[App] Error during cleanup:', error);
+      // Cleanup on unmount
+      if (visualizerRef.current?.isRunning()) {
+        visualizerRef.current.stop().catch((error) => {
+          console.error('[App] Error stopping visualizer:', error);
+        });
+      }
+
+      if (recorderRef.current?.isActive()) {
+        recorderRef.current.stop().catch((error) => {
+          console.error('[App] Error stopping recorder:', error);
         });
       }
 
@@ -83,51 +88,103 @@ export const App: React.FC = () => {
       if (amplitudeDecayInterval.current) {
         clearInterval(amplitudeDecayInterval.current);
       }
+
+      // Stop shared stream
+      if (sharedStreamRef.current) {
+        sharedStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
   }, []);
 
-  // Handle UI state changes - start/stop recording based on mode
+  // Handle UI state changes - start/stop both visualization and recording
   useEffect(() => {
-    const audioCapture = audioCaptureRef.current;
-    if (!audioCapture) return;
+    const visualizer = visualizerRef.current;
+    const recorder = recorderRef.current;
+    if (!visualizer || !recorder) return;
 
     const shouldRecord =
       uiState.mode === 'loading' || uiState.mode === 'silent' || uiState.mode === 'talking';
 
     if (shouldRecord && !isRecordingRef.current) {
-      // Start recording
-      console.log('[App] Starting audio capture');
-      audioCapture.start().then((success) => {
-        if (success) {
-          isRecordingRef.current = true;
-          console.log('[App] Audio capture started successfully');
-        } else {
-          console.error('[App] Failed to start audio capture');
-        }
-      });
-    } else if (!shouldRecord && isRecordingRef.current) {
-      // Stop recording (async to properly release microphone)
-      console.log('[App] Stopping audio capture');
-      audioCapture
-        .stop()
-        .then(() => {
-          console.log('[App] Audio capture stopped successfully');
+      // Start both visualizer and recorder with shared stream
+      console.log('[App] Starting audio modules');
+
+      // Request microphone once
+      navigator.mediaDevices
+        .getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        })
+        .then((stream) => {
+          sharedStreamRef.current = stream;
+
+          // Start visualizer with shared stream
+          return visualizer.start(stream).then((vizSuccess) => {
+            if (!vizSuccess) {
+              throw new Error('Failed to start visualizer');
+            }
+
+            // Start recorder with same stream
+            return recorder.start(stream).then((recSuccess) => {
+              if (!recSuccess) {
+                throw new Error('Failed to start recorder');
+              }
+
+              isRecordingRef.current = true;
+              console.log('[App] Both audio modules started successfully');
+            });
+          });
         })
         .catch((error) => {
-          console.error('[App] Error stopping audio capture:', error);
+          console.error('[App] Failed to start audio modules:', error);
         });
+    } else if (!shouldRecord && isRecordingRef.current) {
+      // Stop both modules
+      console.log('[App] Stopping audio modules');
+
+      // Get audio data BEFORE stopping recorder
+      const audioData = recorder.getAudioData();
+      console.log(`[App] Collected ${audioData.length} audio samples for transcription`);
+
+      // Send to main process for transcription
+      if (window.electron && audioData.length > 0) {
+        const audioArray = Array.from(audioData);
+        window.electron.send(IPC_CHANNELS.AUDIO_DATA, { audio: audioArray });
+        console.log('[App] Sent audio data to main process');
+      }
+
+      // Stop recorder (don't close stream yet)
+      recorder
+        .stop(false)
+        .then(() => {
+          console.log('[App] Recorder stopped');
+          // Then stop visualizer (closes stream)
+          return visualizer.stop(true);
+        })
+        .then(() => {
+          console.log('[App] Visualizer stopped');
+          sharedStreamRef.current = null;
+        })
+        .catch((error) => {
+          console.error('[App] Error stopping audio modules:', error);
+        });
+
       isRecordingRef.current = false;
 
-      // Start smooth amplitude decay to zero
+      // Start amplitude decay animation
       if (amplitudeDecayInterval.current) {
         clearInterval(amplitudeDecayInterval.current);
       }
 
       amplitudeDecayInterval.current = setInterval(() => {
         setAudioAmplitude((prev) => {
-          const decayed = prev * 0.85; // Decay by 15% each frame
+          const decayed = prev * 0.85;
           if (decayed < 0.01) {
-            // Clear interval when amplitude is nearly zero
             if (amplitudeDecayInterval.current) {
               clearInterval(amplitudeDecayInterval.current);
               amplitudeDecayInterval.current = null;
@@ -136,7 +193,7 @@ export const App: React.FC = () => {
           }
           return decayed;
         });
-      }, 50); // 20fps decay
+      }, 50);
     }
   }, [uiState.mode]);
 

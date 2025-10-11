@@ -1,10 +1,10 @@
 /**
  * Paste simulation module
- * MVP: Clipboard-only implementation (no actual paste simulation)
- * Production: Would use robotjs or AppleScript for true paste
+ * Uses uiohook-napi for keyboard simulation to trigger Cmd+V
  */
 
 import { ClipboardManager } from './clipboard';
+import { UiohookKey, UiohookKeyboardEvent, EventType, uIOhook } from 'uiohook-napi';
 
 export interface PasteOptions {
   verifyClipboard: boolean;
@@ -19,8 +19,7 @@ const defaultOptions: PasteOptions = {
 export class PasteSimulator {
   /**
    * Paste text into focused field
-   * MVP: Clipboard-only - user must manually paste with Cmd+V
-   * Returns false (clipboard-only mode)
+   * Copies to clipboard and simulates Cmd+V keystroke
    */
   static async pasteText(text: string, options: Partial<PasteOptions> = {}): Promise<boolean> {
     const opts = { ...defaultOptions, ...options };
@@ -38,10 +37,34 @@ export class PasteSimulator {
       return false;
     }
 
-    // MVP: Always return false (clipboard-only mode)
-    // User can manually paste with Cmd+V
-    console.log('Text copied to clipboard. Press Cmd+V to paste.');
-    return false;
+    console.log('[PasteSimulator] Text copied to clipboard, simulating Cmd+V');
+
+    // Wait for clipboard to settle
+    await new Promise(resolve => setTimeout(resolve, opts.delayMs));
+
+    try {
+      // Simulate Cmd+V using uiohook-napi
+      // Press Cmd (Meta key)
+      uIOhook.keyToggle(UiohookKey.Meta, 'down');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Press V
+      uIOhook.keyToggle(UiohookKey.V, 'down');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Release V
+      uIOhook.keyToggle(UiohookKey.V, 'up');
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Release Cmd
+      uIOhook.keyToggle(UiohookKey.Meta, 'up');
+
+      console.log('[PasteSimulator] Cmd+V simulation complete');
+      return true;
+    } catch (error) {
+      console.error('[PasteSimulator] Failed to simulate paste:', error);
+      return false;
+    }
   }
 
   /**

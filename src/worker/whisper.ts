@@ -26,9 +26,15 @@ export class WhisperTranscriber {
     try {
       console.log('[Whisper] Loading pipeline...');
 
+      // Suppress ONNX Runtime warnings
+      process.env.ORT_LOGGING_LEVEL = 'error';
+
       // Use Function() workaround for ESM compatibility
       const TransformersApi = Function('return import("@xenova/transformers")')();
-      const { pipeline } = await TransformersApi;
+      const { pipeline, env } = await TransformersApi;
+
+      // Set transformers logging to error only
+      env.logLevel = 'error';
 
       // Create automatic speech recognition pipeline
       this.pipeline = await pipeline(
@@ -57,11 +63,30 @@ export class WhisperTranscriber {
     try {
       // Use minimal parameters - avoid 'task' parameter which causes VAD to reject audio
       // Language can help with accuracy but is optional
+      // chunk_length_s: Forces processing in smaller chunks for more literal transcription
       const result = await this.pipeline(audio, {
         language: 'english',
+        chunk_length_s: 30,  // Process in 30-second chunks (more literal)
+        return_timestamps: false,  // We don't need timestamps, just text
       });
 
-      return result.text.trim();
+      let text = result.text;
+
+      // Clean up common Whisper artifacts
+      // 1. Trim whitespace
+      text = text.trim();
+
+      // 2. Remove leading punctuation and whitespace (period, comma, etc.) that the model sometimes adds
+      // This regex matches one or more of: punctuation or whitespace at the start
+      text = text.replace(/^[.,!?;:\s]+/g, '');
+
+      // 3. Handle edge case where there's "word. text" at start - remove the orphaned period
+      text = text.replace(/^\w+\.\s+/, '');
+
+      console.log('[Whisper] Raw result:', result.text);
+      console.log('[Whisper] Cleaned result:', text);
+
+      return text;
     } catch (error) {
       console.error('[Whisper] Transcription error:', error);
       return '';

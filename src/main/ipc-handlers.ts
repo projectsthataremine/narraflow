@@ -15,6 +15,7 @@ import type {
   PasteTextResponse,
   UIState,
   PillConfig,
+  HistoryItem,
 } from '../types/ipc-contracts';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
 import { AudioSessionManager } from '../audio/session';
@@ -115,16 +116,31 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  // Handle audio data chunks from renderer
-  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (event, data: { chunk: number[] }) => {
-    if (!audioSessionManager) {
-      console.warn('[Main] Received audio chunk but no session manager');
-      return;
+  // Handle complete audio data from renderer (sent when recording stops)
+  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (event, data: { audio: number[] }) => {
+    console.log(`[Main] Received ${data.audio.length} audio samples for transcription`);
+
+    // Update UI to processing
+    if (currentMainWindow) {
+      sendUIStateUpdate(currentMainWindow, { mode: 'processing' });
     }
 
     // Convert from array to Float32Array
-    const chunk = new Float32Array(data.chunk);
-    audioSessionManager.addAudioChunk(chunk);
+    const audioBuffer = new Float32Array(data.audio);
+
+    // Send directly to worker for transcription
+    if (transcriptionWorker) {
+      console.log('[Main] Sending audio to worker for transcription');
+      transcriptionWorker.postMessage({
+        type: 'Transcribe',
+        audio: audioBuffer,
+      });
+    } else {
+      console.error('[Main] No transcription worker available');
+      if (currentMainWindow) {
+        sendErrorNotification(currentMainWindow, 'Transcription service unavailable');
+      }
+    }
   });
 
   // Handle StopRecording
@@ -198,6 +214,224 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       overlayWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, data);
     }
   });
+
+  // Handle Hotkey Config Update
+  ipcMain.on(IPC_CHANNELS.HOTKEY_CONFIG_UPDATE, (event, data: { config: import('./settings-manager').HotkeyConfig }) => {
+    console.log('[Main] Saving hotkey config:', data.config);
+
+    // Save config to disk
+    if (settingsManager) {
+      settingsManager.setHotkeyConfig(data.config);
+    }
+
+    // Note: Hotkey changes require app restart to take effect
+    // In the future, we could dynamically restart the keyboard hook
+    console.log('[Main] Hotkey configuration saved. Restart the app for changes to take effect.');
+  });
+
+  // Handle History Get
+  ipcMain.handle(IPC_CHANNELS.HISTORY_GET, async () => {
+    if (!settingsManager) {
+      return [];
+    }
+    return settingsManager.getHistory();
+  });
+
+  // Handle History Add
+  ipcMain.handle(IPC_CHANNELS.HISTORY_ADD, async (event, data: { text: string }) => {
+    if (!settingsManager) {
+      return null;
+    }
+    const item = settingsManager.addHistoryItem(data.text);
+
+    // Broadcast update to all windows
+    broadcastHistoryUpdate();
+
+    return item;
+  });
+
+  // Handle History Delete
+  ipcMain.handle(IPC_CHANNELS.HISTORY_DELETE, async (event, data: { id: string }) => {
+    if (!settingsManager) {
+      return false;
+    }
+    const success = settingsManager.deleteHistoryItem(data.id);
+
+    if (success) {
+      // Broadcast update to all windows
+      broadcastHistoryUpdate();
+    }
+
+    return success;
+  });
+
+  // Handle History Clear
+  ipcMain.handle(IPC_CHANNELS.HISTORY_CLEAR, async () => {
+    if (!settingsManager) {
+      return;
+    }
+    settingsManager.clearHistory();
+
+    // Broadcast update to all windows
+    broadcastHistoryUpdate();
+  });
+
+  // Handle Dock Visibility
+  ipcMain.handle(IPC_CHANNELS.SET_DOCK_VISIBILITY, async (event, data: { visible: boolean }) => {
+    const { app } = require('electron');
+    console.log('[Main] SET_DOCK_VISIBILITY called with visible:', data.visible);
+    console.log('[Main] Platform:', process.platform);
+    if (process.platform === 'darwin') {
+      try {
+        console.log('[Main] Before dock operation, isVisible:', app.dock.isVisible());
+        if (data.visible) {
+          await app.dock.show();
+          console.log('[Main] After dock.show(), isVisible:', app.dock.isVisible());
+        } else {
+          app.dock.hide();
+          console.log('[Main] After dock.hide(), isVisible:', app.dock.isVisible());
+        }
+        return true;
+      } catch (error) {
+        console.error('[Main] Failed to set dock visibility:', error);
+        return false;
+      }
+    }
+    console.log('[Main] Not on macOS, returning false');
+    return false;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_DOCK_VISIBILITY, async () => {
+    const { app } = require('electron');
+    if (process.platform === 'darwin') {
+      // Dock is visible by default, hidden if explicitly set
+      return app.dock.isVisible();
+    }
+    return false;
+  });
+
+  // Handle Reset App
+  ipcMain.handle(IPC_CHANNELS.RESET_APP, async () => {
+    console.log('[Main] RESET_APP called');
+    try {
+      if (!settingsManager) {
+        console.error('[Main] Settings manager not available');
+        return false;
+      }
+
+      // Reset all settings to defaults
+      settingsManager.resetToDefaults();
+
+      // Relaunch the app
+      const { app } = require('electron');
+      console.log('[Main] Relaunching app...');
+      app.relaunch();
+      app.quit();
+
+      return true;
+    } catch (error) {
+      console.error('[Main] Failed to reset app:', error);
+      return false;
+    }
+  });
+
+  // ========================================================================
+  // Auth & Subscription Handlers (Placeholders for future implementation)
+  // ========================================================================
+
+  // Handle Google Sign In
+  ipcMain.handle(IPC_CHANNELS.AUTH_SIGNIN_GOOGLE, async () => {
+    console.log('[Main] AUTH_SIGNIN_GOOGLE called - OAuth flow would start here');
+    // TODO: Implement Google OAuth flow
+    // 1. Open OAuth popup window
+    // 2. Handle OAuth callback
+    // 3. Exchange code for tokens
+    // 4. Create/update user in backend
+    // 5. Return user object
+    return {
+      success: false,
+      error: 'OAuth not implemented yet',
+    };
+  });
+
+  // Handle Sign Out
+  ipcMain.handle(IPC_CHANNELS.AUTH_SIGNOUT, async () => {
+    console.log('[Main] AUTH_SIGNOUT called');
+    // TODO: Clear auth tokens, clear local user state
+    return { success: true };
+  });
+
+  // Handle Delete Account
+  ipcMain.handle(IPC_CHANNELS.AUTH_DELETE_ACCOUNT, async () => {
+    console.log('[Main] AUTH_DELETE_ACCOUNT called');
+    // TODO: Call backend API to delete account, clear local state
+    return {
+      success: false,
+      error: 'Account deletion not implemented yet',
+    };
+  });
+
+  // Handle Get User
+  ipcMain.handle(IPC_CHANNELS.AUTH_GET_USER, async () => {
+    console.log('[Main] AUTH_GET_USER called');
+    // TODO: Return stored user from local state or fetch from backend
+    // For now, return null (not logged in)
+    return null;
+  });
+
+  // Handle Get Subscription Status
+  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_GET_STATUS, async () => {
+    console.log('[Main] SUBSCRIPTION_GET_STATUS called');
+    // TODO: Fetch subscription status from backend
+    // Return one of: { type: 'none' } | { type: 'trial', ... } | { type: 'trial_expired', ... } | { type: 'active', ... }
+    return { type: 'none' };
+  });
+
+  // Handle Create Checkout Session
+  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_CREATE_CHECKOUT, async () => {
+    console.log('[Main] SUBSCRIPTION_CREATE_CHECKOUT called');
+    // TODO: Create Stripe checkout session, open in browser
+    // 1. Call backend API to create checkout session
+    // 2. Open checkout URL in browser
+    // 3. Listen for success webhook
+    return {
+      success: false,
+      error: 'Stripe checkout not implemented yet',
+    };
+  });
+
+  // Handle Open Customer Portal
+  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_OPEN_PORTAL, async () => {
+    console.log('[Main] SUBSCRIPTION_OPEN_PORTAL called');
+    // TODO: Create Stripe customer portal session, open in browser
+    // 1. Call backend API to create portal session
+    // 2. Open portal URL in browser
+    return {
+      success: false,
+      error: 'Stripe portal not implemented yet',
+    };
+  });
+}
+
+/**
+ * Broadcast history update to all windows
+ */
+function broadcastHistoryUpdate(): void {
+  if (!settingsManager) {
+    return;
+  }
+
+  const history = settingsManager.getHistory();
+
+  // Send to main window (settings)
+  if (currentMainWindow && !currentMainWindow.isDestroyed()) {
+    currentMainWindow.webContents.send(IPC_CHANNELS.HISTORY_UPDATE, { history });
+  }
+
+  // Send to overlay window
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send(IPC_CHANNELS.HISTORY_UPDATE, { history });
+  }
 }
 
 /**
@@ -205,6 +439,22 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
  */
 export function getSavedPillConfig(): PillConfig | null {
   return settingsManager ? settingsManager.getPillConfig() : null;
+}
+
+/**
+ * Get saved hotkey config (for loading on startup)
+ */
+export function getSavedHotkeyConfig(): import('./settings-manager').HotkeyConfig {
+  if (settingsManager) {
+    return settingsManager.getHotkeyConfig();
+  }
+  // Return default if settings manager not initialized
+  const { UiohookKey } = require('uiohook-napi');
+  return {
+    modifiers: [],
+    key: 'CapsLock',
+    keycode: UiohookKey.CapsLock,
+  };
 }
 
 /**
@@ -226,6 +476,12 @@ async function handleTranscriptionResult(mainWindow: BrowserWindow, result: any)
 
   if (success) {
     console.log('[Main] Paste successful');
+
+    // Add to history
+    if (settingsManager) {
+      settingsManager.addHistoryItem(finalText);
+      broadcastHistoryUpdate();
+    }
   } else {
     console.error('[Main] Paste failed');
   }
@@ -287,10 +543,10 @@ function stopMonitorTracking(): void {
 export function sendUIStateUpdate(mainWindow: BrowserWindow, state: UIState): void {
   console.log('Sending UI state update:', state.mode);
 
-  // Show window if needed
+  // Show window if needed (use showInactive to avoid stealing focus)
   if (state.mode !== 'hidden' && !mainWindow.isVisible()) {
     positionWindowAtCursor(mainWindow);
-    mainWindow.show();
+    mainWindow.showInactive(); // Show WITHOUT stealing focus
     startMonitorTracking(mainWindow);
   } else if (state.mode === 'hidden' && mainWindow.isVisible()) {
     mainWindow.hide();

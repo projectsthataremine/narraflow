@@ -42,6 +42,12 @@ export interface PillConfig {
   useGradient: boolean;
 }
 
+export interface HistoryItem {
+  id: string;
+  text: string;
+  timestamp: number;
+}
+
 // ============================================================================
 // IPC Messages: Renderer → Main
 // ============================================================================
@@ -139,8 +145,25 @@ export const IPC_CHANNELS = {
   ERROR_NOTIFICATION: 'ipc:error-notification',
   UI_STATE_UPDATE: 'ipc:ui-state-update',
   PILL_CONFIG_UPDATE: 'ipc:pill-config-update',
+  HOTKEY_CONFIG_UPDATE: 'HOTKEY_CONFIG_UPDATE',
+  HISTORY_GET: 'ipc:history-get',
+  HISTORY_ADD: 'ipc:history-add',
+  HISTORY_DELETE: 'ipc:history-delete',
+  HISTORY_CLEAR: 'ipc:history-clear',
+  HISTORY_UPDATE: 'ipc:history-update',
   TRANSCRIBE: 'worker:transcribe',
   REWRITE_TEXT: 'worker:rewrite-text',
+  SET_DOCK_VISIBILITY: 'ipc:set-dock-visibility',
+  GET_DOCK_VISIBILITY: 'ipc:get-dock-visibility',
+  RESET_APP: 'ipc:reset-app',
+  // Auth & Subscription
+  AUTH_SIGNIN_GOOGLE: 'ipc:auth-signin-google',
+  AUTH_SIGNOUT: 'ipc:auth-signout',
+  AUTH_DELETE_ACCOUNT: 'ipc:auth-delete-account',
+  AUTH_GET_USER: 'ipc:auth-get-user',
+  SUBSCRIPTION_GET_STATUS: 'ipc:subscription-get-status',
+  SUBSCRIPTION_CREATE_CHECKOUT: 'ipc:subscription-create-checkout',
+  SUBSCRIPTION_OPEN_PORTAL: 'ipc:subscription-open-portal',
 } as const;
 
 // ============================================================================
