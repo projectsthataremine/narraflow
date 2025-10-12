@@ -22,8 +22,6 @@ function DemoWindow() {
 function PricingWindow() {
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <h2 className="text-2xl font-bold mb-8">pricing</h2>
-
       <div className="space-y-6 max-w-xl">
         <p className="text-lg">
           let's keep this simple.
@@ -211,8 +209,6 @@ function AccountWindow() {
   if (!user) {
     return (
       <div className="p-8 text-[var(--desktop-text)] font-mono">
-        <h2 className="text-2xl font-bold mb-8">account</h2>
-
         <div className="space-y-6 max-w-xl">
           <p className="text-lg opacity-90">
             sign in to access your account
@@ -253,8 +249,6 @@ function AccountWindow() {
 
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <h2 className="text-2xl font-bold mb-8">account</h2>
-
       {/* Success Message */}
       {showSuccess && (
         <div className="mb-6 p-4 bg-green-400/10 border border-green-400/30 text-green-400 text-sm rounded">
@@ -506,8 +500,6 @@ function AccountWindow() {
 function DocsWindow() {
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <h2 className="text-2xl font-bold mb-8">docs</h2>
-
       <div className="space-y-8 text-sm">
         {/* System Requirements */}
         <section>
@@ -650,8 +642,6 @@ function ShowcaseWindow() {
 
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <h2 className="text-2xl font-bold mb-8">showcase</h2>
-
       <div className="space-y-6 max-w-2xl text-sm">
         <p className="text-base opacity-90">
           we're still pretty new, and we'd love to hear from you.
@@ -714,8 +704,6 @@ function ContactWindow() {
 
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <h2 className="text-2xl font-bold mb-8">contact us</h2>
-
       <div className="space-y-6 max-w-xl text-sm">
         <p>
           got questions? feedback? need help?
@@ -920,8 +908,6 @@ function FormWindow() {
 
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono h-full flex flex-col">
-      <h2 className="text-2xl font-bold mb-6">contact form</h2>
-
       <div className="flex-1 overflow-auto desktop-scrollbar space-y-4 text-sm pr-2">
         {/* Contact Type */}
         <div>
@@ -1136,8 +1122,7 @@ function TrashWindow() {
 
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-bold">trash</h2>
+      <div className="flex items-center justify-end mb-8">
         <p className="text-sm opacity-70">{deletedFiles.length} items</p>
       </div>
 
@@ -1172,8 +1157,6 @@ function TrashWindow() {
 function AboutWindow() {
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <h2 className="text-2xl font-bold mb-8">about mic2text</h2>
-
       <div className="space-y-6 max-w-2xl text-sm">
         <p className="text-base">
           mic2text is speech-to-text, simplified.
