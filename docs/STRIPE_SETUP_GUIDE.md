@@ -10,8 +10,7 @@
 ### 1. Stripe Account Created
 - **Mode:** Test Mode (Sandbox)
 - **Test Keys Configured:**
-  - Publishable Key: `pk_test_51SHBFrHpI1gAFVtQWB662peTnSqZ5dfYw1qHAp6lvfNjLXnXTNXHRus9GrYUrW6LPTpoUd7V1zf3WBuiF8z67r7g00bZyMKWt1`
-  - Secret Key: `sk_test_51SHBFrHpI1gAFVtQQ2lyWK9ffqrzh1QQtXtC7EmQqI1DjbBPaUcgMA3Ja8xJGDNzyW4rZJ6fMb6kJp4Awt8nmZXH008voFdqgG`
+  - Keys are stored in `.env.local` (never commit these to git)
 
 ### 2. Code Implementation Complete
 - ✅ Stripe SDK installed (`npm install stripe`)
