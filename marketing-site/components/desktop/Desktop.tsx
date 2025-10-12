@@ -843,16 +843,53 @@ function FormWindow() {
     setAttachments(attachments.filter((_, i) => i !== index));
   };
 
-  const handleSend = () => {
-    console.log('Sending form:', { contactType, macOSVersion, appVersion, message, attachments: attachments.map(f => f.name) });
-
+  const handleSend = async () => {
     setIsLoading(true);
 
-    // Simulate API call with 2 second delay
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // Build metadata object with dynamic fields based on contact type
+      const metadata: any = {};
+
+      if (contactType === 'bug') {
+        if (macOSVersion) metadata.macos_version = macOSVersion;
+        if (appVersion) metadata.app_version = appVersion;
+      }
+
+      // Add attachment names if present
+      if (attachments.length > 0) {
+        metadata.attachments = attachments.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type
+        }));
+      }
+
+      // Submit to API
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: contactType,
+          message: message.trim(),
+          metadata
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit form');
+      }
+
       setIsSent(true);
-    }, 2000);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      if (typeof window !== 'undefined' && (window as any).showToast) {
+        (window as any).showToast('failed to send message. please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Get dynamic labels based on contact type
