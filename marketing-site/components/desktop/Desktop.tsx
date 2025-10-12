@@ -6,7 +6,7 @@ import DesktopIcon from './DesktopIcon';
 import Taskbar from './Taskbar';
 import Window from './Window';
 import { useWindowStore } from '@/stores/windowStore';
-import { Mic, DollarSign, BookOpen, Star, Info, User, Trash2, Mail, File, RefreshCw, Copy, Plus } from 'lucide-react';
+import { Mic, DollarSign, BookOpen, Star, Info, User, Trash2, Mail, File, RefreshCw, Copy, Plus, Folder, FileText } from 'lucide-react';
 
 // Placeholder window content components
 function DemoWindow() {
@@ -1159,10 +1159,6 @@ function TrashWindow() {
 
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <div className="flex items-center justify-end mb-8">
-        <p className="text-sm opacity-70">{deletedFiles.length} items</p>
-      </div>
-
       <div className="space-y-4 text-sm">
         <div className="grid grid-cols-4 gap-6 pt-4">
           {deletedFiles.map((file, index) => (
@@ -1186,6 +1182,75 @@ function TrashWindow() {
         <div className="pt-6 text-xs opacity-50 border-t border-[var(--desktop-window-border)] mt-8">
           <p>items in trash are automatically deleted after 30 days</p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LegalWindow() {
+  const { openWindow, bringToFront } = useWindowStore();
+
+  const legalFiles = [
+    { name: 'terms_of_service.txt', title: 'Terms of Service', id: 'terms' },
+    { name: 'privacy_policy.txt', title: 'Privacy Policy', id: 'privacy' },
+  ];
+
+  const handleFileClick = (file: typeof legalFiles[0]) => {
+    const viewportWidth = globalThis.window.innerWidth;
+    const viewportHeight = globalThis.window.innerHeight;
+    const windowWidth = 700;
+    const windowHeight = 600;
+    const taskbarHeight = 40;
+
+    const centerX = (viewportWidth - windowWidth) / 2;
+    const centerY = (viewportHeight - windowHeight - taskbarHeight) / 2;
+
+    const randomOffsetX = Math.floor(Math.random() * 100) - 50;
+    const randomOffsetY = Math.floor(Math.random() * 100) - 50;
+
+    openWindow(`doc-${file.id}`, file.title, {
+      x: centerX + randomOffsetX,
+      y: centerY + randomOffsetY
+    }, {
+      width: windowWidth,
+      height: windowHeight
+    });
+
+    setTimeout(() => bringToFront(`doc-${file.id}`), 0);
+  };
+
+  return (
+    <div className="p-8 text-[var(--desktop-text)] font-mono">
+      <div className="space-y-4 text-sm">
+        <div className="grid grid-cols-4 gap-6 pt-4">
+          {legalFiles.map((file, index) => (
+            <div
+              key={index}
+              onClick={() => handleFileClick(file)}
+              className="flex flex-col items-center gap-2 p-3 group cursor-pointer hover:bg-[var(--desktop-accent)]/20 transition-colors rounded"
+            >
+              <FileText size={48} className="group-hover:text-[var(--desktop-accent)] transition-colors" />
+              <span className="text-xs text-center break-words max-w-full group-hover:text-[var(--desktop-accent)] transition-colors">
+                {file.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface DocumentWindowProps {
+  title: string;
+  content: string;
+}
+
+function DocumentWindow({ title, content }: DocumentWindowProps) {
+  return (
+    <div className="p-8 text-[var(--desktop-text)] font-mono h-full flex flex-col">
+      <div className="flex-1 overflow-auto desktop-scrollbar text-sm space-y-4 pr-2 whitespace-pre-wrap">
+        {content}
       </div>
     </div>
   );
@@ -1246,6 +1311,8 @@ export default function Desktop() {
   const { windows, openWindow } = useWindowStore();
   const [mounted, setMounted] = React.useState(false);
   const [toast, setToast] = React.useState<{ message: string; id: number } | null>(null);
+  const [selectionBox, setSelectionBox] = React.useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+  const [isSelecting, setIsSelecting] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -1288,15 +1355,143 @@ export default function Desktop() {
 
     return [
       { id: 'pricing', name: 'pricing', icon: <DollarSign size={48} />, position: { x: 30, y: 30 } },
+      { id: 'demo', name: 'demo', icon: <Mic size={48} />, position: { x: 150, y: 30 } },
       { id: 'account', name: 'account', icon: <User size={48} />, position: { x: rightX, y: 30 } },
       { id: 'about', name: 'about', icon: <Info size={48} />, position: { x: 30, y: 150 } },
       { id: 'docs', name: 'docs', icon: <BookOpen size={48} />, position: { x: 30, y: 270 } },
       { id: 'showcase', name: 'showcase', icon: <Star size={48} />, position: { x: 30, y: 390 } },
-      { id: 'demo', name: 'demo', icon: <Mic size={48} />, position: { x: globalThis.window.innerWidth / 2 - 40, y: globalThis.window.innerHeight / 2 - 100 } },
     ];
   };
 
   const icons = getIconPositions();
+
+  // Placeholder legal document content
+  const termsContent = `Last Updated: October 11, 2025
+
+1. ACCEPTANCE OF TERMS
+
+By downloading, installing, or using Mic2Text ("the Software"), you agree to be bound by these Terms of Service.
+
+2. LICENSE GRANT
+
+We grant you a limited, non-exclusive, non-transferable license to use the Software on a single device per subscription.
+
+3. SUBSCRIPTION
+
+- Trial Period: 7 days free trial
+- Subscription Fee: $3/month per device
+- Billing: Automatic monthly renewal via Stripe
+- Cancellation: Cancel anytime through the app or customer portal
+
+4. USER OBLIGATIONS
+
+You agree to:
+- Use the Software in compliance with all applicable laws
+- Not reverse engineer, decompile, or disassemble the Software
+- Not share your license key with others
+- Maintain the security of your account credentials
+
+5. PRIVACY & DATA
+
+- All transcription processing is done locally on your device
+- We do not store or access your transcribed content
+- See our Privacy Policy for details on data we do collect
+
+6. REFUNDS
+
+Refunds are provided on a case-by-case basis within 30 days of purchase. Contact support for refund requests.
+
+7. TERMINATION
+
+We reserve the right to terminate your access to the Software if you violate these terms.
+
+8. LIMITATION OF LIABILITY
+
+The Software is provided "as is" without warranties of any kind. We are not liable for any damages arising from your use of the Software.
+
+9. CHANGES TO TERMS
+
+We may update these terms at any time. Continued use constitutes acceptance of modified terms.
+
+10. CONTACT
+
+For questions about these terms, contact us through the app.`;
+
+  const privacyContent = `Last Updated: October 11, 2025
+
+1. INTRODUCTION
+
+This Privacy Policy explains how Mic2Text collects, uses, and protects your information.
+
+2. INFORMATION WE COLLECT
+
+Account Information:
+- Email address (via Google OAuth)
+- Payment information (processed by Stripe, not stored by us)
+- License key and device ID
+
+Usage Data:
+- App version
+- macOS version
+- Basic usage analytics (feature usage, crash reports)
+
+3. INFORMATION WE DON'T COLLECT
+
+Your Transcriptions:
+- All speech-to-text processing is done locally on your device
+- We never see, store, or transmit your transcribed content
+- Your audio never leaves your device
+
+4. HOW WE USE YOUR INFORMATION
+
+We use collected information to:
+- Manage your subscription and license
+- Provide customer support
+- Improve the Software
+- Send important service updates
+- Process payments via Stripe
+
+5. DATA STORAGE & SECURITY
+
+- Account data is stored securely on Supabase servers
+- Payment processing is handled by Stripe (PCI compliant)
+- We use industry-standard encryption
+- License keys are generated using secure random methods
+
+6. THIRD-PARTY SERVICES
+
+We use:
+- Google (OAuth authentication)
+- Stripe (payment processing)
+- Supabase (database and auth)
+
+Each has their own privacy policies governing their data practices.
+
+7. YOUR RIGHTS
+
+You have the right to:
+- Access your personal data
+- Request deletion of your data
+- Cancel your subscription at any time
+- Export your data (contact support)
+
+8. COOKIES
+
+Our website uses minimal cookies for:
+- Authentication session management
+- Basic analytics
+
+9. CHILDREN'S PRIVACY
+
+The Software is not intended for users under 13 years of age.
+
+10. CHANGES TO THIS POLICY
+
+We may update this policy. Continued use constitutes acceptance.
+
+11. CONTACT
+
+For privacy questions, contact us through the app.`;
 
   const windowContent: Record<string, React.ReactNode> = {
     demo: <DemoWindow />,
@@ -1308,6 +1503,9 @@ export default function Desktop() {
     contact: <ContactWindow />,
     form: <FormWindow />,
     trash: <TrashWindow />,
+    legal: <LegalWindow />,
+    'doc-terms': <DocumentWindow title="Terms of Service" content={termsContent} />,
+    'doc-privacy': <DocumentWindow title="Privacy Policy" content={privacyContent} />,
   };
 
   const getTrashPosition = () => {
@@ -1343,16 +1541,67 @@ export default function Desktop() {
     }
   }, [showToast]);
 
+  // Handle mouse events for drag selection
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only start selection if clicking on the desktop background (not on icons or windows)
+    if (e.target === e.currentTarget) {
+      setIsSelecting(true);
+      setSelectionBox({
+        start: { x: e.clientX, y: e.clientY },
+        end: { x: e.clientX, y: e.clientY }
+      });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isSelecting && selectionBox) {
+      setSelectionBox({
+        ...selectionBox,
+        end: { x: e.clientX, y: e.clientY }
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsSelecting(false);
+    setSelectionBox(null);
+  };
+
+  // Calculate selection box dimensions
+  const getSelectionBoxStyle = () => {
+    if (!selectionBox) return null;
+
+    const left = Math.min(selectionBox.start.x, selectionBox.end.x);
+    const top = Math.min(selectionBox.start.y, selectionBox.end.y);
+    const width = Math.abs(selectionBox.end.x - selectionBox.start.x);
+    const height = Math.abs(selectionBox.end.y - selectionBox.start.y);
+
+    return { left, top, width, height };
+  };
+
+  const selectionBoxStyle = getSelectionBoxStyle();
+
   return (
-    <div className="fixed inset-0 bg-[var(--desktop-bg)] overflow-hidden">
+    <div
+      className="fixed inset-0 bg-[var(--desktop-bg)] overflow-hidden desktop-noise"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
       {/* Background watermark */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
         <h1
           className="font-mono font-bold text-[var(--desktop-text)] opacity-5"
-          style={{ fontSize: '12rem', letterSpacing: '-0.05em' }}
+          style={{ fontSize: '12rem', letterSpacing: '-0.05em', lineHeight: '1', marginBottom: '8px' }}
         >
           mic2text
         </h1>
+        <p
+          className="font-mono text-[var(--desktop-text)] opacity-5"
+          style={{ fontSize: '1.5rem', letterSpacing: '0.02em', lineHeight: '1' }}
+        >
+          simple speech-to-text. with formatting. for $3/month.
+        </p>
       </div>
 
       {/* Desktop Icons */}
@@ -1376,12 +1625,37 @@ export default function Desktop() {
         />
       )}
 
+      {/* Legal Folder Icon (bottom left) */}
+      {mounted && (
+        <DesktopIcon
+          id="legal"
+          name="legal"
+          icon={<Folder size={48} />}
+          initialPosition={{ x: 30, y: globalThis.window.innerHeight - 150 }}
+        />
+      )}
+
       {/* Windows */}
       {windows.map((window) => (
         <Window key={window.id} id={window.id}>
           {windowContent[window.id] || <div className="p-8">Window content</div>}
         </Window>
       ))}
+
+      {/* Selection Box */}
+      {selectionBoxStyle && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            left: `${selectionBoxStyle.left}px`,
+            top: `${selectionBoxStyle.top}px`,
+            width: `${selectionBoxStyle.width}px`,
+            height: `${selectionBoxStyle.height}px`,
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+          }}
+        />
+      )}
 
       {/* Toast notification */}
       {toast && (
