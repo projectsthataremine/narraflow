@@ -1,5 +1,5 @@
-import Hero from '@/components/Hero';
+import Desktop from '@/components/desktop/Desktop';
 
 export default function Home() {
-  return <Hero />;
+  return <Desktop />;
 }

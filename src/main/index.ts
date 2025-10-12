@@ -18,6 +18,7 @@ import {
 import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { ensurePermissions } from './permissions';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
+import { appStore } from './AppStore';
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -178,6 +179,12 @@ async function initialize(): Promise<void> {
 
   // Set overlay window reference for IPC forwarding
   setOverlayWindow(overlayWindow);
+
+  // Initialize AppStore and validate license
+  appStore.setWindow(overlayWindow);
+  console.log('[Main] Validating license on startup...');
+  await appStore.validateLicense();
+  console.log('[Main] License validation complete. Valid:', appStore.getLicenseValid());
 
   // Get saved hotkey config
   const savedHotkey = getSavedHotkeyConfig();

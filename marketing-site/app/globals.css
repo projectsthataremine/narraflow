@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&family=SF+Mono&display=swap');
 
 :root {
   /* Brand Colors - Extracted from design */
@@ -14,6 +14,54 @@
   --gold: #D4A94F;
   --black: #000000;
   --text-dark: #1A1A1A;
+
+  /* Desktop Theme System - Default: Muted Earth Tones (Option B) */
+  --desktop-bg: #2e3440;
+  --desktop-accent: #a3be8c;
+  --desktop-secondary: #ebcb8b;
+  --desktop-text: #eceff4;
+  --desktop-window-bg: #1e1e1e;
+  --desktop-window-border: #444;
+  --desktop-taskbar-bg: #1a1a1a;
+  --desktop-scrollbar-track: #2e3440;
+  --desktop-scrollbar-thumb: #a3be8c;
+}
+
+/* Theme Variants */
+[data-theme="pastel-terminal"] {
+  --desktop-bg: #1e1e2e;
+  --desktop-accent: #89b4fa;
+  --desktop-secondary: #f5c2e7;
+  --desktop-text: #cdd6f4;
+  --desktop-window-bg: #181825;
+  --desktop-window-border: #313244;
+  --desktop-taskbar-bg: #11111b;
+  --desktop-scrollbar-track: #1e1e2e;
+  --desktop-scrollbar-thumb: #89b4fa;
+}
+
+[data-theme="terminal-green"] {
+  --desktop-bg: #0c0c0c;
+  --desktop-accent: #00ff41;
+  --desktop-secondary: #33ff77;
+  --desktop-text: #00cc33;
+  --desktop-window-bg: #000000;
+  --desktop-window-border: #00ff41;
+  --desktop-taskbar-bg: #000000;
+  --desktop-scrollbar-track: #0c0c0c;
+  --desktop-scrollbar-thumb: #00ff41;
+}
+
+[data-theme="warm-retro"] {
+  --desktop-bg: #2d2a2e;
+  --desktop-accent: #ff6188;
+  --desktop-secondary: #ffd866;
+  --desktop-text: #fcfcfa;
+  --desktop-window-bg: #1a1a1a;
+  --desktop-window-border: #403e41;
+  --desktop-taskbar-bg: #221f22;
+  --desktop-scrollbar-track: #2d2a2e;
+  --desktop-scrollbar-thumb: #ff6188;
 }
 
 @theme inline {
@@ -33,10 +81,29 @@
   /* Typography */
   --font-heading: 'Archivo Black', sans-serif;
   --font-body: 'Inter', sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
 }
 
 body {
   background: var(--tan);
   color: var(--text-dark);
   font-family: var(--font-body);
+}
+
+/* Custom Scrollbar for Desktop Windows */
+.desktop-scrollbar::-webkit-scrollbar {
+  width: 14px;
+}
+
+.desktop-scrollbar::-webkit-scrollbar-track {
+  background: var(--desktop-scrollbar-track);
+}
+
+.desktop-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--desktop-scrollbar-thumb);
+  border-radius: 0;
+}
+
+.desktop-scrollbar::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
 }

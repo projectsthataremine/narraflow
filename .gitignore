@@ -18,6 +18,9 @@ release/
 *.swp
 *.swo
 
+# Claude Code config (project-specific settings)
+.claude.json
+
 # OS
 .DS_Store
 Thumbs.db
