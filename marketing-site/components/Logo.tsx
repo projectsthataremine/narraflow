@@ -25,7 +25,7 @@ export default function Logo() {
           strokeLinecap="round"
         />
       </svg>
-      <span className="font-heading text-lg">mic2text</span>
+      <span className="font-heading text-lg">narraflow</span>
     </div>
   );
 }

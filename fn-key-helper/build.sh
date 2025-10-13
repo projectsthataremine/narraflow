@@ -4,8 +4,8 @@ set -e
 echo "🔨 Building Fn Key Helper..."
 
 # Configuration
-APP_NAME="Mic2TextFnHelper"
-BUNDLE_ID="com.mic2text.fn-helper"
+APP_NAME="NarraFlowFnHelper"
+BUNDLE_ID="com.narraflow.fn-helper"
 BUILD_DIR="./build"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 

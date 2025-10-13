@@ -18,6 +18,7 @@ export interface HotkeyConfig {
 interface AppSettings {
   pillConfig: PillConfig;
   hotkey: HotkeyConfig;
+  showInDock: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -33,10 +34,11 @@ const DEFAULT_SETTINGS: AppSettings = {
     useGradient: true,
   },
   hotkey: {
-    modifiers: [],
-    key: 'Fn',
-    keycode: 63, // Fn key keycode
+    modifiers: ['Shift', 'Alt'],
+    key: 'Shift',
+    keycode: 42, // Shift key keycode
   },
+  showInDock: true, // Default to visible
 };
 
 export class SettingsManager {
@@ -136,6 +138,21 @@ export class SettingsManager {
    */
   getAllSettings(): AppSettings {
     return { ...this.settings };
+  }
+
+  /**
+   * Get dock visibility setting
+   */
+  getShowInDock(): boolean {
+    return this.settings.showInDock ?? true; // Default to true if not set
+  }
+
+  /**
+   * Update dock visibility setting
+   */
+  setShowInDock(visible: boolean): void {
+    this.settings.showInDock = visible;
+    this.saveSettings();
   }
 
   /**

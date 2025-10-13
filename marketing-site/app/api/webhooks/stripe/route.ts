@@ -44,6 +44,94 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Handle new subscription creation (including trials)
+  if (event.type === 'customer.subscription.created') {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    try {
+      console.log('Processing subscription.created event:', subscription.id);
+      console.log('Subscription status:', subscription.status);
+
+      // Only create license if this is a trialing subscription
+      if (subscription.status === 'trialing') {
+        const supabaseClient = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+
+        // Check if license already exists for this subscription (idempotency)
+        const { data: existingLicense } = await supabaseClient
+          .from('licenses')
+          .select('key')
+          .eq('stripe_subscription_id', subscription.id)
+          .limit(1);
+
+        if (existingLicense && existingLicense.length > 0) {
+          console.log('License already exists for subscription:', subscription.id);
+          return NextResponse.json({ received: true, existing: true });
+        }
+
+        // Generate UUID license key
+        const licenseKey = await retryWithBackoff(() => generateLicenseKey());
+        console.log('Generated license key for trial:', licenseKey);
+
+        // Get customer email from metadata or Stripe customer
+        let customerEmail = subscription.metadata?.email;
+        if (!customerEmail) {
+          const customer = await stripe.customers.retrieve(subscription.customer as string);
+          customerEmail = (customer as Stripe.Customer).email || 'unknown@example.com';
+        }
+
+        // Calculate expiration date (trial_end)
+        const expiresAt = subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null;
+
+        // Create license with status='pending' (not activated on machine yet)
+        const activateResponse = await retryWithBackoff(async () => {
+          return fetch(`${process.env.SUPABASE_URL}/functions/v1/activate_license`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
+              'x-edge-function-secret': process.env.EDGE_FUNCTION_SECRET!,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              key: licenseKey,
+              user_id: subscription.metadata?.user_id || null,
+              customer_email: customerEmail,
+              expires_at: expiresAt,
+              stripe_session_id: null,
+              stripe_customer_id: subscription.customer,
+              stripe_subscription_id: subscription.id
+            }),
+          });
+        });
+
+        if (!activateResponse.ok) {
+          const errorText = await activateResponse.text();
+          console.error('Failed to create license for trial:', errorText);
+          return NextResponse.json(
+            { error: 'Failed to create license' },
+            { status: 500 }
+          );
+        }
+
+        console.log('License created for trial subscription:', licenseKey);
+        return NextResponse.json({ received: true, license_key: licenseKey });
+      }
+
+      return NextResponse.json({ received: true });
+    } catch (error: any) {
+      console.error('Error processing subscription.created:', error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+  }
+
   // Handle subscription updates and cancellation
   if (event.type === 'customer.subscription.deleted' || event.type === 'customer.subscription.updated') {
     const subscription = event.data.object as Stripe.Subscription;

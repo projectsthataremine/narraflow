@@ -8,9 +8,13 @@ import { getCurrentPublicKey, EDGE_FUNCTION_SECRET, SUPABASE_URL } from './const
 interface LicenseData {
   license_key: string;
   machine_id: string;
+  machine_name?: string;
+  machine_os?: string;
   expires_at: string;
   status: string;
   signature: string;
+  user_id?: string;
+  user_email?: string;
 }
 
 class AppStore {
@@ -192,6 +196,58 @@ class AppStore {
     await this.validateLicense();
   }
 
+  /**
+   * Activate license for authenticated user (OAuth flow)
+   * Includes machine info (name and OS)
+   */
+  async activateLicenseForUser(
+    license_key: string,
+    machine_name: string,
+    machine_os: string,
+    user_id?: string,
+    user_email?: string
+  ): Promise<void> {
+    const machine_id = machineIdSync();
+
+    const { valid, payload, signature, error } = await this.pingValidateLicense({
+      license_key,
+      machine_id,
+      return_signed_license: true,
+    });
+
+    if (!valid) {
+      throw new Error(error || 'Invalid license key');
+    }
+
+    if (!payload || !signature) {
+      throw new Error('Missing license payload or signature from server');
+    }
+
+    const licensePath = path.join(app.getPath('userData'), 'license.json');
+    const licenseData: LicenseData = {
+      ...payload,
+      signature,
+      machine_name,
+      machine_os,
+      user_id,
+      user_email,
+    };
+
+    fs.writeFileSync(
+      licensePath,
+      JSON.stringify(licenseData, null, 2),
+      'utf-8'
+    );
+
+    console.log('[AppStore] License activated with machine info:', {
+      machine_name,
+      machine_os,
+      user_email,
+    });
+
+    await this.validateLicense();
+  }
+
   private async pingValidateLicense({
     license_key,
     machine_id,
@@ -224,7 +280,7 @@ class AppStore {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json() as any;
         return {
           valid: false,
           error: errorData.error || `HTTP ${response.status}`,

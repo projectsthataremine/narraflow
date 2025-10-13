@@ -6,7 +6,8 @@ import DesktopIcon from './DesktopIcon';
 import Taskbar from './Taskbar';
 import Window from './Window';
 import { useWindowStore } from '@/stores/windowStore';
-import { Mic, DollarSign, BookOpen, Star, Info, User, Trash2, Mail, File, RefreshCw, Copy, Plus, Folder, FileText } from 'lucide-react';
+import { Mic, DollarSign, BookOpen, Star, Info, User, Trash2, Mail, File, RefreshCw, Copy, Plus, Folder, FileText, Download } from 'lucide-react';
+import { FORMATTED_PRICE } from '@/lib/constants';
 
 // Placeholder window content components
 function DemoWindow() {
@@ -23,16 +24,12 @@ function PricingWindow() {
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
       <div className="space-y-6 max-w-xl">
-        <p className="text-lg">
-          let's keep this simple.
-        </p>
-
         <div className="bg-[var(--desktop-window-bg)] p-6 rounded border border-[var(--desktop-window-border)]">
           <p className="text-2xl font-bold mb-2">
-            <span className="text-[var(--desktop-accent)]">$3</span>/month
+            <span className="text-[var(--desktop-accent)]">{FORMATTED_PRICE}</span>/month
           </p>
           <p className="text-sm opacity-80">
-            covers a single machine. cancel anytime.
+            covers a single machine.
           </p>
         </div>
 
@@ -41,19 +38,21 @@ function PricingWindow() {
             download and try it out for <span className="text-[var(--desktop-accent)] font-bold">7 days free</span>.
           </p>
           <p>
-            after that, it's $3/month. cancel at any time.
-          </p>
-          <p className="pt-4">
-            that's it. nothing more.
-          </p>
-          <p className="text-xs opacity-70 pt-2">
-            (that was easy, huh?)
+            after that, it's {FORMATTED_PRICE}/month. cancel at any time.
           </p>
         </div>
       </div>
     </div>
   );
 }
+
+// Edit icon component
+const EditIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
 
 function AccountWindow() {
   const [user, setUser] = React.useState<any>(null);
@@ -64,10 +63,13 @@ function AccountWindow() {
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [hoveredStatus, setHoveredStatus] = React.useState<string | null>(null);
   const [hoveredButton, setHoveredButton] = React.useState<string | null>(null);
+  const [hoveredLicense, setHoveredLicense] = React.useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = React.useState({ x: 0, y: 0 });
   const [lastCopyTime, setLastCopyTime] = React.useState<number>(0);
   const [lastRefreshTime, setLastRefreshTime] = React.useState<number>(0);
   const [mounted, setMounted] = React.useState(false);
+  const [editingLicense, setEditingLicense] = React.useState<string | null>(null);
+  const [editedName, setEditedName] = React.useState('');
 
   React.useEffect(() => {
     setMounted(true);
@@ -178,6 +180,42 @@ function AccountWindow() {
     }
   }
 
+  async function handleRenameMachine(licenseId: string, newName: string) {
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from('licenses')
+        .update({ machine_name: newName })
+        .eq('id', licenseId);
+
+      if (error) {
+        console.error('[Account] Machine rename failed:', error);
+        if (typeof window !== 'undefined' && (window as any).showToast) {
+          (window as any).showToast('failed to rename machine');
+        }
+        return;
+      }
+
+      // Update local state
+      setLicenses(licenses.map(license =>
+        license.id === licenseId
+          ? { ...license, machine_name: newName }
+          : license
+      ));
+
+      if (typeof window !== 'undefined' && (window as any).showToast) {
+        (window as any).showToast('machine renamed');
+      }
+    } catch (error) {
+      console.error('[Account] Machine rename error:', error);
+      if (typeof window !== 'undefined' && (window as any).showToast) {
+        (window as any).showToast('failed to rename machine');
+      }
+    }
+  }
+
   const handleTooltipEnter = (button: string, e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltipPosition({
@@ -237,7 +275,7 @@ function AccountWindow() {
           </div>
 
           <p className="text-xs opacity-60 pt-4">
-            after the 7-day trial, it's $3/month. cancel anytime.
+            after the 7-day trial, it's {FORMATTED_PRICE}/month. cancel anytime.
           </p>
         </div>
       </div>
@@ -358,11 +396,57 @@ function AccountWindow() {
                     )}
                   </div>
 
-                  {/* Machine ID if bound */}
+                  {/* Machine Name/OS if bound */}
                   {license.machine_id && (
-                    <div className="flex items-baseline gap-2">
+                    <div
+                      className="flex items-baseline gap-2"
+                      onMouseEnter={() => setHoveredLicense(license.id)}
+                      onMouseLeave={() => setHoveredLicense(null)}
+                    >
                       <span className="opacity-70 text-xs">machine:</span>
-                      <span className="text-xs break-all">{license.machine_id.substring(0, 16)}...</span>
+                      {editingLicense === license.id ? (
+                        <input
+                          type="text"
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (editedName.trim() && editedName !== license.machine_name) {
+                                handleRenameMachine(license.id, editedName.trim());
+                              }
+                              setEditingLicense(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingLicense(null);
+                            }
+                          }}
+                          onBlur={() => {
+                            if (editedName.trim() && editedName !== license.machine_name) {
+                              handleRenameMachine(license.id, editedName.trim());
+                            }
+                            setEditingLicense(null);
+                          }}
+                          autoFocus
+                          className="flex-1 bg-[var(--desktop-window-bg)] border border-[var(--desktop-accent)] px-1 text-xs focus:outline-none"
+                        />
+                      ) : (
+                        <>
+                          <span className="text-xs">
+                            {license.machine_name || 'Unknown'}
+                            {license.machine_os && ` • ${license.machine_os}`}
+                          </span>
+                          {hoveredLicense === license.id && (
+                            <button
+                              onClick={() => {
+                                setEditingLicense(license.id);
+                                setEditedName(license.machine_name || '');
+                              }}
+                              className="p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                            >
+                              <EditIcon />
+                            </button>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -519,9 +603,6 @@ function DocsWindow() {
             hold down <span className="text-[var(--desktop-accent)]">Fn</span> (or your custom hotkey), speak, release.
             your text appears wherever your cursor is and gets copied to your clipboard.
           </p>
-          <p className="opacity-80">
-            that's it. that's the whole app.
-          </p>
         </section>
 
         {/* Interface */}
@@ -568,8 +649,8 @@ function DocsWindow() {
 
             <div>
               <p className="font-bold mb-1">account</p>
-              <p>manage your subscription, view your trial status.</p>
-              <p>sign in with Google. cancel anytime.</p>
+              <p>sign in with Google to manage your subscription.</p>
+              <p>manage machines and view your trial status.</p>
             </div>
           </div>
         </section>
@@ -582,8 +663,9 @@ function DocsWindow() {
             we'll send you to Stripe to complete payment.
           </p>
           <p className="mb-2 opacity-80">
-            once you subscribe, you'll be redirected back to your account page
-            where you'll see your license key. enter it in the app to activate.
+            after subscribing, open the app on your computer. go to settings → account tab
+            and sign in with Google. once signed in, you'll see your available licenses listed.
+            click "Use on this machine" to activate that license on your machine.
           </p>
           <p className="mb-2 opacity-80">
             cancel? you can do it through the app or online. you'll be redirected to Stripe
@@ -602,7 +684,7 @@ function DocsWindow() {
             bottom left of settings, you'll see the version and a little cloud icon.
           </p>
           <p className="mb-2">
-            <span className="text-[var(--desktop-secondary)]">gray?</span> you're good.
+            <span className="text-[var(--desktop-secondary)]">gray?</span> you're up to date.
             <span className="text-red-400 ml-2">red?</span> update available.
           </p>
           <p className="opacity-80">
@@ -626,7 +708,7 @@ function DocsWindow() {
         {/* Footer */}
         <div className="pt-8 border-t border-[var(--desktop-window-border)] text-xs opacity-60">
           <p>
-            feedback on these docs? think we can do better?{' '}
+            feedback on these docs?{' '}
             <span className="text-[var(--desktop-accent)] cursor-pointer hover:underline">
               contact us here
             </span>
@@ -649,12 +731,16 @@ function ShowcaseWindow() {
 
         <div className="space-y-4 opacity-80">
           <p>
-            if mic2text has helped you in any way - saved you time, made your workflow easier,
+            if NarraFlow has helped you in any way - saved you time, made your workflow easier,
             or just made your day a little better - we'd love to hear about it.
           </p>
 
           <p>
-            your feedback helps us improve and shows others how people are actually using the app.
+            if you have suggestions for improvements or features you'd like to see, we'd love to hear that too.
+          </p>
+
+          <p>
+            your feedback helps us understand what we're doing right and how to improve.
           </p>
         </div>
 
@@ -687,12 +773,6 @@ function ShowcaseWindow() {
           >
             share your feedback
           </button>
-        </div>
-
-        <div className="pt-6 border-t border-[var(--desktop-window-border)] text-xs opacity-60">
-          <p>
-            especially love positive feedback - it helps us showcase real use cases and testimonials right here.
-          </p>
         </div>
       </div>
     </div>
@@ -762,6 +842,7 @@ function FormWindow() {
   const [macOSVersion, setMacOSVersion] = React.useState('');
   const [appVersion, setAppVersion] = React.useState('');
   const [contactType, setContactType] = React.useState('');
+  const [consentToShare, setConsentToShare] = React.useState(false);
   const [hoveredTooltip, setHoveredTooltip] = React.useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = React.useState({ x: 0, y: 0 });
   const [mounted, setMounted] = React.useState(false);
@@ -855,6 +936,11 @@ function FormWindow() {
         if (appVersion) metadata.app_version = appVersion;
       }
 
+      // Add consent flag for testimonials
+      if (contactType === 'testimonial') {
+        metadata.consent_to_share = consentToShare;
+      }
+
       // Add attachment names if present
       if (attachments.length > 0) {
         metadata.attachments = attachments.map(f => ({
@@ -901,6 +987,8 @@ function FormWindow() {
         return 'what feature would you like?';
       case 'feedback':
         return 'your feedback';
+      case 'testimonial':
+        return 'share your experience';
       case 'help':
         return 'what do you need help with?';
       default:
@@ -916,6 +1004,8 @@ function FormWindow() {
         return 'describe the feature you\'d like to see...';
       case 'feedback':
         return 'share your thoughts with us...';
+      case 'testimonial':
+        return 'tell us how NarraFlow has helped you...';
       case 'help':
         return 'describe what you need help with...';
       default:
@@ -958,10 +1048,28 @@ function FormWindow() {
             <option value="bug">Bug Report</option>
             <option value="feature">Feature Request</option>
             <option value="feedback">General Feedback</option>
+            <option value="testimonial">Testimonial / Success Story</option>
             <option value="help">Help/Support</option>
             <option value="other">Other</option>
           </select>
         </div>
+
+        {/* Consent checkbox - only show for testimonials */}
+        {contactType === 'testimonial' && (
+          <div className="p-4 bg-[var(--desktop-accent)]/10 border border-[var(--desktop-accent)]/30">
+            <label className="flex items-start gap-3 cursor-pointer text-xs text-[var(--desktop-text)]">
+              <input
+                type="checkbox"
+                checked={consentToShare}
+                onChange={(e) => setConsentToShare(e.target.checked)}
+                className="mt-0.5 cursor-pointer w-4 h-4 flex-shrink-0"
+              />
+              <span style={{ lineHeight: '1.5' }}>
+                I give permission for NarraFlow to use my testimonial in marketing materials (website, social media, etc.) and to contact me for additional details or photos if needed.
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* macOS Version - only show for bug reports */}
         {showVersionFields && (
@@ -1137,7 +1245,7 @@ function FormWindow() {
             }}
           >
             <div className="font-bold mb-1 opacity-90">How to get your app version:</div>
-            <div className="opacity-80">Open app (click icon in dock or Cmd+Space → type Mic2Text)</div>
+            <div className="opacity-80">Open app (click icon in dock or Cmd+Space → type NarraFlow)</div>
             <div className="opacity-80">→ version shown at bottom left of settings window</div>
           </div>
         </TooltipPortal>
@@ -1259,9 +1367,9 @@ function DocumentWindow({ title, content }: DocumentWindowProps) {
 function AboutWindow() {
   return (
     <div className="p-8 text-[var(--desktop-text)] font-mono">
-      <div className="space-y-6 max-w-2xl text-sm">
+      <div className="space-y-6 text-sm">
         <p className="text-base">
-          mic2text is speech-to-text, simplified.
+          NarraFlow - simple, affordable speech-to-text.
         </p>
 
         <div className="space-y-4 opacity-90">
@@ -1271,8 +1379,7 @@ function AboutWindow() {
           </p>
 
           <p>
-            <span className="text-[var(--desktop-accent)] font-bold">mac only</span> - requires macOS Big Sur (11.0) or later.
-            built by a single developer who just wanted the simplest possible way to turn speech into text.
+            <span className="text-[var(--desktop-accent)] font-bold">mac only</span> - requires macOS Big Sur (11.0, released 2020) or later.
           </p>
 
           <p className="text-xs opacity-60">
@@ -1284,22 +1391,182 @@ function AboutWindow() {
           <p className="font-bold text-[var(--desktop-accent)]">key features:</p>
           <ul className="space-y-2 list-disc list-inside">
             <li>auto-formats and fixes your text as you speak</li>
-            <li>optional AI layer for advanced formatting (if you want it)</li>
+            <li>optional AI layer for advanced formatting</li>
             <li>100% local processing - your text never touches our servers</li>
+            <li>automatic history of your past transcriptions</li>
             <li>minimal, non-intrusive UI</li>
             <li>custom key assignment (Fn by default)</li>
           </ul>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        <div className="pt-4 space-y-3 text-xs opacity-80">
+function DownloadsWindow() {
+  const [releases, setReleases] = React.useState<{
+    arm64Url: string | null;
+    x64Url: string | null;
+    version: string | null;
+    loading: boolean;
+    error: string | null;
+  }>({
+    arm64Url: null,
+    x64Url: null,
+    version: null,
+    loading: true,
+    error: null,
+  });
+
+  React.useEffect(() => {
+    fetchLatestRelease();
+  }, []);
+
+  async function fetchLatestRelease() {
+    try {
+      const response = await fetch(
+        'https://api.github.com/repos/projectsthataremine/narraflow/releases/latest'
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch releases');
+      }
+
+      const data = await response.json();
+      const assets = data.assets || [];
+
+      // Find arm64 and x64 DMG files
+      const arm64Asset = assets.find((asset: any) =>
+        asset.name.includes('arm64') && asset.name.endsWith('.dmg')
+      );
+      // x64 DMG is the one that ends with .dmg but doesn't include 'arm64'
+      const x64Asset = assets.find((asset: any) =>
+        asset.name.endsWith('.dmg') && !asset.name.includes('arm64') && !asset.name.includes('.blockmap')
+      );
+
+      setReleases({
+        arm64Url: arm64Asset?.browser_download_url || null,
+        x64Url: x64Asset?.browser_download_url || null,
+        version: data.tag_name || null,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      console.error('Error fetching releases:', error);
+      setReleases({
+        arm64Url: null,
+        x64Url: null,
+        version: null,
+        loading: false,
+        error: 'Failed to load downloads. Please try again later.',
+      });
+    }
+  }
+
+  const handleDownload = (url: string) => {
+    window.open(url, '_blank');
+  };
+
+  if (releases.loading) {
+    return (
+      <div className="p-8 text-[var(--desktop-text)] font-mono flex items-center justify-center">
+        <p className="opacity-70">loading downloads...</p>
+      </div>
+    );
+  }
+
+  if (releases.error) {
+    return (
+      <div className="p-8 text-[var(--desktop-text)] font-mono">
+        <div className="space-y-4">
+          <p className="text-red-400">{releases.error}</p>
+          <button
+            onClick={fetchLatestRelease}
+            className="px-4 py-2 bg-[var(--desktop-accent)] text-[var(--desktop-window-bg)] text-sm font-bold hover:opacity-80 transition-opacity"
+          >
+            retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8 text-[var(--desktop-text)] font-mono">
+      <div className="space-y-6 text-sm">
+        {/* README */}
+        <div className="bg-[var(--desktop-window-bg)] border border-[var(--desktop-window-border)] p-4 space-y-3">
+          <h3 className="font-bold text-[var(--desktop-accent)]">README</h3>
+          <div className="space-y-2 opacity-90">
+            <p className="font-bold">Which version do I need?</p>
+            <div className="space-y-1 text-xs pl-4">
+              <p>
+                <span className="text-[var(--desktop-accent)]">→ arm64:</span> Apple Silicon (M1, M2, M3, M4)
+              </p>
+              <p>
+                <span className="text-[var(--desktop-accent)]">→ x64:</span> Intel processors
+              </p>
+            </div>
+            <p className="text-xs opacity-70 pt-2">
+              Not sure? Click the Apple icon (top-left) → About This Mac.
+              If you see "Chip" with M1/M2/M3/M4, use arm64. If you see "Processor" with Intel, use x64.
+            </p>
+          </div>
+          {releases.version && (
+            <p className="text-xs opacity-60 pt-2 border-t border-[var(--desktop-window-border)]">
+              latest version: {releases.version}
+            </p>
+          )}
+        </div>
+
+        {/* Download Files */}
+        <div>
+          <h3 className="font-bold mb-4 opacity-90">available downloads</h3>
+          <div className="grid grid-cols-2 gap-6">
+            {/* arm64 DMG */}
+            {releases.arm64Url ? (
+              <div
+                onClick={() => handleDownload(releases.arm64Url!)}
+                className="flex flex-col items-center gap-2 p-4 group cursor-pointer hover:bg-[var(--desktop-accent)]/20 transition-colors rounded"
+              >
+                <File size={48} className="group-hover:text-[var(--desktop-accent)] transition-colors" />
+                <span className="text-xs text-center break-words max-w-full group-hover:text-[var(--desktop-accent)] transition-colors">
+                  NarraFlow-arm64.dmg
+                </span>
+                <span className="text-xs opacity-60">(Apple Silicon)</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 p-4 opacity-30">
+                <File size={48} />
+                <span className="text-xs text-center">arm64 not available</span>
+              </div>
+            )}
+
+            {/* x64 DMG */}
+            {releases.x64Url ? (
+              <div
+                onClick={() => handleDownload(releases.x64Url!)}
+                className="flex flex-col items-center gap-2 p-4 group cursor-pointer hover:bg-[var(--desktop-accent)]/20 transition-colors rounded"
+              >
+                <File size={48} className="group-hover:text-[var(--desktop-accent)] transition-colors" />
+                <span className="text-xs text-center break-words max-w-full group-hover:text-[var(--desktop-accent)] transition-colors">
+                  NarraFlow-x64.dmg
+                </span>
+                <span className="text-xs opacity-60">(Intel)</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 p-4 opacity-30">
+                <File size={48} />
+                <span className="text-xs text-center">x64 not available</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer note */}
+        <div className="pt-4 border-t border-[var(--desktop-window-border)] text-xs opacity-60">
           <p>
-            no iOS sync. no team features. no enterprise dashboards.
-          </p>
-          <p>
-            just simple, affordable speech-to-text for people who want exactly that.
-          </p>
-          <p className="text-[var(--desktop-accent)]">
-            $3/month. that's the goal - keep it simple, keep it cheap.
+            after downloading, double-click the .dmg file and drag NarraFlow to your Applications folder.
           </p>
         </div>
       </div>
@@ -1370,7 +1637,7 @@ export default function Desktop() {
 
 1. ACCEPTANCE OF TERMS
 
-By downloading, installing, or using Mic2Text ("the Software"), you agree to be bound by these Terms of Service.
+By downloading, installing, or using NarraFlow ("the Software"), you agree to be bound by these Terms of Service.
 
 2. LICENSE GRANT
 
@@ -1379,7 +1646,7 @@ We grant you a limited, non-exclusive, non-transferable license to use the Softw
 3. SUBSCRIPTION
 
 - Trial Period: 7 days free trial
-- Subscription Fee: $3/month per device
+- Subscription Fee: {FORMATTED_PRICE}/month per device
 - Billing: Automatic monthly renewal via Stripe
 - Cancellation: Cancel anytime through the app or customer portal
 
@@ -1421,7 +1688,7 @@ For questions about these terms, contact us through the app.`;
 
 1. INTRODUCTION
 
-This Privacy Policy explains how Mic2Text collects, uses, and protects your information.
+This Privacy Policy explains how NarraFlow collects, uses, and protects your information.
 
 2. INFORMATION WE COLLECT
 
@@ -1504,6 +1771,7 @@ For privacy questions, contact us through the app.`;
     form: <FormWindow />,
     trash: <TrashWindow />,
     legal: <LegalWindow />,
+    downloads: <DownloadsWindow />,
     'doc-terms': <DocumentWindow title="Terms of Service" content={termsContent} />,
     'doc-privacy': <DocumentWindow title="Privacy Policy" content={privacyContent} />,
   };
@@ -1594,13 +1862,13 @@ For privacy questions, contact us through the app.`;
           className="font-mono font-bold text-[var(--desktop-text)] opacity-5"
           style={{ fontSize: '12rem', letterSpacing: '-0.05em', lineHeight: '1', marginBottom: '8px' }}
         >
-          mic2text
+          narraflow
         </h1>
         <p
           className="font-mono text-[var(--desktop-text)] opacity-5"
           style={{ fontSize: '1.5rem', letterSpacing: '0.02em', lineHeight: '1' }}
         >
-          simple speech-to-text. with formatting. for $3/month.
+          simple speech-to-text. with formatting. for {FORMATTED_PRICE}/month.
         </p>
       </div>
 
@@ -1632,6 +1900,16 @@ For privacy questions, contact us through the app.`;
           name="legal"
           icon={<Folder size={48} />}
           initialPosition={{ x: 30, y: globalThis.window.innerHeight - 150 }}
+        />
+      )}
+
+      {/* Downloads Folder Icon (underneath showcase) */}
+      {mounted && (
+        <DesktopIcon
+          id="downloads"
+          name="downloads"
+          icon={<Download size={48} />}
+          initialPosition={{ x: 30, y: 510 }}
         />
       )}
 

@@ -28,14 +28,18 @@ const IPC_CHANNELS = {
   SET_DOCK_VISIBILITY: 'ipc:set-dock-visibility',
   GET_DOCK_VISIBILITY: 'ipc:get-dock-visibility',
   RESET_APP: 'ipc:reset-app',
-  // Auth & Subscription
-  AUTH_SIGNIN_GOOGLE: 'ipc:auth-signin-google',
-  AUTH_SIGNOUT: 'ipc:auth-signout',
-  AUTH_DELETE_ACCOUNT: 'ipc:auth-delete-account',
-  AUTH_GET_USER: 'ipc:auth-get-user',
-  SUBSCRIPTION_GET_STATUS: 'ipc:subscription-get-status',
-  SUBSCRIPTION_CREATE_CHECKOUT: 'ipc:subscription-create-checkout',
-  SUBSCRIPTION_OPEN_PORTAL: 'ipc:subscription-open-portal',
+  // Auth & Subscription (matching auth-handler.ts)
+  GET_AUTH_STATUS: 'GET_AUTH_STATUS',
+  START_OAUTH: 'START_OAUTH',
+  GET_LICENSES: 'GET_LICENSES',
+  ACTIVATE_LICENSE: 'ACTIVATE_LICENSE',
+  SIGN_OUT: 'SIGN_OUT',
+  DELETE_ACCOUNT: 'DELETE_ACCOUNT',
+  RENAME_MACHINE: 'RENAME_MACHINE',
+  GET_MACHINE_ID: 'GET_MACHINE_ID',
+  REVOKE_LICENSE: 'REVOKE_LICENSE',
+  AUTH_STATE_CHANGED: 'AUTH_STATE_CHANGED',
+  OPEN_EXTERNAL_URL: 'OPEN_EXTERNAL_URL',
 } as const;
 
 // Expose electron API to renderer
@@ -62,6 +66,20 @@ contextBridge.exposeInMainWorld('electron', {
     if (validChannels.includes(channel as any)) {
       return await ipcRenderer.invoke(channel, data);
     }
+  },
+
+  // Auto-updater methods
+  onUpdateAvailable: (callback: (info: any) => void) => {
+    ipcRenderer.on('update-available', (_event, info) => callback(info));
+  },
+  onUpdateDownloaded: (callback: (info: any) => void) => {
+    ipcRenderer.on('update-downloaded', (_event, info) => callback(info));
+  },
+  downloadUpdate: async () => {
+    return await ipcRenderer.invoke('download-update');
+  },
+  installUpdate: async () => {
+    return await ipcRenderer.invoke('install-update');
   },
 });
 

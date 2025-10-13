@@ -7,6 +7,8 @@
 process.env.ORT_LOGGING_LEVEL = 'error';
 
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { autoUpdater } from 'electron-updater';
+import log from 'electron-log';
 import path from 'path';
 import {
   setupIPCHandlers,
@@ -14,11 +16,19 @@ import {
   setOverlayWindow,
   getSavedPillConfig,
   getSavedHotkeyConfig,
+  applySavedDockVisibility,
 } from './ipc-handlers';
 import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { ensurePermissions } from './permissions';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
 import { appStore } from './AppStore';
+import { initAuthHandlers } from './auth-handler';
+
+// Configure auto-updater logging
+autoUpdater.logger = log;
+if (autoUpdater.logger && typeof autoUpdater.logger === 'object' && 'transports' in autoUpdater.logger) {
+  (autoUpdater.logger as any).transports.file.level = 'info';
+}
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
@@ -153,6 +163,61 @@ function createSettingsWindow(): void {
 }
 
 /**
+ * Setup auto-updater
+ * Checks for updates every 6 hours
+ */
+function setupAutoUpdater(): void {
+  // Don't check for updates in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[AutoUpdater] Skipping in development mode');
+    return;
+  }
+
+  // Check for updates on launch
+  autoUpdater.checkForUpdates();
+
+  // Check every 6 hours
+  setInterval(() => {
+    autoUpdater.checkForUpdates();
+  }, 1000 * 60 * 60 * 6); // 6 hours
+
+  // Event: Update available
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info);
+
+    // Notify settings window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  });
+
+  // Event: Update downloaded
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded:', info);
+
+    // Notify settings window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-downloaded', info);
+    }
+  });
+
+  // Event: Error
+  autoUpdater.on('error', (err) => {
+    log.error('Auto-updater error:', err);
+  });
+
+  // Event: Checking for update
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for updates...');
+  });
+
+  // Event: Update not available
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available:', info);
+  });
+}
+
+/**
  * Initialize app
  */
 async function initialize(): Promise<void> {
@@ -180,6 +245,12 @@ async function initialize(): Promise<void> {
   // Set overlay window reference for IPC forwarding
   setOverlayWindow(overlayWindow);
 
+  // Apply saved dock visibility setting
+  applySavedDockVisibility();
+
+  // Initialize auth handlers (pass settings window reference)
+  initAuthHandlers(mainWindow);
+
   // Initialize AppStore and validate license
   appStore.setWindow(overlayWindow);
   console.log('[Main] Validating license on startup...');
@@ -194,6 +265,9 @@ async function initialize(): Promise<void> {
   if (!shortcutSuccess) {
     console.error('Failed to register shortcuts');
   }
+
+  // Setup auto-updater
+  setupAutoUpdater();
 }
 
 /**
@@ -220,6 +294,29 @@ export function showSettings(): void {
     mainWindow.focus();
   }
 }
+
+/**
+ * IPC handlers for auto-updater
+ */
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    log.error('Failed to download update:', error);
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle('install-update', async () => {
+  try {
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  } catch (error) {
+    log.error('Failed to install update:', error);
+    return { success: false, error: String(error) };
+  }
+});
 
 /**
  * App lifecycle events

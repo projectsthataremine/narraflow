@@ -3,7 +3,7 @@
  * Handles communication between renderer and main process
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, shell } from 'electron';
 import { Worker } from 'worker_threads';
 import path from 'path';
 import type {
@@ -291,6 +291,12 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
           app.dock.hide();
           console.log('[Main] After dock.hide(), isVisible:', app.dock.isVisible());
         }
+
+        // Save to settings
+        if (settingsManager) {
+          settingsManager.setShowInDock(data.visible);
+        }
+
         return true;
       } catch (error) {
         console.error('[Main] Failed to set dock visibility:', error);
@@ -302,10 +308,12 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_DOCK_VISIBILITY, async () => {
-    const { app } = require('electron');
     if (process.platform === 'darwin') {
-      // Dock is visible by default, hidden if explicitly set
-      return app.dock.isVisible();
+      // Get from settings, default to true
+      if (settingsManager) {
+        return settingsManager.getShowInDock();
+      }
+      return true; // Default to visible
     }
     return false;
   });
@@ -459,6 +467,21 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       error: 'Stripe portal not implemented yet',
     };
   });
+
+  // Handle Open External URL
+  ipcMain.handle('OPEN_EXTERNAL_URL', async (event, data: { url: string }) => {
+    console.log('[Main] OPEN_EXTERNAL_URL called with:', data.url);
+    try {
+      await shell.openExternal(data.url);
+      return { success: true };
+    } catch (error) {
+      console.error('[Main] Failed to open external URL:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to open URL',
+      };
+    }
+  });
 }
 
 /**
@@ -503,6 +526,24 @@ export function getSavedHotkeyConfig(): import('./settings-manager').HotkeyConfi
     key: 'CapsLock',
     keycode: UiohookKey.CapsLock,
   };
+}
+
+/**
+ * Apply saved dock visibility setting on app startup
+ */
+export function applySavedDockVisibility(): void {
+  if (process.platform !== 'darwin') return;
+
+  const { app } = require('electron');
+  const showInDock = settingsManager ? settingsManager.getShowInDock() : true;
+
+  console.log('[Main] Applying saved dock visibility:', showInDock);
+
+  if (showInDock) {
+    app.dock.show();
+  } else {
+    app.dock.hide();
+  }
 }
 
 /**

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Logo from './Logo';
+import { FORMATTED_PRICE } from '@/lib/constants';
 
 export default function Hero() {
   const [showDetails, setShowDetails] = useState(false);
@@ -65,7 +66,7 @@ export default function Hero() {
               <div className="space-y-4 text-lg leading-relaxed mb-8">
                 <p>Press Shift+Option. Speak. That's it.</p>
                 <p>Works in every app.</p>
-                <p className="font-semibold">$3/month. 7-day free trial.</p>
+                <p className="font-semibold">{FORMATTED_PRICE}/month. 7-day free trial.</p>
               </div>
               <button
                 onClick={() => setShowDetails(false)}

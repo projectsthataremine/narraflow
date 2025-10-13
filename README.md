@@ -1,4 +1,4 @@
-# Mic2Text MVP
+# NarraFlow MVP
 
 Offline speech-to-text with hotkey activation for macOS.
 
@@ -104,7 +104,7 @@ To add real ML models:
 
 ### Two Windows
 
-Mic2Text uses two separate Electron windows:
+NarraFlow uses two separate Electron windows:
 
 1. **Home App** (Settings Window)
    - Configuration and settings interface
@@ -173,6 +173,33 @@ tests/
 - Transcription: <2s (Whisper Tiny on M1/M2)
 - Cleanup: <300ms (Phi-3 Mini)
 - End-to-end: <3s
+
+## Authentication & Licensing
+
+NarraFlow uses **Google OAuth** for authentication with **Stripe-managed subscriptions**:
+
+### User Flow:
+1. **Sign in with Google** (in app or on website)
+2. **Get 7-day free trial** automatically on first sign-in
+3. **Activate on machine** - click "Use on this machine" in Account tab
+4. **Subscribe after trial** - $3/month via Stripe Checkout
+
+### Key Features:
+- **No manual license keys** - OAuth-based activation
+- **Machine binding** - Each license works on one machine
+- **Machine names** - Auto-detected (e.g., "MacBook Pro (2024)")
+- **Rename machines** - Edit machine names for easier identification
+- **Online validation** - License checked on app launch
+
+### Implementation:
+- OAuth: `src/main/auth-handler.ts`
+- License validation: `src/main/AppStore.ts`
+- Machine detection: `src/main/machine-info.ts`
+- Account UI: `src/settings/settings.tsx`
+
+See `docs/AUTH_REDESIGN_IMPLEMENTATION.md` for full details.
+
+---
 
 ## License
 

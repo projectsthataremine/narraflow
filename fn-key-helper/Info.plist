@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mic2Text Fn Helper</string>
+	<string>NarraFlow Fn Helper</string>
 	<key>CFBundleExecutable</key>
-	<string>Mic2TextFnHelper</string>
+	<string>NarraFlowFnHelper</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.mic2text.fn-helper</string>
+	<string>com.narraflow.fn-helper</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Mic2Text Fn Helper</string>
+	<string>NarraFlow Fn Helper</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

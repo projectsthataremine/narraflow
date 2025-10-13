@@ -23,7 +23,7 @@ export default function DesktopIcon({
   const [isHovered, setIsHovered] = useState(false);
   const iconRef = useRef<HTMLDivElement>(null);
 
-  const iconSize = { width: 80, height: 100 };
+  const iconSize = { width: 100, height: 100 };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -48,14 +48,17 @@ export default function DesktopIcon({
     if (id === 'pricing') {
       windowHeight = 480;
     } else if (id === 'about') {
-      windowWidth = 620;
+      windowWidth = 660;
       windowHeight = 550;
     } else if (id === 'docs') {
-      windowWidth = 680;
+      windowWidth = 800;
       windowHeight = 550;
     } else if (id === 'account') {
       windowWidth = 730;
       windowHeight = 620;
+    } else if (id === 'downloads') {
+      windowWidth = 770;
+      windowHeight = 540;
     }
 
     // Center position
@@ -112,7 +115,7 @@ export default function DesktopIcon({
   return (
     <div
       ref={iconRef}
-      className={`absolute flex flex-col items-center gap-2 p-2 cursor-pointer select-none transition-colors ${
+      className={`absolute flex flex-col items-center gap-2 p-2 cursor-pointer select-none transition-colors rounded ${
         isHovered ? 'bg-[var(--desktop-accent)]/20' : ''
       }`}
       style={{

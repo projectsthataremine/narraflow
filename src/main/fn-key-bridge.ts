@@ -30,10 +30,10 @@ export class FnKeyBridge extends EventEmitter {
       this.helperPath = path.join(
         process.resourcesPath,
         'fn-key-helper',
-        'Mic2TextFnHelper.app',
+        'NarraFlowFnHelper.app',
         'Contents',
         'MacOS',
-        'Mic2TextFnHelper'
+        'NarraFlowFnHelper'
       );
     } else {
       // Development: use built helper
@@ -43,10 +43,10 @@ export class FnKeyBridge extends EventEmitter {
         '..',
         'fn-key-helper',
         'build',
-        'Mic2TextFnHelper.app',
+        'NarraFlowFnHelper.app',
         'Contents',
         'MacOS',
-        'Mic2TextFnHelper'
+        'NarraFlowFnHelper'
       );
     }
   }

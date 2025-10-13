@@ -200,12 +200,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Get machine_id from metadata (new location)
+    const licenseMachineId = license.metadata?.machine_id || license.machine_id;
+
     // First activation - bind to machine
-    if (!license.machine_id) {
+    if (!licenseMachineId) {
+      // Update metadata with machine info (not activated_at - that's a column)
+      const updatedMetadata = {
+        ...(license.metadata || {}),
+        machine_id,
+      };
+
       const { error: updateError } = await supabaseClient
         .from("licenses")
         .update({
-          machine_id,
+          metadata: updatedMetadata,
           activated_at: new Date().toISOString(),
           last_validated_at: new Date().toISOString(),
           status: 'active'
@@ -259,7 +268,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Already activated - check machine ID
-    if (license.machine_id !== machine_id) {
+    if (licenseMachineId !== machine_id) {
       await logEvent(supabaseClient, {
         function_name: 'validate_license',
         event_type: 'machine_mismatch',

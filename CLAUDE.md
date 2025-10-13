@@ -1,9 +1,9 @@
-# Mic2Text Development Guidelines
+# NarraFlow Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2025-10-04
+Auto-generated from all feature plans. Last updated: 2025-10-12
 
 ## Active Technologies
-- Node 20 with TypeScript in Electron 30 + `onnxruntime-node`, `node-record-lpcm16`, `@nut-tree/nut-js` or `robotjs` (001-feature-name-mic2text)
+- Node 20 with TypeScript in Electron 30 + `onnxruntime-node`, `node-record-lpcm16`, `@nut-tree/nut-js` or `robotjs`
 
 ## Project Structure
 ```
@@ -18,7 +18,8 @@ npm test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNO
 Node 20 with TypeScript in Electron 30: Follow standard conventions
 
 ## Recent Changes
-- 001-feature-name-mic2text: Added Node 20 with TypeScript in Electron 30 + `onnxruntime-node`, `node-record-lpcm16`, `@nut-tree/nut-js` or `robotjs`
+- 2025-10-12: Renamed project from Mic2Text to NarraFlow
+- Added Node 20 with TypeScript in Electron 30 + `onnxruntime-node`, `node-record-lpcm16`, `@nut-tree/nut-js` or `robotjs`
 
 <!-- MANUAL ADDITIONS START -->
 
