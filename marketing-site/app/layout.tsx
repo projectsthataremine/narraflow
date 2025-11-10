@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { FORMATTED_PRICE } from "@/lib/constants";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "NarraFlow - Voice typing that actually works",
-  description: `Press Shift+Option. Speak. That's it. Voice typing that works in every app. ${FORMATTED_PRICE}/month. 7-day free trial.`,
+  title: "NarraFlow - Simple speech-to-text for Mac ($5/month)",
+  description: "Professional dictation for Mac. Auto-formatting, works in any app, 100% local processing. 7-day free trial, no credit card required.",
 };
 
 export default function RootLayout({
@@ -13,8 +23,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className="scroll-smooth">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>

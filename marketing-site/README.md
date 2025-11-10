@@ -1,162 +1,36 @@
-# WisprFlow Marketing Site
-
-An interactive retro desktop-themed marketing site for WisprFlow voice-to-text transcription app.
-
-## Overview
-
-The marketing site is designed as a fully functional desktop OS interface where users can:
-- Double-click icons to open windows
-- Drag icons anywhere on screen
-- Drag, resize, and manage windows
-- Try a live demo of voice transcription
-- View pricing and sign up for accounts
-
-## Phase 1 Status: ✅ COMPLETE
-
-### Implemented Features
-
-#### Core Desktop UI
-- ✅ Desktop layout with retro background
-- ✅ Draggable desktop icons (freely positionable, bounded to viewport)
-- ✅ Double-click icons to open windows
-- ✅ Taskbar with live clock, animated battery, animated network indicator
-
-#### Window System
-- ✅ Fully draggable windows (drag title bar)
-- ✅ Resizable windows (8 resize handles: corners + edges)
-- ✅ Close button (X)
-- ✅ Double-click title bar to toggle fullscreen
-- ✅ Multiple windows can be open
-- ✅ Z-index management (click to bring to front)
-- ✅ Boundary checking (windows stay on screen)
-- ✅ Custom scrollbar styling
-
-#### Theme System
-- ✅ 4 color schemes implemented via CSS variables
-  - **Option A**: Pastel Terminal (soft blue/pink)
-  - **Option B**: Muted Earth Tones (sage green/beige) - DEFAULT
-  - **Option C**: Terminal Green (matrix green/black)
-  - **Option D**: Warm Retro (coral pink/soft yellow)
-- ✅ Easily swappable via `data-theme` attribute
-
-#### Desktop Icons
-- 📓 **demo** - Interactive transcription demo (stub)
-- 💰 **pricing** - Pricing tiers (stub)
-- 🔐 **account** - Login/register (stub)
-- 📚 **docs** - Documentation (stub)
-- 🏆 **showcase** - Use cases (stub)
-- ℹ️ **about** - Features (stub)
-- 🗑️ **trash** - Decorative (bottom right)
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
+First, run the development server:
+
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Project Structure
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-```
-marketing-site/
-├── app/
-│   ├── page.tsx              # Main desktop page
-│   ├── layout.tsx            # Root layout
-│   └── globals.css           # Theme system & styles
-├── components/
-│   └── desktop/
-│       ├── Desktop.tsx       # Main desktop layout
-│       ├── DesktopIcon.tsx   # Draggable desktop icons
-│       ├── Window.tsx        # Draggable/resizable windows
-│       └── Taskbar.tsx       # Bottom taskbar with clock, battery, network
-└── stores/
-    └── windowStore.ts        # Zustand state management
-```
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Technical Details
+## Learn More
 
-**Mouse Event Handling:**
-- Uses document-level mouse events (not element-level) for reliable drag/resize
-- Prevents mouse cursor leaving element during drag
-- Proper cleanup with useEffect
+To learn more about Next.js, take a look at the following resources:
 
-**Performance:**
-- Uses `transform: translate()` instead of `top/left` for better performance
-- Boundary checking on every frame
-- Smooth 60fps animations
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-**State Management:**
-- Zustand store for window positions, sizes, z-indices
-- Individual icon positions managed locally
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Theme Customization
+## Deploy on Vercel
 
-To change the theme, add the `data-theme` attribute to the root element:
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-```typescript
-// In layout.tsx or Desktop.tsx
-<div data-theme="terminal-green">
-  {/* Desktop content */}
-</div>
-```
-
-Available themes:
-- (default) - Muted Earth Tones
-- `pastel-terminal` - Soft Pastel Terminal
-- `terminal-green` - Classic Terminal Green
-- `warm-retro` - Warm Retro Computing
-
-## Development
-
-### Prerequisites
-- Node 20+
-- npm
-
-### Setup
-```bash
-cd marketing-site
-npm install
-npm run dev
-```
-
-The site will be available at `http://localhost:3000`
-
-### Available Scripts
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-
-## Next Steps (Phase 2)
-
-### Demo Window Implementation
-- [ ] Port Fn key detection from WisprFlow
-- [ ] Port audio recording logic
-- [ ] Integrate Whisper transcription (browser-based)
-- [ ] Add dot visualization
-- [ ] Implement rate limiting (3s cooldown, 20 max uses)
-- [ ] Device detection for edge function fallback
-
-### Expected Timeline
-- Phase 2: 3-4 hours (Demo window)
-- Phase 3: 4-5 hours (Marketing windows: Pricing, Account, About)
-- Phase 4: 2-3 hours (Docs, Showcase, custom icons, polish)
-
-## Design Reference
-
-Design inspiration: `/design/marketing_design.png`
-Design document: `/docs/MARKETING_SITE_DESIGN.md`
-
-## Browser Support
-
-Tested on:
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest)
-
-Mobile: Shows "Coming Soon" message (desktop-only experience)
-
-## License
-
-Proprietary - WisprFlow
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

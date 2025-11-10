@@ -1,0 +1,10 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Just the bars for favicon (no text, too small to read) -->
+  <rect x="4" y="14" width="2" height="4" rx="1" fill="#2563EB"/>
+  <rect x="8" y="11" width="2" height="10" rx="1" fill="#2563EB"/>
+  <rect x="12" y="8" width="2" height="16" rx="1" fill="#2563EB"/>
+  <rect x="16" y="5" width="2" height="22" rx="1" fill="#2563EB"/>
+  <rect x="20" y="8" width="2" height="16" rx="1" fill="#2563EB"/>
+  <rect x="24" y="11" width="2" height="10" rx="1" fill="#2563EB"/>
+  <rect x="28" y="14" width="2" height="4" rx="1" fill="#2563EB"/>
+</svg>

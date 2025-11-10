@@ -1,0 +1,3 @@
+# Disable JWT verification for Stripe webhooks
+# Stripe authenticates via webhook signature instead
+verify_jwt = false

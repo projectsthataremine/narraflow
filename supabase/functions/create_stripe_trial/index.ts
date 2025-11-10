@@ -16,7 +16,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@14.10.0';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY_PROD') ?? '', {
   apiVersion: '2023-10-16',
   httpClient: Stripe.createFetchHttpClient(),
 });
@@ -61,16 +61,52 @@ Deno.serve(async (req) => {
     // Check if user already has an active trial or subscription
     const { data: existingLicenses } = await supabaseClient
       .from('licenses')
-      .select('stripe_subscription_id, status')
+      .select('id, stripe_subscription_id, status, expires_at')
       .eq('user_id', user.id)
       .in('status', ['pending', 'active'])
       .limit(1);
 
     if (existingLicenses && existingLicenses.length > 0) {
+      const existingLicense = existingLicenses[0];
+
+      // If license exists but expires_at is null, we need to fix it
+      if (existingLicense.expires_at === null && existingLicense.stripe_subscription_id) {
+        console.log('Found existing license without expiration date, fetching from Stripe...');
+
+        try {
+          const stripeSubscription = await stripe.subscriptions.retrieve(existingLicense.stripe_subscription_id);
+
+          if (stripeSubscription.trial_end) {
+            const trialEndDate = new Date(stripeSubscription.trial_end * 1000);
+
+            // Update the license with the correct expiration date
+            await supabaseClient
+              .from('licenses')
+              .update({ expires_at: trialEndDate.toISOString() })
+              .eq('id', existingLicense.id);
+
+            console.log('Updated existing license with expiration date:', trialEndDate.toISOString());
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                subscription_id: existingLicense.stripe_subscription_id,
+                trial_end: stripeSubscription.trial_end,
+                status: stripeSubscription.status,
+                updated: true
+              }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch (stripeError) {
+          console.error('Failed to fetch Stripe subscription:', stripeError);
+        }
+      }
+
       return new Response(
         JSON.stringify({
           error: 'User already has an active trial or subscription',
-          subscription_id: existingLicenses[0].stripe_subscription_id
+          subscription_id: existingLicense.stripe_subscription_id
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -100,10 +136,10 @@ Deno.serve(async (req) => {
       console.log('Created new Stripe customer:', customerId);
     }
 
-    // Get price ID from environment
-    const priceId = Deno.env.get('STRIPE_PRICE_ID');
+    // Get price ID from environment (use monthly for trials)
+    const priceId = Deno.env.get('STRIPE_PRICE_ID_MONTHLY_PROD');
     if (!priceId) {
-      throw new Error('STRIPE_PRICE_ID environment variable not set');
+      throw new Error('STRIPE_PRICE_ID_MONTHLY_PROD environment variable not set');
     }
 
     // Create subscription with 7-day trial
@@ -122,6 +158,25 @@ Deno.serve(async (req) => {
     });
 
     console.log('Created subscription with trial:', subscription.id);
+
+    // Create license record with trial expiration date
+    const trialEndDate = new Date(subscription.trial_end! * 1000); // Convert Unix timestamp to Date
+
+    const { error: licenseError } = await supabaseClient
+      .from('licenses')
+      .insert({
+        user_id: user.id,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscription.id,
+        status: 'pending',
+        expires_at: trialEndDate.toISOString(),
+      });
+
+    if (licenseError) {
+      console.error('Failed to create license record:', licenseError);
+      // Don't fail the request, just log the error
+      // The webhook will handle license creation if this fails
+    }
 
     // Return subscription info
     return new Response(

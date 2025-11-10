@@ -1,326 +1,304 @@
-# Supabase Configuration Guide
+# Supabase Setup Guide for Clipp
 
-**Project ID:** `buqkvxtxjwyohzsogfbz`
-**Project URL:** `https://buqkvxtxjwyohzsogfbz.supabase.co`
-
-**Last Updated:** 2025-10-11
-
-**Status:** ✅ API Keys Created
-
-This document explains how to configure Supabase API keys for Mic2Text using the **new API key system** (recommended as of 2025).
+## Project Information
+- **Project ID**: `jijhacdgtccfftlangjq`
+- **Project URL**: `https://jijhacdgtccfftlangjq.supabase.co`
+- **Anon Key**: Already configured in `.env` files
 
 ---
 
-## ✅ Your Configuration
+## Database Tables
 
-**Publishable Key:** `sb_publishable_Sv-CJRRoKcvmhTyXuD9j6Q_8HXoZt0K`
-**Secret Key:** `sb_secret_4cq3MdbcoyxxsCUHuf_hTw_yXL-hFPq`
+### `licenses` Table
 
-These keys have been added to:
-- ✅ `marketing-site/.env.local` (Next.js)
-- ✅ `src/main/constants.ts` (Electron)
+Stores all license keys and subscription information for users.
 
-**Next Steps:** Continue with Phase 1 of payment integration (generate Ed25519 keys).
+```sql
+CREATE TABLE licenses (
+  id BIGSERIAL PRIMARY KEY,
+
+  -- License key (UUID format)
+  key TEXT NOT NULL UNIQUE,
+
+  -- Stripe integration
+  stripe_session_id TEXT UNIQUE,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  stripe_subscription_status TEXT,
+
+  -- User information
+  user_id UUID REFERENCES auth.users(id),
+  customer_email TEXT NOT NULL,
+
+  -- License status
+  status license_status NOT NULL DEFAULT 'active',
+  -- Enum values: 'pending', 'active', 'canceled', 'expired'
+
+  -- Machine binding (stored in metadata JSONB)
+  metadata JSONB DEFAULT '{}',
+  -- metadata.machine_id: Machine identifier
+  -- metadata.machine_name: User-friendly machine name
+  -- metadata.machine_os: Operating system
+
+  -- Timestamps
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  activated_at TIMESTAMPTZ,    -- When license was first activated on a machine
+  expires_at TIMESTAMPTZ,       -- Only set when status='canceled' (end of paid period)
+  renews_at TIMESTAMPTZ,        -- Billing period end from Stripe (never cleared)
+  canceled_at TIMESTAMPTZ       -- When subscription was canceled
+);
+
+-- RLS enabled
+ALTER TABLE licenses ENABLE ROW LEVEL SECURITY;
+```
+
+**Key Points:**
+- `expires_at` only set when subscription is canceled
+- `renews_at` always represents the billing period end, never cleared
+- Machine info stored in `metadata` JSONB, not separate columns
+- Status transitions: `pending` → `active` → `canceled` → `expired`
 
 ---
 
-## 🔑 API Key System (2025)
+### `edge_function_logs` Table
 
-Supabase is transitioning from legacy JWT-based keys to a new system. Since you're starting fresh, **use the new keys from the beginning**.
+Logs all edge function calls for debugging and monitoring.
 
-### Key Types
+```sql
+CREATE TABLE edge_function_logs (
+  id BIGSERIAL PRIMARY KEY,
 
-#### 1. Publishable Key (`sb_publishable_...`)
+  -- Function identification
+  function_name TEXT NOT NULL,
+  event_type TEXT NOT NULL,
 
-**Purpose:** Client-side applications
-- ✅ Safe to expose in code, GitHub, apps
-- ✅ Respects Row Level Security (RLS)
-- ✅ Low privileges
+  -- Related entities
+  license_key TEXT,
+  machine_id TEXT,
+  stripe_session_id TEXT,
 
-**Use in:**
-- Electron app (client-side)
-- Next.js frontend pages
-- Mobile/desktop apps
-- CLIs
+  -- Request/response data
+  request_data JSONB,
+  response_data JSONB,
+  error_message TEXT,
 
-#### 2. Secret Key (`sb_secret_...`)
+  -- Metadata
+  ip_address TEXT,
+  user_agent TEXT,
+  duration_ms INTEGER,
+  success BOOLEAN NOT NULL,
 
-**Purpose:** Backend/server-side only
-- ❌ NEVER expose publicly
-- ⚠️ Bypasses Row Level Security
-- ⚠️ Full data access
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-**Use in:**
-- Supabase Edge Functions
-- Next.js API routes (webhooks)
-- Backend servers
-- Admin tools
+-- RLS enabled
+ALTER TABLE edge_function_logs ENABLE ROW LEVEL SECURITY;
+```
+
+**Purpose:** Track all edge function calls for debugging subscription webhooks, license validation, and activation.
 
 ---
 
-## 🛠️ Setup Instructions
+### `contact_submissions` Table
 
-### Step 1: Create API Keys in Supabase Dashboard
+Stores user feedback submitted from the Electron app.
 
-1. Go to: https://supabase.com/dashboard/project/buqkvxtxjwyohzsogfbz/settings/api
-2. Click **"Create API Key"** under the new "API Keys" section
-3. Create two keys:
-   - **Publishable key** (for client-side)
-   - **Secret key** (for backend)
+```sql
+CREATE TABLE contact_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-### Step 2: Store Keys in Environment Variables
+  -- Submission type
+  type TEXT NOT NULL CHECK (
+    type IN ('bug', 'testimonial', 'feature', 'feedback', 'help', 'other')
+  ),
 
-#### For Next.js (marketing-site/.env.local)
+  -- Content
+  message TEXT NOT NULL,
+
+  -- Additional data (email, user info, etc.)
+  metadata JSONB DEFAULT '{}',
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS enabled
+ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
+```
+
+**Purpose:** Collect user feedback, bug reports, and feature requests from within the app.
+
+---
+
+### `config` Table
+
+Stores application configuration (pricing, trial duration, etc.).
+
+```sql
+CREATE TABLE config (
+  id BIGSERIAL PRIMARY KEY,
+
+  -- Config key (unique identifier)
+  key TEXT NOT NULL UNIQUE,
+
+  -- Config value (flexible JSONB)
+  value JSONB NOT NULL,
+
+  -- Description for documentation
+  description TEXT,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS enabled
+ALTER TABLE config ENABLE ROW LEVEL SECURITY;
+```
+
+**Current Config Values:**
+- `pricing`: `{ "monthly_price": 2, "annual_price": 18 }`
+- `trial_duration_days`: `{ "days": 7 }`
+- `app_version`: `{ "version": "1.0.0" }`
+- `breaking_version`: `{ "version": "1.0.0" }`
+
+---
+
+## Setup Steps
+
+### 1. Database Migrations
+
+All migrations are in `/supabase/migrations/`. To apply them:
 
 ```bash
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://buqkvxtxjwyohzsogfbz.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+# From project root
+cd /Users/joshuaarnold/Dev/clipp
 
-# Backend only (NEVER use NEXT_PUBLIC_ prefix for secrets!)
-SUPABASE_SECRET_KEY=sb_secret_...
-SUPABASE_PROJECT_ID=buqkvxtxjwyohzsogfbz
+# Link to your Supabase project
+npx supabase link --project-ref jijhacdgtccfftlangjq
 
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-
-# Edge Functions
-EDGE_FUNCTION_SECRET=abc123...
-
-# Email
-RESEND_API_KEY=re_...
+# Apply all migrations
+npx supabase db push
 ```
 
-#### For Electron App (src/main/constants.ts)
+**Or manually via Supabase Dashboard:**
+1. Go to https://supabase.com/dashboard/project/jijhacdgtccfftlangjq/editor
+2. Open SQL Editor
+3. Run each migration file in order
 
-```typescript
-// Supabase Configuration
-export const SUPABASE_URL = 'https://buqkvxtxjwyohzsogfbz.supabase.co';
-export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_...'; // Safe to hardcode
+---
 
-// License validation
-export const PUBLIC_LICENSE_KEY = 'MCowBQYDK2VwAyEA...'; // From key generation
-export const EDGE_FUNCTION_SECRET = 'abc123...';
-```
+### 2. Configure Edge Function Environment Variables
 
-#### For Supabase Edge Functions (Secrets)
+See `EDGE_FUNCTIONS.md` for the complete list of environment variables and how to set them.
+
+**Quick reference:**
 
 ```bash
-# Set these via Supabase CLI
-supabase secrets set SUPABASE_URL=https://buqkvxtxjwyohzsogfbz.supabase.co
-supabase secrets set SUPABASE_SECRET_KEY=sb_secret_...
-supabase secrets set EDGE_FUNCTION_SECRET=abc123...
-supabase secrets set STRIPE_SECRET_KEY=sk_test_...
-supabase secrets set LICENSE_PRIVATE_KEY=MC4CAQAwBQYDK2VwBCIEI...
-supabase secrets set SITE_URL=https://yoursite.com
-```
+# Stripe (Production)
+STRIPE_SECRET_KEY_PROD
+STRIPE_PRICE_ID_PROD
+STRIPE_WEBHOOK_SECRET_PROD
 
-### Step 3: Update Code to Use New Keys
+# Stripe (Sandbox/Test Mode)
+STRIPE_SECRET_KEY_SANDBOX
+STRIPE_PRICE_ID_SANDBOX
+STRIPE_WEBHOOK_SECRET_SANDBOX
 
-#### Next.js Client (Frontend)
+# Licensing (shared between dev and prod)
+LICENSE_PRIVATE_KEY
+LICENSE_PUBLIC_KEY
+EDGE_FUNCTION_SECRET
 
-```typescript
-// lib/supabase/client.ts
-import { createClient } from '@supabase/supabase-js';
-
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
-```
-
-#### Next.js Server (API Routes/Webhooks)
-
-```typescript
-// lib/supabase/server.ts
-import { createClient } from '@supabase/supabase-js';
-
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!, // Backend only!
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  }
-);
-```
-
-#### Electron App
-
-```typescript
-// src/main/supabase.ts
-import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './constants';
-
-export const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY
-);
-```
-
-#### Edge Functions
-
-```typescript
-// supabase/functions/_shared/supabase.ts
-import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseKey = Deno.env.get('SUPABASE_SECRET_KEY')!;
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
+# Supabase (auto-provided)
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
 ```
 
 ---
 
-## 🔒 Security Best Practices
-
-### ✅ DO:
-
-- **Use publishable keys in client-side code** (Electron, frontend)
-- **Use secret keys only in secure backends** (API routes, Edge Functions)
-- **Enable Row Level Security (RLS) on all tables**
-- **Store secret keys in environment variables**
-- **Use `.env.local` for local development** (add to `.gitignore`)
-- **Use Supabase secrets for Edge Functions**
-
-### ❌ DON'T:
-
-- ❌ **Never commit secret keys to Git**
-- ❌ **Never use secret keys in browser/client-side code**
-- ❌ **Never hardcode secret keys in source code**
-- ❌ **Never use `NEXT_PUBLIC_` prefix for secret keys**
-- ❌ **Never disable RLS without a very good reason**
-
----
-
-## 🧪 Testing Your Setup
-
-### Test Publishable Key (Client-Side)
-
-```typescript
-import { supabase } from './lib/supabase/client';
-
-// This should work with publishable key (respects RLS)
-const { data, error } = await supabase
-  .from('licenses')
-  .select('*')
-  .eq('key', '12345');
-
-console.log('Client query result:', data);
-```
-
-### Test Secret Key (Server-Side)
-
-```typescript
-import { supabaseAdmin } from './lib/supabase/server';
-
-// This should work with secret key (bypasses RLS)
-const { data, error } = await supabaseAdmin
-  .from('licenses')
-  .select('*');
-
-console.log('Admin query result:', data);
-```
-
-### Verify Keys are Correct Type
+### 3. Deploy Edge Functions
 
 ```bash
-# Publishable key should start with:
-sb_publishable_...
+# Deploy all functions
+npx supabase functions deploy
 
-# Secret key should start with:
-sb_secret_...
-
-# If yours start with "eyJ..." they're legacy JWT keys
-# (still work, but migrate when possible)
+# Or deploy specific functions:
+npx supabase functions deploy stripe-webhook
+npx supabase functions deploy stripe-webhook-dev
+npx supabase functions deploy create-checkout-session
+npx supabase functions deploy create-checkout-session-dev
+npx supabase functions deploy create-customer-portal
+npx supabase functions deploy create-customer-portal-dev
+npx supabase functions deploy validate_license
+npx supabase functions deploy validate_license-dev
+npx supabase functions deploy assign_license_to_machine
+npx supabase functions deploy assign_license_to_machine-dev
+npx supabase functions deploy revoke_license_from_machine
+npx supabase functions deploy revoke_license_from_machine-dev
+npx supabase functions deploy activate_license
+npx supabase functions deploy create_stripe_trial
+npx supabase functions deploy create_stripe_trial-dev
 ```
 
 ---
 
-## 🔄 Migration from Legacy Keys (If Needed)
+### 4. Verify Setup
 
-If you started with legacy keys (`anon`, `service_role`), here's how to migrate:
+```sql
+-- Check tables exist
+SELECT table_name,
+       row_security
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY table_name;
 
-### 1. Create New Keys
-- Go to Supabase dashboard → API Keys
-- Create publishable and secret keys
+-- Should show:
+-- config (rls: on)
+-- contact_submissions (rls: on)
+-- edge_function_logs (rls: on)
+-- licenses (rls: on)
 
-### 2. Update Environment Variables
-- Replace `SUPABASE_ANON_KEY` → `SUPABASE_PUBLISHABLE_KEY`
-- Replace `SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SECRET_KEY`
+-- Check config values
+SELECT key, value, description
+FROM config
+ORDER BY key;
 
-### 3. Update Code
-- No changes needed! `createClient()` API is the same
-- Just pass the new key values
-
-### 4. Test Thoroughly
-- Verify client-side queries work
-- Verify backend operations work
-- Check Edge Functions still work
-
-### 5. Delete Legacy Keys (Optional)
-- After migration is complete and tested
-- Remove old keys from dashboard
+-- Check license enum
+SELECT enumlabel
+FROM pg_enum
+JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+WHERE pg_type.typname = 'license_status';
+```
 
 ---
 
-## 📋 Quick Reference
+## Troubleshooting
 
-### Project Info
+### Check Migration Status
+
+```bash
+npx supabase migration list
 ```
-Project ID:    buqkvxtxjwyohzsogfbz
-Project URL:   https://buqkvxtxjwyohzsogfbz.supabase.co
-API Endpoint:  https://buqkvxtxjwyohzsogfbz.supabase.co/rest/v1
+
+### View Edge Function Logs
+
+```bash
+npx supabase functions logs stripe-webhook-dev
+npx supabase functions logs stripe-webhook
 ```
-
-### Key Locations
-
-| Key | Location | Environment Variable |
-|-----|----------|---------------------|
-| **Publishable** | Client-side | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-| **Secret** | Server-side | `SUPABASE_SECRET_KEY` |
-| **URL** | Everywhere | `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` |
 
 ### Common Issues
 
-**Issue:** "401 Unauthorized" when using secret key in browser
-**Solution:** Secret keys don't work in browsers. Use publishable key instead.
-
-**Issue:** "Row Level Security policy violation"
-**Solution:** Ensure RLS policies are set up correctly, or use secret key in backend.
-
-**Issue:** Edge Functions can't access data
-**Solution:** Check that `SUPABASE_SECRET_KEY` is set in Supabase secrets.
+1. **Migration conflicts**: Run migrations in order, check `supabase/migrations/` directory
+2. **Edge function 401 errors**: Check JWT verification settings in `supabase/config.toml`
+3. **Stripe webhook failures**: Verify `verify_jwt = false` for webhook functions
+4. **License activation fails**: Check `EDGE_FUNCTION_SECRET` matches between Supabase and Electron app
 
 ---
 
-## 📚 Resources
+## Resources
 
-- **API Keys Docs:** https://supabase.com/docs/guides/api/api-keys
-- **Row Level Security:** https://supabase.com/docs/guides/database/postgres/row-level-security
-- **Edge Functions:** https://supabase.com/docs/guides/functions
-- **Migration Discussion:** https://github.com/orgs/supabase/discussions/29260
-
----
-
-## ✅ Next Steps
-
-After setting up keys:
-
-1. [ ] Create publishable key in Supabase dashboard
-2. [ ] Create secret key in Supabase dashboard
-3. [ ] Add keys to `.env.local` (Next.js)
-4. [ ] Add keys to `constants.ts` (Electron)
-5. [ ] Set secrets for Edge Functions
-6. [ ] Test client-side queries
-7. [ ] Test server-side queries
-8. [ ] Verify Edge Functions work
-9. [ ] Continue with Phase 1 of payment integration
-
----
-
-**Remember:** This is a fresh start, so use the **new key system** from the beginning. You're future-proofed! 🚀
+- [Supabase Dashboard](https://supabase.com/dashboard/project/jijhacdgtccfftlangjq)
+- [Edge Functions Documentation](EDGE_FUNCTIONS.md)
+- [Licensing Documentation](LICENSING.md)
+- [Supabase Docs](https://supabase.com/docs)

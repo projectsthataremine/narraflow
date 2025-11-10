@@ -11,6 +11,10 @@ release/
 # Environment
 .env
 .env.local
+.env.secrets
+
+# Supabase
+supabase/.temp/
 
 # IDE
 .vscode/

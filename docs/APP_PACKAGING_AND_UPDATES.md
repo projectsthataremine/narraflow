@@ -1,71 +1,114 @@
-# NarraFlow: App Packaging & Auto-Updates
+# App Packaging, Distribution, and Auto-Updates Guide
 
-**Last Updated**: 2025-10-12
-
-This document describes the complete architecture for packaging and distributing NarraFlow, including auto-update functionality. This implementation follows the proven pattern from Clipp (copy-paste-app).
-
----
+This document describes the complete packaging, distribution, and automatic update system for this Electron application. It covers electron-builder configuration, GitHub Releases integration, and the electron-updater implementation.
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Architecture Support](#architecture-support)
-3. [Packaging Configuration](#packaging-configuration)
-4. [Build & Publish Scripts](#build--publish-scripts)
-5. [Auto-Update System](#auto-update-system)
-6. [GitHub Releases Distribution](#github-releases-distribution)
-7. [Marketing Site Downloads Window](#marketing-site-downloads-window)
-8. [Settings Window Update UI](#settings-window-update-ui)
-9. [Publishing Workflow](#publishing-workflow)
+1. [System Overview](#system-overview)
+2. [Architecture](#architecture)
+3. [Electron Builder Configuration](#electron-builder-configuration)
+4. [Build Process](#build-process)
+5. [Publishing to GitHub Releases](#publishing-to-github-releases)
+6. [Auto-Update System](#auto-update-system)
+7. [Native Binary Compilation](#native-binary-compilation)
+8. [Development vs Production](#development-vs-production)
+9. [Implementation Steps](#implementation-steps)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Overview
+## System Overview
 
-NarraFlow uses:
-- **electron-builder** for packaging DMG files
-- **electron-updater** for auto-update functionality
-- **GitHub Releases** for distribution
-- **Ad-hoc code signing** for macOS apps (development)
-- **Separate builds** for Intel (x64) and Apple Silicon (arm64)
+This application uses:
 
-### Why This Approach?
+- **electron-builder** - Package and build the app for multiple architectures
+- **GitHub Releases** - Host and distribute app binaries
+- **electron-updater** - Automatic update checking and installation
+- **Supabase Edge Function** - API endpoint to fetch latest release info
 
-- **Simple**: No complex CI/CD pipeline needed
-- **Proven**: Same pattern used successfully in Clipp
-- **Cost-effective**: GitHub Releases are free
-- **User-friendly**: Auto-update keeps users on latest version
+### Key Features
 
----
-
-## Architecture Support
-
-### Target Architectures
-
-NarraFlow builds TWO separate DMG files:
-
-1. **arm64** - Apple Silicon (M1, M2, M3, M4)
-2. **x64** - Intel processors
-
-### Why Not Universal Binary?
-
-- **File size**: Universal binaries are 2x larger
-- **Complexity**: Separate builds are simpler to manage
-- **Optimization**: Each build is optimized for its architecture
-- **User clarity**: Users download the right version for their Mac
-
-### Minimum macOS Version
-
-- **macOS Big Sur 11.0** or later (released November 2020)
-- Both Intel and Apple Silicon Macs from this era are supported
+- Multi-architecture support (ARM64 and x64 for macOS)
+- Automatic updates via GitHub Releases
+- Code signing with self-signed certificates
+- Native binary embedding (Swift-based clipboard utility)
+- Separate builds for each architecture
+- Frontend (Vite/React) bundled with Electron
 
 ---
 
-## Packaging Configuration
+## Architecture
 
-### electron-builder.config.js
+### Build and Distribution Flow
 
-Located at project root: `/electron-builder.config.js`
+```
+┌─────────────────────┐
+│  Developer Machine  │
+│  • Build frontend   │
+│  • Compile natives  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  electron-builder   │
+│  • Package app      │
+│  • Sign binaries    │
+│  • Create DMG/ZIP   │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  GitHub Releases    │
+│  • Host binaries    │
+│  • Version tags     │
+│  • Release notes    │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Electron App       │
+│  (electron-updater) │
+│  • Check for update │
+│  • Download & apply │
+└─────────────────────┘
+```
+
+### Update Check Flow
+
+```
+┌──────────────────┐
+│  Electron App    │
+│  Checks for      │
+│  updates every   │
+│  30 minutes      │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────────────────────┐
+│  electron-updater                │
+│  • Queries GitHub Releases API   │
+│  • Compares versions             │
+└────────┬─────────────────────────┘
+         │
+         ▼
+     New version?
+         │
+    ┌────┴────┐
+    │   YES   │   NO
+    ▼         │
+Download      │
+DMG/ZIP       │
+    │         │
+    ▼         ▼
+Notify    Continue
+User      running
+```
+
+---
+
+## Electron Builder Configuration
+
+### File: `electron/electron-builder.config.js`
 
 ```javascript
 const path = require("path");
@@ -74,84 +117,288 @@ const { execSync } = require("child_process");
 const arch = process.env.ARCH;
 
 module.exports = {
-  appId: "com.narraflow.app",
-  productName: "NarraFlow",
+  appId: "com.yourdomain.clipp",
+  productName: "Clipp",
   mac: {
     icon: "build/icons/icon.icns",
     gatekeeperAssess: false,
-    minimumSystemVersion: "11.0.0",
-    category: "public.app-category.productivity",
   },
-  // Ad-hoc code signing after build
+  // Code signing after build
   afterSign: async (context) => {
     const appPath = context.appOutDir;
     const appName = context.packager.appInfo.productFilename;
     const fullAppPath = path.join(appPath, `${appName}.app`);
 
-    console.log(`Signing app at: ${fullAppPath}`);
+    // Self-sign to avoid Gatekeeper issues
     execSync(`codesign --deep --force --sign - "${fullAppPath}"`);
   },
-  files: [
-    "dist/main/**/*",
-    "dist/renderer/**/*",
-    "dist/fn-key-helper/**/*",
-    "package.json"
-  ],
+  // Files to include in the app bundle
+  files: ["backend/**", "frontend/dist/**/*", "package.json"],
+  // Files that should NOT be packed into asar archive
+  asarUnpack: ["**/get_clipboard_image.*"],
+  // Extra files to copy into the app
   extraFiles: [
     {
-      from: `dist/fn-key-helper/build/NarraFlowFnHelper.app`,
-      to: `NarraFlowFnHelper.app`,
-      filter: ["**/*"]
-    }
+      from: `backend/native/get_clipboard_image.${arch}`,
+      to: `get_clipboard_image.${arch}`,
+    },
   ],
+  // GitHub Releases configuration
   publish: [
     {
       provider: "github",
-      owner: "projectsthataremine",
-      repo: "narraflow",
+      owner: "joshmarnold",
+      repo: "clipp",
     },
   ],
 };
 ```
 
-### Key Configuration Details
+### Configuration Breakdown
 
-- **appId**: `com.narraflow.app` - unique bundle identifier
-- **productName**: `NarraFlow` - displayed name in macOS
-- **icon**: Located at `build/icons/icon.icns` (1024x1024 source)
-- **afterSign**: Ad-hoc signing with `codesign --deep --force --sign -`
-- **extraFiles**: Includes Fn key helper app
-- **publish**: GitHub releases for `projectsthataremine/narraflow`
+#### 1. App Identity
+
+```javascript
+appId: "com.yourdomain.clipp",
+productName: "Clipp",
+```
+
+- **appId**: Unique bundle identifier for macOS
+- **productName**: Display name of the application
+
+#### 2. macOS Settings
+
+```javascript
+mac: {
+  icon: "build/icons/icon.icns",
+  gatekeeperAssess: false,
+}
+```
+
+- **icon**: Path to .icns icon file
+- **gatekeeperAssess**: Disable Gatekeeper assessment (useful for development)
+
+#### 3. Code Signing Hook
+
+```javascript
+afterSign: async (context) => {
+  const fullAppPath = path.join(appPath, `${appName}.app`);
+  execSync(`codesign --deep --force --sign - "${fullAppPath}"`);
+}
+```
+
+- Runs after the app is built
+- Self-signs with ad-hoc signature (`-`)
+- Prevents Gatekeeper warnings on first launch
+- For production, use a real Apple Developer certificate
+
+#### 4. File Inclusion
+
+```javascript
+files: ["backend/**", "frontend/dist/**/*", "package.json"],
+```
+
+Includes:
+- All backend JavaScript files
+- Built frontend (from Vite)
+- package.json for dependencies
+
+#### 5. ASAR Unpacking
+
+```javascript
+asarUnpack: ["**/get_clipboard_image.*"],
+```
+
+- electron-builder packs files into `app.asar` by default
+- Some files (like native binaries) need to be unpacked
+- This keeps the Swift binary accessible at runtime
+
+#### 6. Extra Files
+
+```javascript
+extraFiles: [
+  {
+    from: `backend/native/get_clipboard_image.${arch}`,
+    to: `get_clipboard_image.${arch}`,
+  },
+]
+```
+
+- Copies native binaries based on architecture
+- `ARCH` environment variable determines which binary to include
+
+#### 7. GitHub Releases Publishing
+
+```javascript
+publish: [
+  {
+    provider: "github",
+    owner: "joshmarnold",
+    repo: "clipp",
+  },
+]
+```
+
+- Automatically publishes to GitHub Releases
+- Requires `GH_TOKEN` environment variable
 
 ---
 
-## Build & Publish Scripts
+## Build Process
 
-### package.json Scripts
+### Package.json Scripts
+
+**File: `electron/package.json`**
 
 ```json
 {
   "scripts": {
-    "build": "tsc && vite build && npm run copy:helper",
+    "dev": "cd frontend && npm run dev",
+    "electron": "NODE_ENV=development electron ./backend/main.js",
+    "build:frontend": "cd frontend && npm run build",
+    "clean": "node backend/scripts/clearClipboardData.js",
+    "create-binaries": "swiftc -target arm64-apple-macos10.13 scripts/get_clipboard_image.swift -o backend/native/get_clipboard_image.arm64 && swiftc -target x86_64-apple-macos10.13 scripts/get_clipboard_image.swift -o backend/native/get_clipboard_image.x64",
     "build:mac:arm64": "ARCH=arm64 electron-builder --config electron-builder.config.js --mac --arm64",
     "build:mac:x64": "ARCH=x64 electron-builder --config electron-builder.config.js --mac --x64",
-    "build:all": "npm run build && npm run build:mac:arm64 && npm run build:mac:x64",
+    "build": "npm run clean && npm run build:frontend && npm run build:mac:arm64 && npm run build:mac:x64",
     "publish:mac:arm64": "ARCH=arm64 electron-builder --config electron-builder.config.js --mac --arm64 --publish always",
     "publish:mac:x64": "ARCH=x64 electron-builder --config electron-builder.config.js --mac --x64 --publish always",
-    "publish": "npm run build && npm run publish:mac:arm64 && npm run publish:mac:x64"
+    "publish": "npm run clean && npm run build:frontend && npm run publish:mac:arm64 && npm run publish:mac:x64"
   }
 }
 ```
 
-### Script Descriptions
+### Build Steps
 
-- **`build`** - Build TypeScript + Vite + copy Fn helper
-- **`build:mac:arm64`** - Build arm64 DMG only (no publish)
-- **`build:mac:x64`** - Build x64 DMG only (no publish)
-- **`build:all`** - Build both architectures locally
-- **`publish:mac:arm64`** - Build + publish arm64 to GitHub Releases
-- **`publish:mac:x64`** - Build + publish x64 to GitHub Releases
-- **`publish`** - **Main publish command** - builds and publishes both architectures
+#### 1. Local Build (No Publishing)
+
+```bash
+cd electron
+npm run build
+```
+
+This will:
+1. Clean clipboard data
+2. Build frontend (Vite → static files)
+3. Build ARM64 version of the app
+4. Build x64 version of the app
+
+Output:
+- `electron/dist/Clipp-0.1.0-arm64.dmg`
+- `electron/dist/Clipp-0.1.0-x64.dmg`
+- `electron/dist/Clipp-0.1.0-arm64-mac.zip`
+- `electron/dist/Clipp-0.1.0-x64-mac.zip`
+
+#### 2. Publish to GitHub Releases
+
+```bash
+cd electron
+
+# Set GitHub token
+export GH_TOKEN=your_github_personal_access_token
+
+# Bump version in package.json first
+npm version patch  # or minor, or major
+
+# Publish
+npm run publish
+```
+
+This will:
+1. Clean clipboard data
+2. Build frontend
+3. Build ARM64 version and upload to GitHub
+4. Build x64 version and upload to GitHub
+
+**GitHub Release will be created automatically with:**
+- Tag: `v0.1.0` (from package.json version)
+- Title: `v0.1.0`
+- Assets:
+  - `Clipp-0.1.0-arm64.dmg`
+  - `Clipp-0.1.0-x64.dmg`
+  - `Clipp-0.1.0-arm64-mac.zip`
+  - `Clipp-0.1.0-x64-mac.zip`
+  - `latest-mac.yml` (update metadata)
+
+---
+
+## Publishing to GitHub Releases
+
+### Prerequisites
+
+1. **GitHub Personal Access Token**
+
+Create a token at: https://github.com/settings/tokens
+
+Required scopes:
+- `repo` (Full control of private repositories)
+
+```bash
+export GH_TOKEN=ghp_your_token_here
+```
+
+2. **GitHub Repository**
+
+Make sure your repository exists and matches the config:
+
+```javascript
+publish: [
+  {
+    provider: "github",
+    owner: "joshmarnold",
+    repo: "clipp",
+  },
+]
+```
+
+### dev-app-update.yml (Development)
+
+**File: `electron/dev-app-update.yml`**
+
+```yaml
+provider: github
+owner: joshmarnold
+repo: copy-paste-app
+token: ghp_your_token_here  # optional; for private repos
+```
+
+This file is used **during development** to test auto-updates locally without publishing.
+
+### Publishing Workflow
+
+```bash
+# 1. Make sure frontend is up to date
+cd electron/frontend
+npm run build
+cd ..
+
+# 2. Bump version
+npm version patch  # 0.1.0 → 0.1.1
+
+# 3. Set GitHub token
+export GH_TOKEN=ghp_...
+
+# 4. Publish
+npm run publish
+```
+
+### What Happens During Publish
+
+1. **electron-builder** packages the app for ARM64
+2. Creates DMG and ZIP files
+3. Uploads to GitHub Releases (draft by default)
+4. Repeats for x64 architecture
+5. Creates a release tag (e.g., `v0.1.1`)
+6. Uploads `latest-mac.yml` metadata file
+
+### Manual Release Steps
+
+After publishing, go to GitHub:
+
+1. Navigate to **Releases** tab
+2. Find the draft release
+3. Add release notes
+4. Click **Publish release**
 
 ---
 
@@ -162,471 +409,652 @@ module.exports = {
 ```json
 {
   "dependencies": {
-    "electron-updater": "^6.6.2",
-    "electron-log": "^5.4.3"
+    "electron-updater": "^6.6.2"
   }
 }
 ```
 
-### Implementation in Main Process
+### Implementation
 
-Located in `src/main/index.ts`:
+#### 1. Main Process Setup
 
-```typescript
-import { autoUpdater } from 'electron-updater';
-import log from 'electron-log';
+**File: `electron/backend/main.js`**
 
-// Configure logging
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+```javascript
+const { app } = require("electron");
+const { autoUpdater } = require("electron-updater");
+const appStore = require("./AppStore");
 
 function setupAutoUpdater() {
-  // Check for updates on launch
+  // Check for updates immediately on startup
   autoUpdater.checkForUpdates();
 
-  // Check every 6 hours
+  // Check for updates every 30 minutes
   setInterval(() => {
     autoUpdater.checkForUpdates();
-  }, 1000 * 60 * 60 * 6); // 6 hours
+  }, 1000 * 60 * 30);
 
-  // Event: Update available
-  autoUpdater.on('update-available', (info) => {
-    log.info('Update available:', info);
-
-    // Notify settings window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-available', info);
-    }
-  });
-
-  // Event: Update downloaded
-  autoUpdater.on('update-downloaded', (info) => {
-    log.info('Update downloaded:', info);
-
-    // Notify settings window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-downloaded', info);
-    }
-  });
-
-  // Event: Error
-  autoUpdater.on('error', (err) => {
-    log.error('Auto-updater error:', err);
+  // When update is available, notify the renderer
+  autoUpdater.on("update-available", () => {
+    appStore.setUpdateAvailable(true);
   });
 }
 
-// Call during app initialization
 app.whenReady().then(() => {
   // ... other setup
   setupAutoUpdater();
 });
 ```
 
-### IPC Handlers for Update Actions
+#### 2. AppStore (State Management)
 
-```typescript
-// Allow user to trigger download
-ipcMain.handle('download-update', async () => {
-  await autoUpdater.downloadUpdate();
-});
+**File: `electron/backend/AppStore.js`**
 
-// Allow user to install and restart
-ipcMain.handle('install-update', async () => {
-  autoUpdater.quitAndInstall();
+```javascript
+class AppStore {
+  constructor() {
+    this.updateAvailable = false;
+  }
+
+  setUpdateAvailable(isAvailable) {
+    this.updateAvailable = isAvailable;
+    if (this.win) {
+      this.win.webContents.send("update-available", { isAvailable });
+    }
+  }
+
+  getUpdateAvailable() {
+    return this.updateAvailable;
+  }
+}
+
+module.exports = new AppStore();
+```
+
+#### 3. IPC Handlers
+
+**File: `electron/backend/ipc.js`**
+
+```javascript
+const { ipcMain } = require("electron");
+const appStore = require("./AppStore");
+
+function registerIpcHandlers(win) {
+  ipcMain.handle("get-update-available", () => {
+    return appStore.getUpdateAvailable();
+  });
+}
+```
+
+#### 4. Preload Script
+
+**File: `electron/backend/preload.js`**
+
+```javascript
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("electronAPI", {
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on("update-available", callback);
+  },
+  getUpdateAvailable: () => {
+    return ipcRenderer.invoke("get-update-available");
+  },
 });
 ```
 
-### Update Check Interval
+#### 5. Renderer Process (React)
 
-- **Every 6 hours** (not 30 minutes like Clipp)
-- Checks on app launch
-- Non-intrusive: user decides when to install
+```javascript
+import { useEffect, useState } from "react";
 
----
+function App() {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
-## GitHub Releases Distribution
+  useEffect(() => {
+    // Check initial state
+    window.electronAPI.getUpdateAvailable().then(setUpdateAvailable);
 
-### How It Works
+    // Listen for updates
+    window.electronAPI.onUpdateAvailable((event, data) => {
+      setUpdateAvailable(data.isAvailable);
+    });
+  }, []);
 
-1. **Developer runs**: `npm run publish`
-2. **electron-builder**:
-   - Builds arm64 DMG
-   - Uploads to GitHub Releases
-   - Builds x64 DMG
-   - Uploads to GitHub Releases
-   - Creates `latest-mac.yml` metadata file
-3. **electron-updater** in user's app:
-   - Fetches `latest-mac.yml` from GitHub
-   - Compares version numbers
-   - Downloads DMG if newer version available
+  return (
+    <div>
+      {updateAvailable && (
+        <div className="update-banner">
+          A new update is available! Please restart the app.
+        </div>
+      )}
+      {/* rest of your app */}
+    </div>
+  );
+}
+```
 
-### latest-mac.yml
+### electron-updater Behavior
 
-Example metadata file created by electron-builder:
+#### How It Works
+
+1. **Check for Updates**: `autoUpdater.checkForUpdates()`
+   - Queries GitHub API: `https://api.github.com/repos/owner/repo/releases/latest`
+   - Compares latest release version with current app version
+
+2. **Download Update**: (Automatic)
+   - If newer version found, downloads `.zip` file silently in background
+   - No user interaction required
+
+3. **Install on Quit**: (Default behavior)
+   - Update is applied when user quits the app
+   - Next launch will use new version
+
+#### Events
+
+```javascript
+autoUpdater.on("checking-for-update", () => {
+  console.log("Checking for updates...");
+});
+
+autoUpdater.on("update-available", (info) => {
+  console.log("Update available:", info.version);
+});
+
+autoUpdater.on("update-not-available", (info) => {
+  console.log("No updates available");
+});
+
+autoUpdater.on("error", (err) => {
+  console.error("Update error:", err);
+});
+
+autoUpdater.on("download-progress", (progress) => {
+  console.log(`Downloaded ${progress.percent}%`);
+});
+
+autoUpdater.on("update-downloaded", (info) => {
+  console.log("Update downloaded, will install on quit");
+  // Optionally prompt user to restart
+  // autoUpdater.quitAndInstall();
+});
+```
+
+### Update Metadata
+
+**File: `latest-mac.yml` (Auto-generated)**
+
+This file is automatically created by electron-builder and uploaded to GitHub Releases. It contains:
 
 ```yaml
-version: 0.1.0
+version: 0.1.1
 files:
-  - url: NarraFlow-0.1.0-arm64.dmg
-    sha512: <hash>
-    size: 123456789
-  - url: NarraFlow-0.1.0-x64.dmg
-    sha512: <hash>
-    size: 123456789
-path: NarraFlow-0.1.0-arm64.dmg
-sha512: <hash>
-releaseDate: '2025-10-12T00:00:00.000Z'
+  - url: Clipp-0.1.1-arm64-mac.zip
+    sha512: abc123...
+    size: 12345678
+  - url: Clipp-0.1.1-x64-mac.zip
+    sha512: def456...
+    size: 12345678
+path: Clipp-0.1.1-arm64-mac.zip
+sha512: abc123...
+releaseDate: '2024-06-12T10:30:00.000Z'
 ```
 
-### GitHub Personal Access Token
-
-Required for publishing:
-
-```bash
-export GH_TOKEN=your_github_token
-npm run publish
-```
-
-Token needs `repo` scope (read/write access to releases).
+electron-updater reads this file to:
+- Determine if update is available
+- Download the correct architecture
+- Verify file integrity (SHA512)
 
 ---
 
-## Marketing Site Downloads Window
+## Native Binary Compilation
 
-### User Experience
+This app uses a Swift-based native binary to capture clipboard images.
 
-The marketing site has a "Downloads" folder icon on the desktop. When double-clicked, it opens a window showing:
+### Swift Source Code
 
-1. **Two DMG files**:
-   - `NarraFlow-{version}-arm64.dmg` (Apple Silicon icon)
-   - `NarraFlow-{version}-x64.dmg` (Intel icon)
+**File: `electron/scripts/get_clipboard_image.swift`**
 
-2. **README file**:
-   - How to determine your Mac architecture
-   - Which file to download
-   - Installation instructions
+```swift
+import AppKit
 
-### Implementation
+// Get the image from the clipboard
+guard let image = NSPasteboard.general.readObjects(forClasses: [NSImage.self], options: nil)?.first as? NSImage else {
+    exit(1) // No image found
+}
 
-Located in `marketing-site/components/desktop/DownloadsWindow.tsx`:
+// Convert image to PNG data
+guard let tiffData = image.tiffRepresentation,
+      let bitmap = NSBitmapImageRep(data: tiffData),
+      let pngData = bitmap.representation(using: .png, properties: [:]) else {
+    exit(1) // Failed to convert
+}
 
-```typescript
-// Fetch latest release from GitHub API
-useEffect(() => {
-  fetch('https://api.github.com/repos/projectsthataremine/narraflow/releases/latest')
-    .then(res => res.json())
-    .then(data => {
-      const arm64Asset = data.assets.find(a => a.name.includes('arm64'));
-      const x64Asset = data.assets.find(a => a.name.includes('x64'));
-
-      setDownloads({
-        arm64: arm64Asset.browser_download_url,
-        x64: x64Asset.browser_download_url,
-        version: data.tag_name
-      });
-    });
-}, []);
+// Encode to base64 and print as data URL
+let base64 = pngData.base64EncodedString()
+print("data:image/png;base64,\(base64)")
 ```
 
-### README Content
+### Compile Script
 
-```markdown
-# How to Download NarraFlow
+**File: `electron/package.json`**
 
-## Determine Your Mac Type
-
-1. Click the Apple menu () → "About This Mac"
-2. Look at the "Chip" or "Processor" line:
-   - **Apple M1/M2/M3/M4** → Download arm64 version
-   - **Intel Core i5/i7/i9** → Download x64 version
-
-## Installation
-
-1. Download the correct DMG file
-2. Open the DMG
-3. Drag NarraFlow to Applications folder
-4. Launch from Applications
-
-## System Requirements
-
-- macOS Big Sur 11.0 or later
-- Active internet connection for license validation
-```
-
----
-
-## Settings Window Update UI
-
-### Location
-
-Bottom-left corner of the NarraFlow settings window.
-
-### Components
-
-1. **Version Display**: Shows current version (e.g., "v0.1.0")
-2. **Cloud Icon**: Indicates update status
-   - **Gray** (default): No update available
-   - **Red**: Update available
-3. **Hover Tooltip**: "New version available - click to download and restart"
-4. **Click Handler**: Triggers download and installation
-
-### Implementation
-
-Located in `src/renderer/settings/index.tsx`:
-
-```typescript
-const [updateAvailable, setUpdateAvailable] = useState(false);
-const [updateInfo, setUpdateInfo] = useState(null);
-
-useEffect(() => {
-  // Listen for update notifications
-  window.electron.onUpdateAvailable((info) => {
-    setUpdateAvailable(true);
-    setUpdateInfo(info);
-  });
-}, []);
-
-const handleUpdateClick = async () => {
-  if (updateAvailable) {
-    await window.electron.downloadUpdate();
-    // Once downloaded, electron-updater triggers 'update-downloaded'
-    // Then we can show "Restart to install" button
+```json
+{
+  "scripts": {
+    "create-binaries": "swiftc -target arm64-apple-macos10.13 scripts/get_clipboard_image.swift -o backend/native/get_clipboard_image.arm64 && swiftc -target x86_64-apple-macos10.13 scripts/get_clipboard_image.swift -o backend/native/get_clipboard_image.x64"
   }
-};
-
-return (
-  <div className="settings-footer">
-    <span className="version">v{appVersion}</span>
-    <button
-      className={`cloud-icon ${updateAvailable ? 'red' : ''}`}
-      onClick={handleUpdateClick}
-      title={updateAvailable ? "New version available - click to download and restart" : "Up to date"}
-    >
-      ☁️
-    </button>
-  </div>
-);
-```
-
-### CSS Styling
-
-```css
-.settings-footer {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.cloud-icon {
-  cursor: pointer;
-  font-size: 20px;
-  filter: grayscale(100%);
-  transition: filter 0.3s;
-}
-
-.cloud-icon.red {
-  filter: grayscale(0%) hue-rotate(0deg) saturate(200%) brightness(0.8);
 }
 ```
+
+This compiles two separate binaries:
+- `backend/native/get_clipboard_image.arm64` (Apple Silicon)
+- `backend/native/get_clipboard_image.x64` (Intel)
+
+### Usage in Electron
+
+```javascript
+const { execFileSync } = require("child_process");
+const path = require("path");
+const os = require("os");
+
+function getClipboardImage() {
+  const arch = os.arch() === "arm64" ? "arm64" : "x64";
+  const binaryPath = path.join(
+    process.resourcesPath,
+    `get_clipboard_image.${arch}`
+  );
+
+  try {
+    const result = execFileSync(binaryPath, { encoding: "utf-8" });
+    return result.trim(); // Returns data:image/png;base64,...
+  } catch (error) {
+    console.error("Failed to get clipboard image:", error);
+    return null;
+  }
+}
+```
+
+### Why Separate Binaries?
+
+- Swift binaries are architecture-specific
+- macOS has two architectures: ARM64 (M1/M2/M3) and x64 (Intel)
+- Each build includes only the binary for its target architecture
+- electron-builder's `extraFiles` config handles this automatically
 
 ---
 
-## Publishing Workflow
+## Development vs Production
 
-### Step-by-Step Release Process
+### Development Mode
 
-1. **Update version** in `package.json`:
-   ```json
-   {
-     "version": "0.2.0"
-   }
-   ```
+**File: `electron/backend/main.js`**
 
-2. **Commit changes**:
-   ```bash
-   git add .
-   git commit -m "Release v0.2.0"
-   git tag v0.2.0
-   git push origin main --tags
-   ```
+```javascript
+if (process.env.NODE_ENV === "development") {
+  console.log("Running in development mode");
 
-3. **Set GitHub token**:
-   ```bash
-   export GH_TOKEN=your_github_personal_access_token
-   ```
+  const customUserDataPath = path.join(
+    process.platform === "darwin"
+      ? path.join(process.env.HOME, "Library", "Application Support")
+      : app.getPath("appData"),
+    "Clipp"
+  );
 
-4. **Publish**:
-   ```bash
-   npm run publish
-   ```
-
-5. **Wait for builds**:
-   - arm64 DMG builds and uploads
-   - x64 DMG builds and uploads
-   - `latest-mac.yml` created
-
-6. **Verify GitHub Release**:
-   - Go to https://github.com/projectsthataremine/narraflow/releases
-   - Confirm both DMG files are present
-   - Confirm `latest-mac.yml` exists
-
-7. **Test auto-update**:
-   - Launch older version of NarraFlow
-   - Wait 6 hours OR trigger manual check
-   - Verify update notification appears
-
-### GitHub Token Setup
-
-Create token at: https://github.com/settings/tokens
-
-Required scopes:
-- `repo` (full control of private repositories)
-
-Save token securely (use environment variable or `.env` file):
-
-```bash
-# Add to ~/.zshrc or ~/.bashrc
-export GH_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+  app.setPath("userData", customUserDataPath);
+}
 ```
 
-### First Release (v0.1.0)
+In development:
+- Uses custom user data path
+- Skips auto-update checks (can be enabled with `dev-app-update.yml`)
+- Loads frontend from Vite dev server (http://localhost:4000)
 
-For the very first release:
+### Production Mode
 
-```bash
-npm run build:all  # Test local builds first
-npm run publish    # Publish to GitHub
-```
-
-This creates the initial release that all future auto-updates will compare against.
+In production:
+- Uses default user data path
+- Auto-update checks run every 30 minutes
+- Loads frontend from bundled files (`frontend/dist`)
 
 ---
 
-## Icon Assets
+## Supabase Edge Function for Updates
 
-### Required Files
+### File: `electron/backend/supabase/functions/get_latest_release/index.ts`
 
-- **Source**: 1024x1024 PNG or SVG
-- **Output**: `build/icons/icon.icns` (macOS icon format)
+```typescript
+Deno.serve(async (req) => {
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/joshmarnold/clipp/releases/latest",
+      {
+        headers: {
+          Authorization: `token ${Deno.env.get("GITHUB_API_KEY")}`,
+        },
+      }
+    );
 
-### Creating icon.icns
+    const data = await res.json();
+    const dmgAsset = data.assets.find((asset: any) =>
+      asset.name.endsWith(".dmg")
+    );
 
-Use `png2icns` or similar tool:
+    if (!dmgAsset.browser_download_url) {
+      throw new Error("No .dmg asset found in latest release");
+    }
 
-```bash
-npm install -g png2icns
-png2icns icon-1024.png build/icons/icon.icns
+    const returnData = JSON.stringify({
+      version: data.tag_name,
+      downloadUrl: dmgAsset.browser_download_url,
+    });
+
+    return new Response(returnData, {
+      headers: { "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (err) {
+    return new Response(JSON.stringify(err), { status: 500 });
+  }
+});
 ```
 
-Or use macOS built-in tools:
+This edge function:
+- Queries GitHub API for latest release
+- Finds the DMG asset
+- Returns version and download URL
+- Used by your website to show download link
+
+---
+
+## Implementation Steps
+
+### Step 1: Install Dependencies
+
+```bash
+cd electron
+npm install electron-builder electron-updater --save-dev
+```
+
+### Step 2: Create Icon File
+
+1. Create a 1024x1024 PNG icon
+2. Use `iconutil` to convert to .icns:
 
 ```bash
 mkdir icon.iconset
-sips -z 16 16     icon-1024.png --out icon.iconset/icon_16x16.png
-sips -z 32 32     icon-1024.png --out icon.iconset/icon_16x16@2x.png
-sips -z 32 32     icon-1024.png --out icon.iconset/icon_32x32.png
-sips -z 64 64     icon-1024.png --out icon.iconset/icon_32x32@2x.png
-sips -z 128 128   icon-1024.png --out icon.iconset/icon_128x128.png
-sips -z 256 256   icon-1024.png --out icon.iconset/icon_128x128@2x.png
-sips -z 256 256   icon-1024.png --out icon.iconset/icon_256x256.png
-sips -z 512 512   icon-1024.png --out icon.iconset/icon_256x256@2x.png
-sips -z 512 512   icon-1024.png --out icon.iconset/icon_512x512.png
-sips -z 1024 1024 icon-1024.png --out icon.iconset/icon_512x512@2x.png
-iconutil -c icns icon.iconset -o build/icons/icon.icns
+sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
+sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
+sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
+sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png
+sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png
+sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png
+sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
+sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
+sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
+sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png
+
+iconutil -c icns icon.iconset
+mv icon.icns electron/build/icons/
 ```
+
+### Step 3: Create electron-builder Config
+
+Create `electron/electron-builder.config.js` (see example above)
+
+### Step 4: Add Build Scripts
+
+Add to `electron/package.json` (see scripts above)
+
+### Step 5: Compile Native Binaries (if needed)
+
+```bash
+cd electron
+npm run create-binaries
+```
+
+### Step 6: Test Local Build
+
+```bash
+cd electron
+npm run build
+```
+
+Check output in `electron/dist/`
+
+### Step 7: Setup GitHub
+
+1. Create repository on GitHub
+2. Generate personal access token
+3. Set environment variable:
+
+```bash
+export GH_TOKEN=ghp_your_token_here
+```
+
+### Step 8: Implement Auto-Updater
+
+Add auto-update logic to `main.js` (see example above)
+
+### Step 9: Publish First Release
+
+```bash
+cd electron
+
+# Bump version
+npm version 1.0.0
+
+# Publish
+npm run publish
+```
+
+### Step 10: Test Updates
+
+1. Install app from release
+2. Bump version and publish again
+3. Open installed app
+4. Wait for update notification
+5. Restart app to apply update
 
 ---
 
 ## Troubleshooting
 
-### Build Fails: "Cannot find icon.icns"
+### Issue: "GH_TOKEN is not set"
 
-**Solution**: Create placeholder icon or add real icon to `build/icons/icon.icns`.
+**Solution:**
 
-### Publish Fails: "GitHub token not set"
-
-**Solution**: Set `GH_TOKEN` environment variable:
 ```bash
-export GH_TOKEN=your_token
+export GH_TOKEN=ghp_your_token_here
 npm run publish
 ```
 
-### Auto-updater Not Working
+Or add to `~/.zshrc` / `~/.bashrc`:
 
-**Checklist**:
-1. Is app version in `package.json` older than GitHub release?
-2. Does GitHub release have `latest-mac.yml`?
-3. Is internet connection active?
-4. Check logs: `~/Library/Logs/NarraFlow/main.log`
+```bash
+export GH_TOKEN=ghp_your_token_here
+```
 
-### Wrong Architecture Downloaded
+### Issue: "Code signing failed"
 
-**Solution**: electron-updater automatically detects architecture. Ensure GitHub release has both DMG files.
+**Solution:**
 
----
-
-## Future Improvements
-
-### Code Signing & Notarization
-
-For production release:
-
-1. **Apple Developer Account** ($99/year)
-2. **Developer ID Certificate**
-3. **Notarization**: Submit app to Apple for scanning
-4. **Stapling**: Attach notarization ticket to DMG
-
-Update `electron-builder.config.js`:
+For development, use ad-hoc signing:
 
 ```javascript
-mac: {
-  hardenedRuntime: true,
-  entitlements: "build/entitlements.mac.plist",
-  entitlementsInherit: "build/entitlements.mac.plist",
-  gatekeeperAssess: false,
-  notarize: {
-    teamId: "YOUR_TEAM_ID"
-  }
+afterSign: async (context) => {
+  execSync(`codesign --deep --force --sign - "${fullAppPath}"`);
 }
 ```
 
-### CI/CD Pipeline
+For production, get an Apple Developer certificate:
 
-Automate builds with GitHub Actions:
+```javascript
+mac: {
+  identity: "Developer ID Application: Your Name (TEAM_ID)",
+}
+```
 
-```yaml
-name: Build & Release
+### Issue: "Update not detected"
 
-on:
-  push:
-    tags:
-      - 'v*'
+**Solutions:**
 
-jobs:
-  build:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-      - run: npm install
-      - run: npm run publish
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+1. Check version in `package.json` is higher than installed version
+2. Verify `latest-mac.yml` exists in GitHub Release
+3. Check console for errors: `autoUpdater.logger.transports.file.level = 'debug'`
+4. Make sure app was installed from a release (not development build)
+
+### Issue: "Native binary not found"
+
+**Solutions:**
+
+1. Make sure binaries are compiled:
+
+```bash
+npm run create-binaries
+```
+
+2. Verify `asarUnpack` in electron-builder config:
+
+```javascript
+asarUnpack: ["**/get_clipboard_image.*"]
+```
+
+3. Check `extraFiles` includes correct architecture:
+
+```javascript
+extraFiles: [
+  {
+    from: `backend/native/get_clipboard_image.${arch}`,
+    to: `get_clipboard_image.${arch}`,
+  },
+]
+```
+
+### Issue: "App won't open on macOS"
+
+**Solution:**
+
+Disable Gatekeeper check:
+
+```bash
+xattr -cr /Applications/Clipp.app
+```
+
+Or in electron-builder config:
+
+```javascript
+mac: {
+  gatekeeperAssess: false,
+}
+```
+
+---
+
+## File Structure
+
+```
+electron/
+├── backend/
+│   ├── main.js                 # Main process entry
+│   ├── ipc.js                  # IPC handlers
+│   ├── preload.js              # Preload script
+│   ├── AppStore.js             # App state management
+│   └── native/
+│       ├── get_clipboard_image.arm64
+│       └── get_clipboard_image.x64
+├── frontend/
+│   ├── src/                    # React source
+│   └── dist/                   # Built frontend (Vite output)
+├── scripts/
+│   ├── get_clipboard_image.swift
+│   └── makeUniversalApp.js
+├── build/
+│   └── icons/
+│       └── icon.icns
+├── electron-builder.config.js  # Build configuration
+├── dev-app-update.yml          # Dev update config
+└── package.json                # Dependencies & scripts
+```
+
+---
+
+## Environment Variables
+
+```bash
+# Required for publishing
+export GH_TOKEN=ghp_your_github_token
+
+# Optional: Set architecture during build
+export ARCH=arm64  # or x64
+
+# Optional: Node environment
+export NODE_ENV=development  # or production
 ```
 
 ---
 
 ## Summary
 
-NarraFlow's packaging and update system:
+This system provides:
 
-✅ **Simple**: Single `npm run publish` command
-✅ **Reliable**: Proven electron-builder + electron-updater stack
-✅ **User-friendly**: Auto-updates with user control
-✅ **Cost-effective**: Free GitHub Releases hosting
-✅ **Multi-architecture**: Separate optimized builds for Intel and Apple Silicon
+- **Multi-architecture builds** - Separate binaries for ARM64 and x64
+- **GitHub Releases integration** - Automatic publishing with electron-builder
+- **Automatic updates** - Silent background downloads via electron-updater
+- **Native binary support** - Swift-based clipboard utilities
+- **Code signing** - Ad-hoc signing for development, ready for production certificates
+- **Frontend bundling** - Vite-built React app packaged with Electron
 
-**Next Steps**: Implement auto-updater in main process, add update UI to settings window, create Downloads window on marketing site.
+The pattern can be adapted to any Electron application requiring professional packaging and distribution.
+
+---
+
+## Quick Reference
+
+### Build Commands
+
+```bash
+# Local build (no publish)
+npm run build
+
+# Publish to GitHub
+npm run publish
+
+# Build specific architecture
+npm run build:mac:arm64
+npm run build:mac:x64
+
+# Compile native binaries
+npm run create-binaries
+```
+
+### Version Management
+
+```bash
+# Bump patch version (0.1.0 → 0.1.1)
+npm version patch
+
+# Bump minor version (0.1.0 → 0.2.0)
+npm version minor
+
+# Bump major version (0.1.0 → 1.0.0)
+npm version major
+```
+
+### electron-updater API
+
+```javascript
+// Check for updates manually
+autoUpdater.checkForUpdates();
+
+// Download update manually
+autoUpdater.downloadUpdate();
+
+// Install and restart
+autoUpdater.quitAndInstall();
+
+// Events
+autoUpdater.on("update-available", (info) => {});
+autoUpdater.on("update-downloaded", (info) => {});
+autoUpdater.on("error", (err) => {});
+```

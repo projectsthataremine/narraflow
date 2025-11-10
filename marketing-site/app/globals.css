@@ -1,116 +1,26 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&family=SF+Mono&display=swap');
 
 :root {
-  /* Brand Colors - Extracted from design */
-  --tan: #E8E3D8;
-  --teal-dark: #2D5A52;
-  --teal-light: #A4D4C8;
-  --orange: #E8734E;
-  --terracotta: #B85A3A;
-  --purple: #5A3A6E;
-  --violet: #7B5B8F;
-  --yellow: #F4D06F;
-  --gold: #D4A94F;
-  --black: #000000;
-  --text-dark: #1A1A1A;
-
-  /* Desktop Theme System - Default: Muted Earth Tones (Option B) */
-  --desktop-bg: #2e3440;
-  --desktop-accent: #a3be8c;
-  --desktop-secondary: #ebcb8b;
-  --desktop-text: #eceff4;
-  --desktop-window-bg: #1e1e1e;
-  --desktop-window-border: #444;
-  --desktop-taskbar-bg: #1a1a1a;
-  --desktop-scrollbar-track: #2e3440;
-  --desktop-scrollbar-thumb: #a3be8c;
-}
-
-/* Theme Variants */
-[data-theme="pastel-terminal"] {
-  --desktop-bg: #1e1e2e;
-  --desktop-accent: #89b4fa;
-  --desktop-secondary: #f5c2e7;
-  --desktop-text: #cdd6f4;
-  --desktop-window-bg: #181825;
-  --desktop-window-border: #313244;
-  --desktop-taskbar-bg: #11111b;
-  --desktop-scrollbar-track: #1e1e2e;
-  --desktop-scrollbar-thumb: #89b4fa;
-}
-
-[data-theme="terminal-green"] {
-  --desktop-bg: #0c0c0c;
-  --desktop-accent: #00ff41;
-  --desktop-secondary: #33ff77;
-  --desktop-text: #00cc33;
-  --desktop-window-bg: #000000;
-  --desktop-window-border: #00ff41;
-  --desktop-taskbar-bg: #000000;
-  --desktop-scrollbar-track: #0c0c0c;
-  --desktop-scrollbar-thumb: #00ff41;
-}
-
-[data-theme="warm-retro"] {
-  --desktop-bg: #2d2a2e;
-  --desktop-accent: #ff6188;
-  --desktop-secondary: #ffd866;
-  --desktop-text: #fcfcfa;
-  --desktop-window-bg: #1a1a1a;
-  --desktop-window-border: #403e41;
-  --desktop-taskbar-bg: #221f22;
-  --desktop-scrollbar-track: #2d2a2e;
-  --desktop-scrollbar-thumb: #ff6188;
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
 @theme inline {
-  /* Color Palette */
-  --color-tan: var(--tan);
-  --color-teal-dark: var(--teal-dark);
-  --color-teal-light: var(--teal-light);
-  --color-orange: var(--orange);
-  --color-terracotta: var(--terracotta);
-  --color-purple: var(--purple);
-  --color-violet: var(--violet);
-  --color-yellow: var(--yellow);
-  --color-gold: var(--gold);
-  --color-black: var(--black);
-  --color-text-dark: var(--text-dark);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
 
-  /* Typography */
-  --font-heading: 'Archivo Black', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 body {
-  background: var(--tan);
-  color: var(--text-dark);
-  font-family: var(--font-body);
-}
-
-/* Custom Scrollbar for Desktop Windows */
-.desktop-scrollbar::-webkit-scrollbar {
-  width: 14px;
-}
-
-.desktop-scrollbar::-webkit-scrollbar-track {
-  background: var(--desktop-scrollbar-track);
-}
-
-.desktop-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--desktop-scrollbar-thumb);
-  border-radius: 0;
-}
-
-.desktop-scrollbar::-webkit-scrollbar-thumb:hover {
-  opacity: 0.8;
-}
-
-/* Subtle noise texture for desktop background */
-.desktop-noise {
-  background-image:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
-  background-size: 200px 200px;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
