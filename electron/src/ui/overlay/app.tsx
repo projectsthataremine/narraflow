@@ -273,6 +273,7 @@ export const App: React.FC = () => {
           isRecording={uiState.mode !== 'hidden'}
           config={pillConfig}
           audioAmplitude={audioAmplitude}
+          isProcessing={uiState.mode === 'processing'}
         />
       </div>
 

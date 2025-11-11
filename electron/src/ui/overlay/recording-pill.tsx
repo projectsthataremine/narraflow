@@ -4,12 +4,14 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { PillConfig } from '../types/ipc-contracts';
 
 interface RecordingPillProps {
   isRecording?: boolean;
   config?: PillConfig;
   audioAmplitude?: number; // 0-1 range from real audio
+  isProcessing?: boolean; // Show loading spinner when processing
 }
 
 // Default config matching working prototype preset
@@ -35,6 +37,7 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
   isRecording = true,
   config = DEFAULT_CONFIG,
   audioAmplitude = 0,
+  isProcessing = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const barRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -53,10 +56,12 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
   });
 
   // Generate unique characteristics for each bar (stable across re-renders)
-  const barCharacteristics = useRef<Array<{
-    speed: number;
-    phaseOffset: number;
-  }>>([]);
+  const barCharacteristics = useRef<
+    Array<{
+      speed: number;
+      phaseOffset: number;
+    }>
+  >([]);
 
   // Initialize bar characteristics once (reinitialize when numBars changes)
   useEffect(() => {
@@ -97,7 +102,8 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
       if (rawAmplitude > smoothedAmplitudeRef.current) {
         smoothedAmplitudeRef.current += (rawAmplitude - smoothedAmplitudeRef.current) * attackSpeed;
       } else {
-        smoothedAmplitudeRef.current += (rawAmplitude - smoothedAmplitudeRef.current) * releaseSpeed;
+        smoothedAmplitudeRef.current +=
+          (rawAmplitude - smoothedAmplitudeRef.current) * releaseSpeed;
       }
 
       const audioAmplitude = smoothedAmplitudeRef.current;
@@ -118,7 +124,8 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
         const barPosition = config.numBars > 1 ? i / (config.numBars - 1) : 0;
 
         // Independent oscillation - scaled by audio amplitude
-        const oscillationAmount = Math.sin(time * char.speed * oscSpeed + char.phaseOffset) * oscAmount;
+        const oscillationAmount =
+          Math.sin(time * char.speed * oscSpeed + char.phaseOffset) * oscAmount;
         const scaledOscillation = oscillationAmount * Math.max(0.05, audioAmplitude);
 
         // Spike wave - affects only the bar at spikePosition
@@ -127,9 +134,10 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
         const spikeEffect = Math.max(0, 1 - distance * sharpness) * spikeIntensity * audioAmplitude;
 
         // Combine: base audio amplitude + scaled oscillation + spike
-        const finalAmplitude = Math.max(0.05, Math.min(1.5,
-          audioAmplitude + scaledOscillation + spikeEffect
-        ));
+        const finalAmplitude = Math.max(
+          0.05,
+          Math.min(1.5, audioAmplitude + scaledOscillation + spikeEffect)
+        );
 
         bar.style.setProperty('--amplitude', finalAmplitude.toString());
       });
@@ -153,61 +161,146 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
   // Generate bars array
   const bars = Array.from({ length: config.numBars }, (_, i) => i);
 
-  // Bars container
+  // Spinner size: scales with bar height but capped at 25px max
+  const spinnerSize = Math.min(config.maxHeight * 2 - 6, 25);
+
+  // Calculate bars width
+  const barsWidth = config.numBars * config.barWidth + (config.numBars - 1) * config.barGap;
+  const barsHeight = config.maxHeight * 2;
+
+  // Bars container with overlay spinner
   const barsContent = (
     <div
-      ref={containerRef}
       style={{
-        display: 'flex',
-        gap: `${config.barGap}px`,
+        position: 'relative',
+        display: 'inline-flex',
         alignItems: 'center',
-        height: `${config.maxHeight * 2}px`,
       }}
     >
-      {bars.map((index) => (
-        <div
-          key={index}
-          ref={(el) => (barRefs.current[index] = el)}
-          style={{
-            width: `${config.barWidth}px`,
-            height: `${config.maxHeight * 2}px`,
-            background: config.useGradient
-              ? `linear-gradient(to bottom, ${config.color1}, ${config.color2}, ${config.color1})`
-              : config.color1,
-            borderRadius: `${config.borderRadius}px`,
-            boxShadow:
-              config.glowIntensity > 0
-                ? `0 0 ${config.glowIntensity}px ${config.color1}aa`
-                : 'none',
-            transform: 'scaleY(var(--amplitude, 0.2))',
-            transformOrigin: 'center',
-            transition: 'transform 0.1s ease-out',
-            ['--amplitude' as string]: '0.2',
-          }}
-        />
-      ))}
+      {/* Bars - dim when processing */}
+      <motion.div
+        ref={containerRef}
+        animate={{ opacity: isProcessing ? 0.5 : 1 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        style={{
+          display: 'flex',
+          gap: `${config.barGap}px`,
+          alignItems: 'center',
+          height: `${barsHeight}px`,
+          width: `${barsWidth}px`,
+        }}
+      >
+        {bars.map((index) => (
+          <div
+            key={index}
+            ref={(el) => (barRefs.current[index] = el)}
+            style={{
+              width: `${config.barWidth}px`,
+              height: `${barsHeight}px`,
+              background: config.useGradient
+                ? `linear-gradient(to bottom, ${config.color1}, ${config.color2}, ${config.color1})`
+                : config.color1,
+              borderRadius: `${config.borderRadius}px`,
+              boxShadow:
+                config.glowIntensity > 0
+                  ? `0 0 ${config.glowIntensity}px ${config.color1}aa`
+                  : 'none',
+              transform: 'scaleY(var(--amplitude, 0.2))',
+              transformOrigin: 'center',
+              transition: 'transform 0.1s ease-out',
+              ['--amplitude' as string]: '0.2',
+            }}
+          />
+        ))}
+      </motion.div>
+
+      {/* Spinner overlay - centered and fades in */}
+      <AnimatePresence>
+        {isProcessing && (
+          <motion.div
+            key="spinner"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                width: `${spinnerSize}px`,
+                height: `${spinnerSize}px`,
+                borderRadius: '50%',
+                border: `2px solid ${config.color1}33`,
+                borderTopColor: config.color1,
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 
   // If background is enabled, wrap in container
   if (config.hasBackground) {
+    const paddingX = config.backgroundPaddingX ?? 12;
+    const paddingY = config.backgroundPaddingY ?? 12;
+
     return (
-      <div style={{
-        background: config.backgroundColor,
-        padding: `${config.backgroundPaddingY ?? 12}px ${config.backgroundPaddingX ?? 12}px`,
-        borderRadius: config.backgroundShape === 'pill' ? '999px' : '8px',
-        border: config.borderWidth > 0
-          ? `${config.borderWidth}px solid ${config.borderColor}`
-          : 'none',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        {barsContent}
-      </div>
+      <>
+        <style>{`
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+        <div
+          style={{
+            background: config.backgroundColor,
+            padding: `${paddingY}px ${paddingX}px`,
+            borderRadius: config.backgroundShape === 'pill' ? '999px' : '8px',
+            border:
+              config.borderWidth > 0
+                ? `${config.borderWidth}px solid ${config.borderColor}`
+                : 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {barsContent}
+        </div>
+      </>
     );
   }
 
-  // Otherwise return just the bars
-  return barsContent;
+  // Otherwise return just the bars (with spinner animation keyframes)
+  return (
+    <>
+      <style>{`
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
+      {barsContent}
+    </>
+  );
 };

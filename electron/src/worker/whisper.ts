@@ -101,13 +101,14 @@ export class WhisperTranscriber {
    * Only removes specific known unwanted outputs to avoid breaking legitimate text
    */
   private filterNonSpeechOutputs(text: string): string {
-    // List of exact unwanted patterns to remove (case-insensitive)
+    // List of unwanted patterns to remove (case-insensitive)
+    // Accounts for variations with trailing punctuation
     const unwantedPatterns = [
-      /\[BLANK_AUDIO\]/gi,
-      /\[unintelligible\]/gi,
-      /\*sigh\*/gi,
-      /\[INAUDIBLE\]/gi,
-      /\[Music\]/gi,
+      /\[BLANK_AUDIO\]\.?/gi,
+      /\[unintelligible\]\.?/gi,
+      /\*sigh\*\.?/gi,
+      /\[INAUDIBLE\]\.?/gi,
+      /\[Music\]\.?/gi,
     ];
 
     let cleaned = text;
