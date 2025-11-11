@@ -5,15 +5,15 @@
       <stop offset="100%" stop-color="#0070dd"/>
     </linearGradient>
   </defs>
-  <!-- Vertical bars (smaller) -->
-  <rect x="0" y="13" width="3" height="6" rx="1.5" fill="url(#logoGradient)"/>
-  <rect x="5" y="10" width="3" height="12" rx="1.5" fill="url(#logoGradient)"/>
-  <rect x="10" y="7" width="3" height="18" rx="1.5" fill="url(#logoGradient)"/>
-  <rect x="15" y="4" width="3" height="24" rx="1.5" fill="url(#logoGradient)"/>
-  <rect x="20" y="7" width="3" height="18" rx="1.5" fill="url(#logoGradient)"/>
-  <rect x="25" y="10" width="3" height="12" rx="1.5" fill="url(#logoGradient)"/>
-  <rect x="30" y="13" width="3" height="6" rx="1.5" fill="url(#logoGradient)"/>
+  <!-- Vertical bars - scaled down by ~15% -->
+  <rect x="0" y="14" width="2.5" height="5" rx="1.25" fill="url(#logoGradient)"/>
+  <rect x="4" y="11.5" width="2.5" height="10" rx="1.25" fill="url(#logoGradient)"/>
+  <rect x="8" y="9" width="2.5" height="15" rx="1.25" fill="url(#logoGradient)"/>
+  <rect x="12" y="6.5" width="2.5" height="20" rx="1.25" fill="url(#logoGradient)"/>
+  <rect x="16" y="9" width="2.5" height="15" rx="1.25" fill="url(#logoGradient)"/>
+  <rect x="20" y="11.5" width="2.5" height="10" rx="1.25" fill="url(#logoGradient)"/>
+  <rect x="24" y="14" width="2.5" height="5" rx="1.25" fill="url(#logoGradient)"/>
 
-  <!-- Text: NarraFlow (smaller) -->
-  <text x="40" y="24" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#ffffff">NarraFlow</text>
+  <!-- Text: NarraFlow - unchanged -->
+  <text x="34" y="24" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#ffffff">NarraFlow</text>
 </svg>

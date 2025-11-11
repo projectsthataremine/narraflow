@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { Box, Flex, Heading, Text, Grid } from '@radix-ui/themes';
 
 export default function Footer() {
   const ref = useRef(null);
@@ -35,60 +36,71 @@ export default function Footer() {
   ];
 
   return (
-    <footer ref={ref} className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-900 text-gray-300">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          {/* Brand */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-4"
-          >
-            <h3 className="text-2xl font-bold text-white">NarraFlow</h3>
-            <p className="text-sm">
-              Simple speech-to-text for Mac at an honest price.
-            </p>
-          </motion.div>
-
-          {/* Links Sections */}
-          {sections.map((section, index) => (
+    <Box asChild ref={ref}>
+      <footer style={{ padding: '3rem 1rem', background: 'var(--gray-1)', borderTop: '1px solid var(--gray-6)' }}>
+        <Box className="container">
+          <Grid columns={{ initial: '1', md: '4' }} gap="8" mb="6">
+            {/* Brand */}
             <motion.div
-              key={section.title}
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.5, delay: 0.1 * (index + 1) }}
+              transition={{ duration: 0.5 }}
             >
-              <h4 className="font-semibold text-white mb-4">{section.title}</h4>
-              <ul className="space-y-2 text-sm">
-                {section.links.map((link) => (
-                  <li key={link.name}>
+              <Flex direction="column" gap="3">
+                <Heading size="6" weight="bold">NarraFlow</Heading>
+                <Text size="2" color="gray">
+                  Simple speech-to-text for Mac at an honest price.
+                </Text>
+              </Flex>
+            </motion.div>
+
+            {/* Links Sections */}
+            {sections.map((section, index) => (
+              <motion.div
+                key={section.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                transition={{ duration: 0.5, delay: 0.1 * (index + 1) }}
+              >
+                <Heading size="3" weight="bold" mb="3">{section.title}</Heading>
+                <Flex direction="column" gap="2">
+                  {section.links.map((link) => (
                     <Link
+                      key={link.name}
                       href={link.href}
-                      className="hover:text-white transition-colors"
+                      style={{
+                        color: 'var(--gray-11)',
+                        textDecoration: 'none',
+                        fontSize: '0.875rem',
+                        transition: 'color 0.2s'
+                      }}
                     >
                       {link.name}
                     </Link>
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          ))}
-        </div>
+                  ))}
+                </Flex>
+              </motion.div>
+            ))}
+          </Grid>
 
-        {/* Bottom Bar */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={isInView ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="pt-8 border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm"
-        >
-          <p>&copy; {new Date().getFullYear()} NarraFlow. All rights reserved.</p>
-          <p className="text-gray-500">
-            Made with care for Mac users
-          </p>
-        </motion.div>
-      </div>
-    </footer>
+          {/* Bottom Bar */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={isInView ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            style={{ paddingTop: '2rem', borderTop: '1px solid var(--gray-6)' }}
+          >
+            <Flex justify="between" align="center" gap="4" wrap="wrap">
+              <Text size="2" color="gray">
+                &copy; {new Date().getFullYear()} NarraFlow. All rights reserved.
+              </Text>
+              <Text size="2" color="gray">
+                Made with care for Mac users
+              </Text>
+            </Flex>
+          </motion.div>
+        </Box>
+      </footer>
+    </Box>
   );
 }

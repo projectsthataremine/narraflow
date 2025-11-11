@@ -23,6 +23,12 @@ const DEFAULT_CONFIG: PillConfig = {
   color1: '#10b981',
   color2: '#14b8a6',
   useGradient: true,
+  hasBackground: false,
+  backgroundShape: 'pill',
+  backgroundColor: '#18191b',
+  backgroundPadding: 12,
+  borderWidth: 0,
+  borderColor: '#0090ff',
 };
 
 export const RecordingPill: React.FC<RecordingPillProps> = ({
@@ -147,7 +153,8 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
   // Generate bars array
   const bars = Array.from({ length: config.numBars }, (_, i) => i);
 
-  return (
+  // Bars container
+  const barsContent = (
     <div
       ref={containerRef}
       style={{
@@ -181,4 +188,26 @@ export const RecordingPill: React.FC<RecordingPillProps> = ({
       ))}
     </div>
   );
+
+  // If background is enabled, wrap in container
+  if (config.hasBackground) {
+    return (
+      <div style={{
+        background: config.backgroundColor,
+        padding: `${config.backgroundPaddingY ?? 12}px ${config.backgroundPaddingX ?? 12}px`,
+        borderRadius: config.backgroundShape === 'pill' ? '999px' : '8px',
+        border: config.borderWidth > 0
+          ? `${config.borderWidth}px solid ${config.borderColor}`
+          : 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        {barsContent}
+      </div>
+    );
+  }
+
+  // Otherwise return just the bars
+  return barsContent;
 };

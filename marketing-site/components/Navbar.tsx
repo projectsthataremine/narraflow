@@ -3,18 +3,19 @@
 import Link from 'next/link';
 import { Download } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { Box, Flex, Button, Text } from '@radix-ui/themes';
 
 export default function Navbar() {
   const { scrollY } = useScroll();
   const backgroundColor = useTransform(
     scrollY,
     [0, 100],
-    ['rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 0.95)']
+    ['rgba(9, 9, 11, 0.6)', 'rgba(9, 9, 11, 0.85)']
   );
   const boxShadow = useTransform(
     scrollY,
     [0, 100],
-    ['0 0 0 0 rgba(0, 0, 0, 0)', '0 1px 3px 0 rgba(0, 0, 0, 0.1)']
+    ['0 0 0 0 rgba(0, 0, 0, 0)', '0 1px 3px 0 rgba(0, 0, 0, 0.3)']
   );
 
   return (
@@ -22,61 +23,125 @@ export default function Navbar() {
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      style={{ backgroundColor, boxShadow }}
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b border-gray-200"
+      style={{
+        backgroundColor,
+        boxShadow,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+      }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+      <Box className="container">
+        <Flex justify="between" align="center" style={{ height: '72px' }}>
           {/* Logo */}
-          <Link href="/" className="flex items-center group">
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <motion.img
               whileHover={{ scale: 1.05 }}
               src="/logo-small.svg"
               alt="NarraFlow"
-              className="h-8"
+              style={{ height: '32px' }}
             />
           </Link>
 
           {/* Nav Links */}
-          <div className="hidden md:flex items-center space-x-8">
+          <Flex gap="8" align="center" className="desktop-nav">
             <Link
               href="#features"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              style={{
+                color: 'rgba(255, 255, 255, 0.85)',
+                transition: 'color 0.2s ease',
+                textDecoration: 'none',
+                fontSize: '0.9375rem',
+                fontWeight: '500',
+                letterSpacing: '-0.01em'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)'}
             >
               Features
             </Link>
             <Link
               href="#pricing"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              style={{
+                color: 'rgba(255, 255, 255, 0.85)',
+                transition: 'color 0.2s ease',
+                textDecoration: 'none',
+                fontSize: '0.9375rem',
+                fontWeight: '500',
+                letterSpacing: '-0.01em'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)'}
             >
               Pricing
             </Link>
             <Link
               href="/docs"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              style={{
+                color: 'rgba(255, 255, 255, 0.85)',
+                transition: 'color 0.2s ease',
+                textDecoration: 'none',
+                fontSize: '0.9375rem',
+                fontWeight: '500',
+                letterSpacing: '-0.01em'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)'}
             >
               Docs
             </Link>
             <Link
               href="/login"
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              style={{
+                color: 'rgba(255, 255, 255, 0.85)',
+                transition: 'color 0.2s ease',
+                textDecoration: 'none',
+                fontSize: '0.9375rem',
+                fontWeight: '500',
+                letterSpacing: '-0.01em'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)'}
             >
               Account
             </Link>
-          </div>
+          </Flex>
 
           {/* CTA Button */}
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Link
-              href="/download"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Button
+              asChild
+              size="3"
+              style={{
+                cursor: 'pointer',
+                borderRadius: '12px',
+                fontWeight: '600',
+                letterSpacing: '-0.01em',
+                paddingLeft: '20px',
+                paddingRight: '20px',
+                background: 'linear-gradient(135deg, rgba(0, 112, 243, 0.9) 0%, rgba(0, 92, 203, 0.9) 100%)',
+                border: 'none',
+                color: 'white',
+                boxShadow: '0 2px 8px rgba(0, 112, 243, 0.15)'
+              }}
             >
-              <Download size={18} />
-              Download Free
-            </Link>
+              <Link href="/download" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'white' }}>
+                <Download size={16} strokeWidth={2.5} />
+                Download
+              </Link>
+            </Button>
           </motion.div>
-        </div>
-      </div>
+        </Flex>
+      </Box>
     </motion.nav>
   );
 }

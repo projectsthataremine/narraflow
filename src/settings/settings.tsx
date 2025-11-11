@@ -8,7 +8,8 @@ import { createRoot } from 'react-dom/client';
 import { MONTHLY_PRICE } from '../main/constants';
 import '@radix-ui/themes/styles.css';
 import { Theme, Select, Switch, Button, Flex, Box, Text, Tooltip, IconButton, Badge, Code } from '@radix-ui/themes';
-import { Copy, Plus, RefreshCw, Key } from 'lucide-react';
+import * as RadixToast from '@radix-ui/react-toast';
+import { Copy, Plus, RefreshCw, Key, Link, Unlink } from 'lucide-react';
 
 // CSS Variables (Dark Mode Only)
 const CSS_VARS = `
@@ -175,6 +176,61 @@ input[type="color"]::-moz-color-swatch {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Radix UI Toast styles */
+[data-radix-toast-viewport] {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 10px;
+  max-width: 100vw;
+  margin: 0;
+  list-style: none;
+  z-index: 2147483647;
+  outline: none;
+}
+
+[data-radix-toast-root] {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 15px;
+  display: grid;
+  grid-template-areas: "title action" "description action";
+  grid-template-columns: auto max-content;
+  column-gap: 15px;
+  align-items: center;
+}
+
+[data-radix-toast-root][data-state="open"] {
+  animation: slideIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-radix-toast-root][data-state="closed"] {
+  animation: hide 100ms ease-in;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(calc(100% + 24px));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes hide {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
 `;
 
 // Icon components (inline SVG - no external dependencies needed)
@@ -276,6 +332,41 @@ const CheckmarkIcon = () => (
   </svg>
 );
 
+const BarChartIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="20" x2="12" y2="10" />
+    <line x1="18" y1="20" x2="18" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="16" />
+  </svg>
+);
+
+const LayersIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 17 12 22 22 17" />
+    <polyline points="2 12 12 17 22 12" />
+  </svg>
+);
+
+const ChevronIcon = ({ isOpen }: { isOpen: boolean }) => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{
+      transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+      transition: 'transform 0.2s ease',
+    }}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 const EditIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -327,6 +418,13 @@ function SettingsApp() {
     color1: '#0090ff',
     color2: '#0090ff',
     useGradient: false,
+    hasBackground: false,
+    backgroundShape: 'pill',
+    backgroundColor: '#18191b',
+    backgroundPaddingX: 12,
+    backgroundPaddingY: 12,
+    borderWidth: 0,
+    borderColor: '#0090ff',
   });
   const [hotkeyConfig, setHotkeyConfig] = useState<HotkeyConfig>({
     modifiers: ['Shift', 'Alt'],
@@ -750,6 +848,8 @@ interface RecordingPillSectionProps {
 
 function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectionProps) {
   const [previewDarkMode, setPreviewDarkMode] = useState(true);
+  const [openSection, setOpenSection] = useState<'bars' | 'background' | null>('bars');
+  const [paddingLinked, setPaddingLinked] = useState(true);
 
   const handleRandomize = () => {
     const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -763,6 +863,7 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
     const randomColor = colors[randomInt(0, colors.length - 1)];
 
     setPillConfig({
+      ...pillConfig,
       numBars: randomInt(5, 15),
       barWidth: randomInt(5, 20),
       barGap: randomInt(2, 10),
@@ -771,184 +872,442 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
       glowIntensity: randomInt(0, 20),
       color1: randomColor[0],
       color2: randomColor[1],
-      useGradient: pillConfig.useGradient,
     });
   };
 
   return (
     <div>
-      {/* Settings Controls */}
-      <Flex justify="between" align="center" mb="4">
-        <Text size="4" weight="medium">Settings</Text>
+      {/* Header with Randomize button */}
+      <Flex justify="between" align="center" mb="5">
+        <Text size="5" weight="bold">Customize Recording Pill</Text>
         <Button
           onClick={handleRandomize}
           style={{
-            padding: '8px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '8px',
+            padding: '8px 16px',
           }}
         >
           <ShuffleIcon />
+          <Text size="2" weight="medium">Randomize</Text>
         </Button>
       </Flex>
 
-      <div style={{ marginBottom: '20px' }}>
+      {/* Accordion Sections */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Number of Bars */}
-          <Flex align="center" gap="4" justify="between">
-            <Text size="3" style={{ minWidth: '120px' }}>Number of Bars</Text>
-            <input
-              type="range"
-              min="5"
-              max="15"
-              value={pillConfig.numBars}
-              onChange={(e) => setPillConfig({ ...pillConfig, numBars: parseInt(e.target.value) })}
-              style={{
-                flex: 1,
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.numBars}</Text>
-          </Flex>
+        {/* Bar Animation Section */}
+        <div style={{
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden',
+          background: 'var(--bg-secondary)',
+        }}>
+          {/* Accordion Header */}
+          <button
+            onClick={() => setOpenSection(openSection === 'bars' ? null : 'bars')}
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              color: 'var(--text-primary)',
+            }}
+          >
+            {/* Icon Badge */}
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '6px',
+              background: 'var(--accent-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <BarChartIcon />
+            </div>
 
-          {/* Bar Width */}
-          <Flex align="center" gap="4" justify="between">
-            <Text size="3" style={{ minWidth: '120px' }}>Bar Width</Text>
-            <input
-              type="range"
-              min="3"
-              max="20"
-              value={pillConfig.barWidth}
-              onChange={(e) => setPillConfig({ ...pillConfig, barWidth: parseInt(e.target.value) })}
-              style={{
-                flex: 1,
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barWidth}px</Text>
-          </Flex>
+            {/* Title and Subtitle */}
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <Text size="3" weight="bold" style={{ display: 'block' }}>Bar Animation</Text>
+              <Text size="2" style={{ color: 'var(--text-secondary)', display: 'block' }}>
+                Customize bar appearance and behavior
+              </Text>
+            </div>
 
-          {/* Bar Gap */}
-          <Flex align="center" gap="4" justify="between">
-            <Text size="3" style={{ minWidth: '120px' }}>Bar Gap</Text>
-            <input
-              type="range"
-              min="2"
-              max="10"
-              value={pillConfig.barGap}
-              onChange={(e) => setPillConfig({ ...pillConfig, barGap: parseInt(e.target.value) })}
-              style={{
-                flex: 1,
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barGap}px</Text>
-          </Flex>
+            {/* Chevron */}
+            <ChevronIcon isOpen={openSection === 'bars'} />
+          </button>
 
-          {/* Max Height */}
-          <Flex align="center" gap="4" justify="between">
-            <Text size="3" style={{ minWidth: '120px' }}>Max Height</Text>
-            <input
-              type="range"
-              min="10"
-              max="70"
-              value={pillConfig.maxHeight}
-              onChange={(e) => setPillConfig({ ...pillConfig, maxHeight: parseInt(e.target.value) })}
-              style={{
-                flex: 1,
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.maxHeight}px</Text>
-          </Flex>
+          {/* Accordion Content */}
+          {openSection === 'bars' && (
+            <div style={{
+              padding: '0 16px 16px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}>
+              {/* Number of Bars */}
+              <Flex align="center" gap="4" justify="between">
+                <Text size="3" style={{ minWidth: '120px' }}>Number of Bars</Text>
+                <input
+                  type="range"
+                  min="5"
+                  max="15"
+                  value={pillConfig.numBars}
+                  onChange={(e) => setPillConfig({ ...pillConfig, numBars: parseInt(e.target.value) })}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                />
+                <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.numBars}</Text>
+              </Flex>
 
-          {/* Border Radius (as percentage) */}
-          <Flex align="center" gap="4" justify="between">
-            <Text size="3" style={{ minWidth: '120px' }}>Border Radius</Text>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={Math.round((pillConfig.borderRadius / 10) * 100)}
-              onChange={(e) => {
-                const percentage = parseInt(e.target.value);
-                const pixels = Math.round((percentage / 100) * 10);
-                setPillConfig({ ...pillConfig, borderRadius: pixels });
-              }}
-              style={{
-                flex: 1,
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{Math.round((pillConfig.borderRadius / 10) * 100)}%</Text>
-          </Flex>
+              {/* Bar Width */}
+              <Flex align="center" gap="4" justify="between">
+                <Text size="3" style={{ minWidth: '120px' }}>Bar Width</Text>
+                <input
+                  type="range"
+                  min="2"
+                  max="20"
+                  value={pillConfig.barWidth}
+                  onChange={(e) => setPillConfig({ ...pillConfig, barWidth: parseInt(e.target.value) })}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                />
+                <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barWidth}px</Text>
+              </Flex>
 
-          {/* Glow Intensity */}
-          <Flex align="center" gap="4" justify="between">
-            <Text size="3" style={{ minWidth: '120px' }}>Glow Intensity</Text>
-            <input
-              type="range"
-              min="0"
-              max="20"
-              value={pillConfig.glowIntensity}
-              onChange={(e) => setPillConfig({ ...pillConfig, glowIntensity: parseInt(e.target.value) })}
-              style={{
-                flex: 1,
-                height: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.glowIntensity}</Text>
-          </Flex>
+              {/* Bar Gap */}
+              <Flex align="center" gap="4" justify="between">
+                <Text size="3" style={{ minWidth: '120px' }}>Bar Gap</Text>
+                <input
+                  type="range"
+                  min="2"
+                  max="10"
+                  value={pillConfig.barGap}
+                  onChange={(e) => setPillConfig({ ...pillConfig, barGap: parseInt(e.target.value) })}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                />
+                <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barGap}px</Text>
+              </Flex>
+
+              {/* Max Height */}
+              <Flex align="center" gap="4" justify="between">
+                <Text size="3" style={{ minWidth: '120px' }}>Max Height</Text>
+                <input
+                  type="range"
+                  min="8"
+                  max="70"
+                  value={pillConfig.maxHeight}
+                  onChange={(e) => setPillConfig({ ...pillConfig, maxHeight: parseInt(e.target.value) })}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                />
+                <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.maxHeight}px</Text>
+              </Flex>
+
+              {/* Border Radius */}
+              <Flex align="center" gap="4" justify="between">
+                <Text size="3" style={{ minWidth: '120px' }}>Border Radius</Text>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round((pillConfig.borderRadius / 10) * 100)}
+                  onChange={(e) => {
+                    const percentage = parseInt(e.target.value);
+                    const pixels = Math.round((percentage / 100) * 10);
+                    setPillConfig({ ...pillConfig, borderRadius: pixels });
+                  }}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                />
+                <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{Math.round((pillConfig.borderRadius / 10) * 100)}%</Text>
+              </Flex>
+
+              {/* Glow Intensity */}
+              <Flex align="center" gap="4" justify="between">
+                <Text size="3" style={{ minWidth: '120px' }}>Glow Intensity</Text>
+                <input
+                  type="range"
+                  min="0"
+                  max="20"
+                  value={pillConfig.glowIntensity}
+                  onChange={(e) => setPillConfig({ ...pillConfig, glowIntensity: parseInt(e.target.value) })}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                />
+                <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.glowIntensity}</Text>
+              </Flex>
+
+              {/* Use Gradient with Colors */}
+              <Flex justify="between" align="center" mt="2">
+                <Flex align="center" gap="2">
+                  <Text size="3">Use Gradient</Text>
+                  <Switch
+                    checked={pillConfig.useGradient}
+                    onCheckedChange={(checked) => setPillConfig({ ...pillConfig, useGradient: checked })}
+                  />
+                </Flex>
+
+                {/* Colors on the right */}
+                <Flex gap="3" align="center">
+                  <input
+                    type="color"
+                    value={pillConfig.color1}
+                    onChange={(e) => setPillConfig({ ...pillConfig, color1: e.target.value })}
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  {pillConfig.useGradient && (
+                    <input
+                      type="color"
+                      value={pillConfig.color2}
+                      onChange={(e) => setPillConfig({ ...pillConfig, color2: e.target.value })}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  )}
+                </Flex>
+              </Flex>
+            </div>
+          )}
         </div>
 
-        {/* Use Gradient with Colors */}
-        <Flex justify="between" align="center" mt="4">
-          <Flex align="center" gap="2">
-            <Text size="3">Use Gradient</Text>
-            <Switch
-              checked={pillConfig.useGradient}
-              onCheckedChange={(checked) => setPillConfig({ ...pillConfig, useGradient: checked })}
-            />
-          </Flex>
+        {/* Background Section */}
+        <div style={{
+          border: '1px solid var(--border-light)',
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden',
+          background: 'var(--bg-secondary)',
+        }}>
+          {/* Accordion Header */}
+          <button
+            onClick={() => setOpenSection(openSection === 'background' ? null : 'background')}
+            style={{
+              width: '100%',
+              padding: '16px',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              color: 'var(--text-primary)',
+            }}
+          >
+            {/* Icon Badge */}
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '6px',
+              background: 'var(--accent-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <LayersIcon />
+            </div>
 
-          {/* Colors on the right */}
-          <Flex gap="3" align="center">
-            <input
-              type="color"
-              value={pillConfig.color1}
-              onChange={(e) => setPillConfig({ ...pillConfig, color1: e.target.value })}
-              style={{
-                width: '32px',
-                height: '32px',
-                border: '1px solid var(--border-light)',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            />
-            {pillConfig.useGradient && (
-              <input
-                type="color"
-                value={pillConfig.color2}
-                onChange={(e) => setPillConfig({ ...pillConfig, color2: e.target.value })}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              />
-            )}
-          </Flex>
-        </Flex>
+            {/* Title and Subtitle */}
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <Flex align="center" gap="2">
+                <Text size="3" weight="bold">Background</Text>
+                <Badge color={pillConfig.hasBackground ? "green" : "gray"} size="1">
+                  {pillConfig.hasBackground ? "ON" : "OFF"}
+                </Badge>
+              </Flex>
+              <Text size="2" style={{ color: 'var(--text-secondary)', display: 'block' }}>
+                Add background container with borders
+              </Text>
+            </div>
+
+            {/* Chevron */}
+            <ChevronIcon isOpen={openSection === 'background'} />
+          </button>
+
+          {/* Accordion Content */}
+          {openSection === 'background' && (
+            <div style={{
+              padding: '0 16px 16px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}>
+              {/* Enable Background Toggle */}
+              <Flex justify="between" align="center">
+                <Text size="3">Enable Background</Text>
+                <Switch
+                  checked={pillConfig.hasBackground}
+                  onCheckedChange={(checked) => setPillConfig({ ...pillConfig, hasBackground: checked })}
+                />
+              </Flex>
+
+              {pillConfig.hasBackground && (
+                <>
+                  {/* Background Shape Selector */}
+                  <div>
+                    <Text size="3" style={{ display: 'block', marginBottom: '8px' }}>Shape</Text>
+                    <Flex gap="2">
+                      <Button
+                        variant={pillConfig.backgroundShape === 'pill' ? 'solid' : 'outline'}
+                        onClick={() => setPillConfig({ ...pillConfig, backgroundShape: 'pill' })}
+                        style={{ flex: 1 }}
+                      >
+                        Pill
+                      </Button>
+                      <Button
+                        variant={pillConfig.backgroundShape === 'rectangle' ? 'solid' : 'outline'}
+                        onClick={() => setPillConfig({ ...pillConfig, backgroundShape: 'rectangle' })}
+                        style={{ flex: 1 }}
+                      >
+                        Rectangle
+                      </Button>
+                    </Flex>
+                  </div>
+
+                  {/* Background Color */}
+                  <Flex align="center" gap="3" justify="between">
+                    <Text size="3">Background Color</Text>
+                    <input
+                      type="color"
+                      value={pillConfig.backgroundColor}
+                      onChange={(e) => setPillConfig({ ...pillConfig, backgroundColor: e.target.value })}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </Flex>
+
+                  {/* Background Padding X and Y */}
+                  <Flex direction="column" gap="2">
+                    {/* Padding X */}
+                    <Flex align="center" gap="4" justify="between">
+                      <Text size="3" style={{ minWidth: '120px' }}>Padding X</Text>
+                      <input
+                        type="range"
+                        min="4"
+                        max="24"
+                        value={pillConfig.backgroundPaddingX ?? 12}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value);
+                          if (paddingLinked) {
+                            setPillConfig({
+                              ...pillConfig,
+                              backgroundPaddingX: newValue,
+                              backgroundPaddingY: newValue
+                            });
+                          } else {
+                            setPillConfig({ ...pillConfig, backgroundPaddingX: newValue });
+                          }
+                        }}
+                        style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                      />
+                      <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.backgroundPaddingX ?? 12}px</Text>
+                    </Flex>
+
+                    {/* Link Button */}
+                    <Flex align="center" pl="2">
+                      <IconButton
+                        size="1"
+                        variant={paddingLinked ? 'solid' : 'soft'}
+                        color={paddingLinked ? 'blue' : 'gray'}
+                        onClick={() => {
+                          if (!paddingLinked) {
+                            // When linking, sync Y to match X
+                            setPillConfig({
+                              ...pillConfig,
+                              backgroundPaddingY: pillConfig.backgroundPaddingX ?? 12
+                            });
+                          }
+                          setPaddingLinked(!paddingLinked);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                        title={paddingLinked ? 'Unlink padding values' : 'Link padding values'}
+                      >
+                        {paddingLinked ? <Link size={14} /> : <Unlink size={14} />}
+                      </IconButton>
+                    </Flex>
+
+                    {/* Padding Y */}
+                    <Flex align="center" gap="4" justify="between">
+                      <Text size="3" style={{ minWidth: '120px' }}>Padding Y</Text>
+                      <input
+                        type="range"
+                        min="4"
+                        max="24"
+                        value={pillConfig.backgroundPaddingY ?? 12}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value);
+                          if (paddingLinked) {
+                            setPillConfig({
+                              ...pillConfig,
+                              backgroundPaddingX: newValue,
+                              backgroundPaddingY: newValue
+                            });
+                          } else {
+                            setPillConfig({ ...pillConfig, backgroundPaddingY: newValue });
+                          }
+                        }}
+                        style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                      />
+                      <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.backgroundPaddingY ?? 12}px</Text>
+                    </Flex>
+                  </Flex>
+
+                  {/* Border Width */}
+                  <Flex align="center" gap="4" justify="between">
+                    <Text size="3" style={{ minWidth: '120px' }}>Border Width</Text>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      value={pillConfig.borderWidth}
+                      onChange={(e) => setPillConfig({ ...pillConfig, borderWidth: parseInt(e.target.value) })}
+                      style={{ flex: 1, height: '4px', cursor: 'pointer' }}
+                    />
+                    <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.borderWidth}px</Text>
+                  </Flex>
+
+                  {/* Border Color (only if borderWidth > 0) */}
+                  {pillConfig.borderWidth > 0 && (
+                    <Flex align="center" gap="3" justify="between">
+                      <Text size="3">Border Color</Text>
+                      <input
+                        type="color"
+                        value={pillConfig.borderColor}
+                        onChange={(e) => setPillConfig({ ...pillConfig, borderColor: e.target.value })}
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          border: '1px solid var(--border-light)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </Flex>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Live Preview */}
@@ -1004,7 +1363,7 @@ function PillPreview({ config }: PillPreviewProps) {
     return Math.max(0.3, Math.min(1.0, amplitude + variation));
   });
 
-  return (
+  const barsContent = (
     <div style={{
       display: 'flex',
       gap: `${config.barGap}px`,
@@ -1032,6 +1391,28 @@ function PillPreview({ config }: PillPreviewProps) {
       })}
     </div>
   );
+
+  // If background is enabled, wrap the bars in a container
+  if (config.hasBackground) {
+    return (
+      <div style={{
+        background: config.backgroundColor,
+        padding: `${config.backgroundPaddingY ?? 12}px ${config.backgroundPaddingX ?? 12}px`,
+        borderRadius: config.backgroundShape === 'pill' ? '999px' : '8px',
+        border: config.borderWidth > 0
+          ? `${config.borderWidth}px solid ${config.borderColor}`
+          : 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        {barsContent}
+      </div>
+    );
+  }
+
+  // Otherwise, return just the bars
+  return barsContent;
 }
 
 // Toast Notification Component

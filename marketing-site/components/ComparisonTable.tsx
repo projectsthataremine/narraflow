@@ -1,9 +1,9 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useInView } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { Box, Flex, Heading, Text, Table, Badge } from '@radix-ui/themes';
 
 export default function ComparisonTable() {
   const ref = useRef(null);
@@ -25,71 +25,86 @@ export default function ComparisonTable() {
   ];
 
   return (
-    <section ref={ref} id="features-list" className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
-      <div className="max-w-5xl mx-auto">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16 space-y-4"
-        >
-          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900">
-            Everything you need. <span className="text-blue-600">Nothing you don't.</span>
-          </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Professional speech-to-text at an honest price.
-          </p>
-        </motion.div>
+    <Box asChild ref={ref}>
+      <section id="features-list" className="section" style={{ background: 'var(--gray-2)' }}>
+        <Box className="container" style={{ maxWidth: '1000px' }}>
+          {/* Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6 }}
+          >
+            <Flex direction="column" gap="4" align="center" mb="8">
+              <Heading size="8" weight="bold" align="center">
+                Everything you need. <Text color="blue">Nothing you don't.</Text>
+              </Heading>
+              <Text size="5" color="gray" align="center" style={{ maxWidth: '700px' }}>
+                Professional speech-to-text at an honest price.
+              </Text>
+            </Flex>
+          </motion.div>
 
-        {/* Features Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200"
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gradient-to-br from-blue-600 to-blue-700">
-                  <th className="text-left py-6 px-8 text-white font-semibold text-lg">
-                    What's Included
-                  </th>
-                  <th className="text-center py-6 px-8 w-32">
-                    <div className="text-3xl">✓</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {features.map((feature, index) => (
-                  <FeatureRow
-                    key={index}
-                    feature={feature.name}
-                    value={feature.value}
-                    highlight={feature.highlight}
-                    index={index}
-                    isInView={isInView}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
+          {/* Features Table */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <Box style={{
+              background: 'var(--color-panel-solid)',
+              borderRadius: 'var(--radius-4)',
+              overflow: 'hidden',
+              boxShadow: 'var(--shadow-5)',
+            }}>
+              <Table.Root variant="surface">
+                <Table.Header>
+                  <Table.Row style={{ background: 'var(--accent-9)' }}>
+                    <Table.ColumnHeaderCell
+                      colSpan={2}
+                      style={{
+                        padding: '1.75rem 1.5rem',
+                        color: 'white',
+                        fontSize: '1.5rem',
+                        fontWeight: '700',
+                        textAlign: 'center',
+                        letterSpacing: '-0.02em'
+                      }}
+                    >
+                      Everything Included
+                    </Table.ColumnHeaderCell>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {features.map((feature, index) => (
+                    <FeatureRow
+                      key={index}
+                      feature={feature.name}
+                      value={feature.value}
+                      highlight={feature.highlight}
+                      index={index}
+                      isInView={isInView}
+                    />
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          </motion.div>
 
-        {/* Bottom Note */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={isInView ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="mt-8 text-center"
-        >
-          <p className="text-gray-600">
-            <span className="font-semibold text-gray-900">$5/month</span> for everything above. No hidden tiers.
-          </p>
-        </motion.div>
-      </div>
-    </section>
+          {/* Bottom Note */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={isInView ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+          >
+            <Text size="4" color="gray" align="center" mt="6" asChild>
+              <p>
+                <Text weight="bold">$5/month</Text> for everything above. No hidden tiers.
+              </p>
+            </Text>
+          </motion.div>
+        </Box>
+      </section>
+    </Box>
   );
 }
 
@@ -107,36 +122,38 @@ function FeatureRow({ feature, value, highlight, index, isInView }: FeatureRowPr
       initial={{ opacity: 0, x: -20 }}
       animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
       transition={{ duration: 0.4, delay: 0.3 + index * 0.05 }}
-      className={highlight ? 'bg-blue-50/30' : ''}
+      style={{ background: highlight ? 'var(--accent-2)' : undefined }}
     >
-      <td className="py-4 px-8 text-gray-900 font-medium">
-        {feature}
-        {highlight && (
-          <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-            Key
-          </span>
-        )}
-      </td>
-      <td className="py-4 px-8 text-center">
+      <Table.Cell style={{ padding: '1rem 1.5rem' }}>
+        <Flex gap="2" align="center">
+          <Text weight="medium">{feature}</Text>
+          {highlight && (
+            <Badge color="blue" size="1">Key</Badge>
+          )}
+        </Flex>
+      </Table.Cell>
+      <Table.Cell style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
         {value ? (
           <motion.span
             initial={{ opacity: 0, scale: 0.5 }}
             animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.5 }}
             transition={{ duration: 0.3, delay: 0.3 + index * 0.05 + 0.1 }}
-            className="text-sm font-semibold text-blue-600"
           >
-            {value}
+            <Text size="2" weight="bold" color="blue">
+              {value}
+            </Text>
           </motion.span>
         ) : (
           <motion.div
             initial={{ opacity: 0, scale: 0, rotate: -180 }}
             animate={isInView ? { opacity: 1, scale: 1, rotate: 0 } : { opacity: 0, scale: 0, rotate: -180 }}
             transition={{ duration: 0.4, delay: 0.3 + index * 0.05 + 0.1, type: 'spring', stiffness: 200 }}
+            style={{ display: 'flex', justifyContent: 'center' }}
           >
-            <Check size={24} className="text-blue-600 mx-auto" />
+            <Check size={24} color="var(--accent-9)" />
           </motion.div>
         )}
-      </td>
+      </Table.Cell>
     </motion.tr>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
+import { Box, Flex, Heading, Text, Card } from '@radix-ui/themes';
 
 export default function FAQ() {
   const ref = useRef(null);
@@ -36,53 +37,61 @@ export default function FAQ() {
   ];
 
   return (
-    <section ref={ref} id="faq" className="py-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16 space-y-4"
-        >
-          <h2 className="text-4xl sm:text-5xl font-bold text-gray-900">
-            Questions?
-          </h2>
-          <p className="text-xl text-gray-600">
-            Everything you need to know
-          </p>
-        </motion.div>
+    <Box asChild ref={ref}>
+      <section id="faq" className="section">
+        <Box className="container" style={{ maxWidth: '900px' }}>
+          {/* Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6 }}
+          >
+            <Flex direction="column" gap="4" align="center" mb="8">
+              <Heading size="8" weight="bold" align="center">
+                Questions?
+              </Heading>
+              <Text size="5" color="gray" align="center">
+                Everything you need to know
+              </Text>
+            </Flex>
+          </motion.div>
 
-        {/* FAQ List */}
-        <div className="space-y-4">
-          {faqs.map((faq, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
-              transition={{ duration: 0.5, delay: 0.1 * index }}
-            >
-              <FAQItem question={faq.question} answer={faq.answer} />
-            </motion.div>
-          ))}
-        </div>
+          {/* FAQ List */}
+          <Flex direction="column" gap="4">
+            {faqs.map((faq, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
+                transition={{ duration: 0.5, delay: 0.1 * index }}
+              >
+                <FAQItem question={faq.question} answer={faq.answer} />
+              </motion.div>
+            ))}
+          </Flex>
 
-        {/* Contact Note */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-12 text-center p-6 bg-blue-50 rounded-xl border border-blue-100"
-        >
-          <p className="text-gray-700">
-            Still have questions?{' '}
-            <a href="mailto:support@narraflow.com" className="text-blue-600 hover:text-blue-700 font-semibold">
-              Get in touch
-            </a>
-          </p>
-        </motion.div>
-      </div>
-    </section>
+          {/* Contact Note */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            <Card size="3" variant="surface" mt="8" style={{ background: 'var(--accent-2)', borderColor: 'var(--accent-6)' }}>
+              <Text size="3" color="gray" align="center" asChild>
+                <p>
+                  Still have questions?{' '}
+                  <Text asChild>
+                    <a href="mailto:support@narraflow.com" style={{ color: 'var(--accent-9)', fontWeight: '600' }}>
+                      Get in touch
+                    </a>
+                  </Text>
+                </p>
+              </Text>
+            </Card>
+          </motion.div>
+        </Box>
+      </section>
+    </Box>
   );
 }
 
@@ -93,20 +102,49 @@ interface FAQItemProps {
 
 function FAQItem({ question, answer }: FAQItemProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <Card
+      size="2"
+      variant="surface"
+      style={{
+        overflow: 'hidden',
+        border: '1px solid var(--gray-5)',
+        transition: 'all 0.3s ease',
+        boxShadow: isHovered ? '0 4px 12px rgba(0, 0, 0, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.05)'
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        whileHover={{ backgroundColor: 'rgb(249, 250, 251)' }}
-        className="w-full px-6 py-4 flex items-center justify-between text-left transition-colors"
+        whileHover={{ backgroundColor: 'var(--gray-2)' }}
+        whileTap={{ scale: 0.99 }}
+        style={{
+          width: '100%',
+          padding: '1.25rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          textAlign: 'left',
+          border: 'none',
+          background: 'transparent',
+          cursor: 'pointer',
+          transition: 'background-color 0.2s'
+        }}
       >
-        <span className="font-semibold text-gray-900">{question}</span>
+        <Text size="3" weight="bold" style={{ lineHeight: '1.4', paddingRight: '1rem' }}>{question}</Text>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          style={{ flexShrink: 0 }}
         >
-          <ChevronDown size={20} className="text-gray-400" />
+          <ChevronDown
+            size={20}
+            color={isOpen ? 'var(--accent-9)' : 'var(--gray-9)'}
+            style={{ transition: 'color 0.3s' }}
+          />
         </motion.div>
       </motion.button>
       <motion.div
@@ -116,12 +154,16 @@ function FAQItem({ question, answer }: FAQItemProps) {
           opacity: isOpen ? 1 : 0,
         }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="overflow-hidden"
+        style={{ overflow: 'hidden' }}
       >
-        <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-          <p className="text-gray-700 leading-relaxed">{answer}</p>
-        </div>
+        <Box style={{
+          padding: '1.25rem 1.5rem',
+          borderTop: '1px solid var(--gray-5)',
+          background: 'var(--gray-2)'
+        }}>
+          <Text size="2" color="gray" style={{ lineHeight: '1.7' }}>{answer}</Text>
+        </Box>
       </motion.div>
-    </div>
+    </Card>
   );
 }

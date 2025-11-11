@@ -61,11 +61,12 @@ contextBridge.exposeInMainWorld('electron', {
   },
 
   // Invoke (request-response)
-  invoke: async (channel: string, data: any) => {
+  invoke: async (channel: string, data?: any) => {
     const validChannels = Object.values(IPC_CHANNELS);
     if (validChannels.includes(channel as any)) {
       return await ipcRenderer.invoke(channel, data);
     }
+    throw new Error(`Invalid IPC channel: ${channel}`);
   },
 
   // Auto-updater methods

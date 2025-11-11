@@ -40,6 +40,14 @@ export interface PillConfig {
   color1: string;
   color2: string;
   useGradient: boolean;
+  // Background settings
+  hasBackground: boolean;
+  backgroundShape: 'pill' | 'rectangle';
+  backgroundColor: string;
+  backgroundPaddingX: number;
+  backgroundPaddingY: number;
+  borderWidth: number;
+  borderColor: string;
 }
 
 export interface HistoryItem {

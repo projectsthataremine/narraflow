@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 
+// Electron IPC type declarations
+declare global {
+  interface Window {
+    electron: any;
+  }
+}
+
 /**
  * Centralized hook to determine if user has access to the app
  *

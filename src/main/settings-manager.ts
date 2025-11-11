@@ -23,15 +23,22 @@ interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   pillConfig: {
-    numBars: 10,
-    barWidth: 4,
-    barGap: 6,
-    maxHeight: 40,
-    borderRadius: 2,
-    glowIntensity: 2,
-    color1: '#3b82f6',
-    color2: '#8b5cf6',
-    useGradient: true,
+    numBars: 11,
+    barWidth: 3,
+    barGap: 2,
+    maxHeight: 11,
+    borderRadius: 40,
+    glowIntensity: 0,
+    color1: '#0090ff',
+    color2: '#0090ff',
+    useGradient: false,
+    hasBackground: false,
+    backgroundShape: 'pill',
+    backgroundColor: '#18191b',
+    backgroundPaddingX: 12,
+    backgroundPaddingY: 12,
+    borderWidth: 0,
+    borderColor: '#0090ff',
   },
   hotkey: {
     modifiers: ['Shift', 'Alt'],
@@ -206,9 +213,9 @@ export class SettingsManager {
     // Add to beginning of array
     this.history.unshift(item);
 
-    // Keep only last 10 items
-    if (this.history.length > 10) {
-      this.history = this.history.slice(0, 10);
+    // Keep only last 25 items
+    if (this.history.length > 25) {
+      this.history = this.history.slice(0, 25);
     }
 
     this.saveHistory();

@@ -14,6 +14,7 @@ import {
   setupIPCHandlers,
   cleanupIPC,
   setOverlayWindow,
+  setSettingsWindow,
   getSavedPillConfig,
   getSavedHotkeyConfig,
   applySavedDockVisibility,
@@ -86,7 +87,7 @@ function createOverlayWindow(): void {
   if (process.env.NODE_ENV === 'development') {
     overlayWindow.loadURL('http://localhost:5173/ui/index.html');
   } else {
-    overlayWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    overlayWindow.loadFile(path.join(__dirname, '../../renderer/ui/index.html'));
   }
 
   overlayWindow.webContents.on('did-finish-load', () => {
@@ -138,7 +139,7 @@ function createSettingsWindow(): void {
     console.log('[Main] Loading settings from:', 'http://localhost:5173/settings/index.html');
     mainWindow.loadURL('http://localhost:5173/settings/index.html');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/settings/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../../renderer/settings/index.html'));
   }
 
   // Log any load failures
@@ -242,8 +243,11 @@ async function initialize(): Promise<void> {
   // Setup IPC handlers
   setupIPCHandlers(overlayWindow);
 
-  // Set overlay window reference for IPC forwarding
+  // Set window references for IPC forwarding
   setOverlayWindow(overlayWindow);
+  if (mainWindow) {
+    setSettingsWindow(mainWindow);
+  }
 
   // Apply saved dock visibility setting
   applySavedDockVisibility();

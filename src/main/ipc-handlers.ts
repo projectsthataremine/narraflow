@@ -21,10 +21,12 @@ import { IPC_CHANNELS } from '../types/ipc-contracts';
 import { AudioSessionManager } from '../audio/session';
 import { PasteSimulator } from '../paste/paste';
 import { SettingsManager } from './settings-manager';
+import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 
 let audioSessionManager: AudioSessionManager | null = null;
 let transcriptionWorker: Worker | null = null;
 let currentMainWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let monitorTrackingInterval: NodeJS.Timeout | null = null;
 let settingsManager: SettingsManager | null = null;
@@ -38,6 +40,14 @@ const BOTTOM_PADDING = 20; // Additional spacing from screen bottom
  */
 export function setOverlayWindow(window: BrowserWindow): void {
   overlayWindow = window;
+}
+
+/**
+ * Set settings window reference
+ */
+export function setSettingsWindow(window: BrowserWindow): void {
+  settingsWindow = window;
+  console.log('[IPC] Settings window reference set');
 }
 
 /**
@@ -216,17 +226,27 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Handle Hotkey Config Update
-  ipcMain.on(IPC_CHANNELS.HOTKEY_CONFIG_UPDATE, (event, data: { config: import('./settings-manager').HotkeyConfig }) => {
-    console.log('[Main] Saving hotkey config:', data.config);
+  ipcMain.on(IPC_CHANNELS.HOTKEY_CONFIG_UPDATE, async (event, data: { config: import('./settings-manager').HotkeyConfig }) => {
+    console.log('[Main] Updating hotkey config:', data.config);
 
     // Save config to disk
     if (settingsManager) {
       settingsManager.setHotkeyConfig(data.config);
     }
 
-    // Note: Hotkey changes require app restart to take effect
-    // In the future, we could dynamically restart the keyboard hook
-    console.log('[Main] Hotkey configuration saved. Restart the app for changes to take effect.');
+    // Dynamically update the keyboard hook
+    console.log('[Main] Unregistering old shortcuts...');
+    unregisterShortcuts();
+
+    if (overlayWindow) {
+      console.log('[Main] Registering new shortcuts...');
+      const success = await registerShortcuts(overlayWindow, data.config);
+      if (success) {
+        console.log('[Main] Hotkey updated successfully to:', data.config.key);
+      } else {
+        console.error('[Main] Failed to register new hotkey');
+      }
+    }
   });
 
   // Handle History Get
@@ -493,10 +513,14 @@ function broadcastHistoryUpdate(): void {
   }
 
   const history = settingsManager.getHistory();
+  console.log('[IPC] Broadcasting history update, items:', history.length);
 
-  // Send to main window (settings)
-  if (currentMainWindow && !currentMainWindow.isDestroyed()) {
-    currentMainWindow.webContents.send(IPC_CHANNELS.HISTORY_UPDATE, { history });
+  // Send to settings window
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    console.log('[IPC] Sending history update to settings window');
+    settingsWindow.webContents.send(IPC_CHANNELS.HISTORY_UPDATE, { history });
+  } else {
+    console.warn('[IPC] Settings window not available for history update');
   }
 
   // Send to overlay window

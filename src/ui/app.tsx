@@ -37,6 +37,13 @@ export const App: React.FC = () => {
     color1: '#0090ff',
     color2: '#0090ff',
     useGradient: false,
+    hasBackground: false,
+    backgroundShape: 'pill',
+    backgroundColor: '#18191b',
+    backgroundPaddingX: 12,
+    backgroundPaddingY: 12,
+    borderWidth: 0,
+    borderColor: '#0090ff',
   });
 
   // Separate modules for visualization and recording
