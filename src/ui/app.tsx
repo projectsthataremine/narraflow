@@ -28,15 +28,15 @@ export const App: React.FC = () => {
 
   // Default pill config (matches main process defaults)
   const [pillConfig, setPillConfig] = useState<PillConfig>({
-    numBars: 10,
-    barWidth: 4,
-    barGap: 6,
-    maxHeight: 60,
-    borderRadius: 12,
-    glowIntensity: 0.6,
-    color1: '#3b82f6',
-    color2: '#8b5cf6',
-    useGradient: true,
+    numBars: 11,
+    barWidth: 3,
+    barGap: 2,
+    maxHeight: 11,
+    borderRadius: 40,
+    glowIntensity: 0,
+    color1: '#0090ff',
+    color2: '#0090ff',
+    useGradient: false,
   });
 
   // Separate modules for visualization and recording
@@ -256,7 +256,7 @@ export const App: React.FC = () => {
       <div
         style={{
           position: 'absolute',
-          bottom: '50%',
+          bottom: 'calc(50% - 60px)',
           left: '50%',
           transform: 'translate(-50%, 50%)',
           pointerEvents: 'auto',

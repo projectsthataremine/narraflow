@@ -14,12 +14,12 @@ import { Copy, Plus, RefreshCw, Key } from 'lucide-react';
 const CSS_VARS = `
 :root[data-theme="dark"],
 :root {
-  --bg-primary: #121212;
-  --bg-secondary: #0f0f0f;
-  --bg-tertiary: #1c1c1e;
-  --sidebar-bg: #000000;
-  --accent-primary: #1db954;
-  --accent-hover: #1ed760;
+  --bg-primary: #18191b;
+  --bg-secondary: #111113;
+  --bg-tertiary: #212225;
+  --sidebar-bg: #111113;
+  --accent-primary: #0090ff;
+  --accent-hover: #3b9eff;
   --text-primary: #ffffff;
   --text-secondary: #b3b3b3;
   --text-tertiary: #636366;
@@ -194,6 +194,28 @@ const MicIcon = () => (
   </svg>
 );
 
+// NarraFlow Logo for title bar
+const NarraFlowLogo = () => (
+  <svg width="140" height="32" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="logoGradient" x1="0" y1="0" x2="140" y2="0">
+        <stop offset="0%" stopColor="#0090ff"/>
+        <stop offset="100%" stopColor="#0070dd"/>
+      </linearGradient>
+    </defs>
+    {/* Vertical bars */}
+    <rect x="0" y="13" width="3" height="6" rx="1.5" fill="url(#logoGradient)"/>
+    <rect x="5" y="10" width="3" height="12" rx="1.5" fill="url(#logoGradient)"/>
+    <rect x="10" y="7" width="3" height="18" rx="1.5" fill="url(#logoGradient)"/>
+    <rect x="15" y="4" width="3" height="24" rx="1.5" fill="url(#logoGradient)"/>
+    <rect x="20" y="7" width="3" height="18" rx="1.5" fill="url(#logoGradient)"/>
+    <rect x="25" y="10" width="3" height="12" rx="1.5" fill="url(#logoGradient)"/>
+    <rect x="30" y="13" width="3" height="6" rx="1.5" fill="url(#logoGradient)"/>
+    {/* Text: NarraFlow */}
+    <text x="40" y="24" fontFamily="Helvetica Neue, Helvetica, Arial, sans-serif" fontSize="20" fontWeight="700" fill="#ffffff">NarraFlow</text>
+  </svg>
+);
+
 const UserIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
@@ -235,14 +257,14 @@ const MessageIcon = () => (
 );
 
 const CopyIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 );
 
 const TrashIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <polyline points="3 6 5 6 21 6" />
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </svg>
@@ -251,12 +273,6 @@ const TrashIcon = () => (
 const CheckmarkIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-const CloudIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
   </svg>
 );
 
@@ -302,15 +318,15 @@ function SettingsApp() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [pillConfig, setPillConfig] = useState<PillConfig>({
-    numBars: 10,
-    barWidth: 8,
-    barGap: 4,
-    maxHeight: 60,
-    borderRadius: 4,
-    glowIntensity: 20,
-    color1: '#a855f7',
-    color2: '#60a5fa',
-    useGradient: true,
+    numBars: 11,
+    barWidth: 3,
+    barGap: 2,
+    maxHeight: 11,
+    borderRadius: 40,
+    glowIntensity: 0,
+    color1: '#0090ff',
+    color2: '#0090ff',
+    useGradient: false,
   });
   const [hotkeyConfig, setHotkeyConfig] = useState<HotkeyConfig>({
     modifiers: ['Shift', 'Alt'],
@@ -368,7 +384,7 @@ function SettingsApp() {
   }, []);
 
   return (
-    <Theme appearance="dark" accentColor="green" grayColor="slate" radius="medium" scaling="100%">
+    <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
       <style>{CSS_VARS}</style>
       <div style={{
         width: '100%',
@@ -402,10 +418,10 @@ function SettingsApp() {
             display: 'flex',
             flexDirection: 'column',
           }}>
-            {/* App Title */}
-            <Text size="7" weight="bold" mb="6" style={{ color: 'var(--accent-9)', letterSpacing: '-0.02em' }}>
-              NarraFlow
-            </Text>
+            {/* App Logo */}
+            <div style={{ marginBottom: '24px' }}>
+              <NarraFlowLogo />
+            </div>
 
             {/* Navigation */}
             <Flex direction="column" gap="1">
@@ -484,106 +500,17 @@ function SettingsApp() {
 
 // Version Footer Component
 function VersionFooter() {
-  const [hoveredCloud, setHoveredCloud] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateDownloaded, setUpdateDownloaded] = useState(false);
-
-  useEffect(() => {
-    if (window.electron) {
-      // Listen for update notifications
-      (window.electron as any).onUpdateAvailable((info: any) => {
-        console.log('[Settings] Update available:', info);
-        setUpdateAvailable(true);
-      });
-
-      (window.electron as any).onUpdateDownloaded((info: any) => {
-        console.log('[Settings] Update downloaded:', info);
-        setUpdateDownloaded(true);
-      });
-    }
-  }, []);
-
-  const handleCloudClick = async () => {
-    if (!updateAvailable) {
-      console.log('[Settings] Already up to date');
-      return;
-    }
-
-    if (updateDownloaded) {
-      // Install update and restart
-      console.log('[Settings] Installing update and restarting...');
-      if (window.electron) {
-        await (window.electron as any).installUpdate();
-      }
-    } else {
-      // Download update
-      console.log('[Settings] Downloading update...');
-      if (window.electron) {
-        await (window.electron as any).downloadUpdate();
-      }
-    }
-  };
-
-  const getTooltipText = () => {
-    if (updateDownloaded) {
-      return 'Click to install update and restart';
-    }
-    if (updateAvailable) {
-      return 'New version available - click to download';
-    }
-    return 'Up to date';
-  };
-
   return (
     <div style={{
       marginTop: 'auto',
       paddingTop: '16px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
     }}>
       <div style={{
         fontSize: '13px',
         color: 'var(--text-primary)',
         opacity: 0.5,
       }}>
-        NarraFlow v0.1.0
-      </div>
-      <div style={{ position: 'relative' }}>
-        <div
-          onClick={handleCloudClick}
-          onMouseEnter={() => setHoveredCloud(true)}
-          onMouseLeave={() => setHoveredCloud(false)}
-          style={{
-            cursor: updateAvailable ? 'pointer' : 'default',
-            color: updateAvailable ? '#ef4444' : 'var(--text-primary)',
-            opacity: updateAvailable ? 1 : 0.5,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px',
-            transition: 'color 0.3s',
-          }}
-        >
-          <CloudIcon />
-        </div>
-        {hoveredCloud && (
-          <div style={{
-            position: 'absolute',
-            bottom: '100%',
-            right: 0,
-            marginBottom: '8px',
-            padding: '6px 10px',
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-light)',
-            fontSize: '12px',
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            zIndex: 1000,
-          }}>
-            {getTooltipText()}
-          </div>
-        )}
+        v0.1.0
       </div>
     </div>
   );
@@ -2342,7 +2269,7 @@ function LicenseCard({
       <Flex align="center" gap="2" mb="3">
         <Badge
           color={
-            license.status === "active" ? "green" :
+            license.status === "active" ? "blue" :
             license.status === "canceled" ? "red" :
             "yellow"
           }
@@ -2408,7 +2335,7 @@ function LicenseCard({
                   onClick={handleSave}
                   size="1"
                   variant="ghost"
-                  color="green"
+                  color="blue"
                   style={{ cursor: 'pointer', fontSize: '11px', padding: '4px 8px' }}
                 >
                   Save
@@ -2475,8 +2402,8 @@ function LicenseCard({
             onClick={() => onManageSubscription(license.stripe_customer_id)}
             size="2"
             variant="soft"
-            color={license.status === "canceled" ? "green" : "gray"}
-            style={{ cursor: "pointer", flex: 1 }}
+            color={license.status === "canceled" ? "blue" : "gray"}
+            style={{ cursor: 'pointer', flex: 1 }}
           >
             {license.status === "canceled" ? "Reactivate" : "Manage"}
           </Button>
