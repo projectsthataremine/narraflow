@@ -102,21 +102,22 @@ export class WhisperTranscriber {
    */
   private filterNonSpeechOutputs(text: string): string {
     // List of unwanted patterns to remove (case-insensitive)
-    // Accounts for variations with trailing punctuation
+    // Matches patterns with optional surrounding whitespace and trailing punctuation
     const unwantedPatterns = [
-      /\[BLANK_AUDIO\]\.?/gi,
-      /\[unintelligible\]\.?/gi,
-      /\*sigh\*\.?/gi,
-      /\[INAUDIBLE\]\.?/gi,
-      /\[Music\]\.?/gi,
+      /\s*\[BLANK_AUDIO\]\s*[.,!?]?\s*/gi,
+      /\s*\[unintelligible\]\s*[.,!?]?\s*/gi,
+      /\s*\*sigh\*\s*[.,!?]?\s*/gi,
+      /\s*\[INAUDIBLE\]\s*[.,!?]?\s*/gi,
+      /\s*\[Music\]\s*[.,!?]?\s*/gi,
     ];
 
     let cleaned = text;
     for (const pattern of unwantedPatterns) {
-      cleaned = cleaned.replace(pattern, '');
+      cleaned = cleaned.replaceAll(pattern, ' ');
     }
 
-    return cleaned.trim();
+    // Clean up multiple spaces and trim
+    return cleaned.replaceAll(/\s+/g, ' ').trim();
   }
 
   /**
