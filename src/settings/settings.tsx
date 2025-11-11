@@ -6,33 +6,59 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MONTHLY_PRICE } from '../main/constants';
+import '@radix-ui/themes/styles.css';
+import { Theme, Select, Switch, Button, Flex, Box, Text, Tooltip, IconButton, Badge, Code } from '@radix-ui/themes';
+import { Copy, Plus, RefreshCw, Key } from 'lucide-react';
 
-// CSS Variables (dark theme with black background)
+// CSS Variables (Dark Mode Only)
 const CSS_VARS = `
+:root[data-theme="dark"],
 :root {
-  --desktop-bg: #0d0d0d;
-  --desktop-accent: #a3be8c;
-  --desktop-secondary: #ebcb8b;
-  --desktop-text: #eceff4;
-  --desktop-window-bg: #1a1a1a;
-  --desktop-window-border: #333;
-  --desktop-taskbar-bg: #0a0a0a;
-  --desktop-sidebar-bg: #000000;
-  --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  --bg-primary: #121212;
+  --bg-secondary: #0f0f0f;
+  --bg-tertiary: #1c1c1e;
+  --sidebar-bg: #000000;
+  --accent-primary: #1db954;
+  --accent-hover: #1ed760;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #636366;
+  --border-light: #282828;
+  --border-medium: #48484a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-system);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 
 /* Custom slider styles */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  background: #555;
+  background: var(--border-light);
   height: 4px;
   border-radius: 2px;
   outline: none;
 }
 
 input[type="range"]::-webkit-slider-track {
-  background: #555;
+  background: var(--border-light);
   height: 4px;
   border-radius: 2px;
 }
@@ -42,17 +68,20 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
-  background: var(--desktop-accent);
+  background: var(--accent-primary);
   border-radius: 50%;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  background: #b4d49c;
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-md);
 }
 
 input[type="range"]::-moz-range-track {
-  background: #555;
+  background: var(--border-light);
   height: 4px;
   border-radius: 2px;
 }
@@ -60,29 +89,37 @@ input[type="range"]::-moz-range-track {
 input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  background: var(--desktop-accent);
+  background: var(--accent-primary);
   border: none;
   border-radius: 50%;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
 }
 
 input[type="range"]::-moz-range-thumb:hover {
-  background: #b4d49c;
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-md);
 }
 
 /* Checkbox accent color */
 input[type="checkbox"]:checked {
-  accent-color: var(--desktop-accent);
+  accent-color: var(--accent-primary);
 }
 
 /* Color picker styles */
 input[type="color"] {
   -webkit-appearance: none;
   appearance: none;
-  border: 1px solid var(--desktop-window-border);
-  border-radius: 0;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
   padding: 0;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+input[type="color"]:hover {
+  border-color: var(--border-medium);
 }
 
 input[type="color"]::-webkit-color-swatch-wrapper {
@@ -91,35 +128,52 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 
 input[type="color"]::-webkit-color-swatch {
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
 
 input[type="color"]::-moz-color-swatch {
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
 
-/* Custom scrollbar styles - matching marketing site */
+/* Custom scrollbar styles - macOS native style */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--desktop-bg);
+  background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--desktop-accent);
-  border: none;
+/* Light mode scrollbar */
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #b4d49c;
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+  background-clip: padding-box;
+}
+
+/* Dark mode scrollbar */
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-corner {
-  background: var(--desktop-bg);
+  background: transparent;
 }
 `;
 
@@ -264,6 +318,11 @@ function SettingsApp() {
     keycode: 42,
   });
 
+  // Always use dark theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }, []);
+
   // Load saved config from main process on mount
   useEffect(() => {
     if (window.electron) {
@@ -309,22 +368,22 @@ function SettingsApp() {
   }, []);
 
   return (
-    <>
+    <Theme appearance="dark" accentColor="green" grayColor="slate" radius="medium" scaling="100%">
       <style>{CSS_VARS}</style>
       <div style={{
         width: '100%',
         height: '100vh',
-        background: 'var(--desktop-bg)',
+        background: '#000000',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: 'var(--font-mono)',
-        color: 'var(--desktop-text)',
+        fontFamily: 'var(--font-system)',
+        color: 'var(--text-primary)',
       }}>
         {/* Custom Title Bar - Draggable */}
         <div style={{
           height: '52px',
-          background: 'var(--desktop-sidebar-bg)',
+          background: '#000000',
           display: 'flex',
           alignItems: 'center',
           padding: '0 16px',
@@ -336,25 +395,20 @@ function SettingsApp() {
         {/* Main Content */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Sidebar */}
-          <div style={{
+          <Box style={{
             width: '240px',
-            background: 'var(--desktop-sidebar-bg)',
-            padding: '24px 16px',
+            background: '#000000',
+            padding: '32px 16px',
             display: 'flex',
             flexDirection: 'column',
           }}>
             {/* App Title */}
-            <div style={{
-              fontSize: '20px',
-              fontWeight: '600',
-              marginBottom: '24px',
-              color: 'var(--desktop-accent)',
-            }}>
+            <Text size="7" weight="bold" mb="6" style={{ color: 'var(--accent-9)', letterSpacing: '-0.02em' }}>
               NarraFlow
-            </div>
+            </Text>
 
             {/* Navigation */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Flex direction="column" gap="1">
               <NavItem
                 icon={<SettingsIcon />}
                 label="General"
@@ -385,39 +439,46 @@ function SettingsApp() {
                 active={activeSection === 'feedback'}
                 onClick={() => setActiveSection('feedback')}
               />
-            </div>
+            </Flex>
 
             {/* Version Footer */}
             <VersionFooter />
-          </div>
+          </Box>
 
           {/* Content Area */}
           <div style={{
             flex: 1,
-            padding: '40px',
+            padding: '24px',
             overflowY: 'auto',
-            background: 'var(--desktop-bg)',
+            background: '#000000',
           }}>
-            {activeSection === 'general' && (
-              <GeneralSection
-                aiEnabled={aiEnabled}
-                setAiEnabled={setAiEnabled}
-                hotkeyConfig={hotkeyConfig}
-                setHotkeyConfig={setHotkeyConfig}
-              />
-            )}
-            {activeSection === 'recording' && (
-              <RecordingPillSection pillConfig={pillConfig} setPillConfig={setPillConfig} />
-            )}
-            {activeSection === 'history' && (
-              <HistorySection history={history} setHistory={setHistory} />
-            )}
-            {activeSection === 'account' && <AccountSection />}
-            {activeSection === 'feedback' && <FeedbackSection />}
+            <div style={{
+              background: 'var(--bg-secondary)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '32px',
+              minHeight: '100%',
+            }}>
+              {activeSection === 'general' && (
+                <GeneralSection
+                  aiEnabled={aiEnabled}
+                  setAiEnabled={setAiEnabled}
+                  hotkeyConfig={hotkeyConfig}
+                  setHotkeyConfig={setHotkeyConfig}
+                />
+              )}
+              {activeSection === 'recording' && (
+                <RecordingPillSection pillConfig={pillConfig} setPillConfig={setPillConfig} />
+              )}
+              {activeSection === 'history' && (
+                <HistorySection history={history} setHistory={setHistory} />
+              )}
+              {activeSection === 'account' && <AccountSection />}
+              {activeSection === 'feedback' && <FeedbackSection />}
+            </div>
           </div>
         </div>
       </div>
-    </>
+    </Theme>
   );
 }
 
@@ -483,7 +544,7 @@ function VersionFooter() {
     }}>
       <div style={{
         fontSize: '13px',
-        color: 'var(--desktop-text)',
+        color: 'var(--text-primary)',
         opacity: 0.5,
       }}>
         NarraFlow v0.1.0
@@ -495,7 +556,7 @@ function VersionFooter() {
           onMouseLeave={() => setHoveredCloud(false)}
           style={{
             cursor: updateAvailable ? 'pointer' : 'default',
-            color: updateAvailable ? '#ef4444' : 'var(--desktop-text)',
+            color: updateAvailable ? '#ef4444' : 'var(--text-primary)',
             opacity: updateAvailable ? 1 : 0.5,
             display: 'flex',
             alignItems: 'center',
@@ -512,9 +573,9 @@ function VersionFooter() {
             right: 0,
             marginBottom: '8px',
             padding: '6px 10px',
-            background: 'var(--desktop-taskbar-bg)',
-            color: 'var(--desktop-text)',
-            border: '1px solid var(--desktop-window-border)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-light)',
             fontSize: '12px',
             whiteSpace: 'nowrap',
             pointerEvents: 'none',
@@ -540,27 +601,27 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <div
+    <Box
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: '10px 12px',
-        border: active ? '1px solid var(--desktop-accent)' : '1px solid transparent',
-        background: active ? 'var(--desktop-window-bg)' : hovered ? 'var(--desktop-window-bg)' : 'transparent',
+        padding: '8px 12px',
+        borderRadius: 'var(--radius-3)',
+        background: active ? '#0f0f0f' : hovered ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
+        gap: '12px',
         fontSize: '14px',
         fontWeight: active ? '500' : '400',
-        color: active ? 'var(--desktop-accent)' : 'var(--desktop-text)',
-        transition: 'all 0.2s',
+        color: active ? 'var(--accent-9)' : 'var(--gray-11)',
+        transition: 'all 0.15s ease',
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>
+      <span style={{ display: 'flex', alignItems: 'center', color: active ? 'var(--accent-9)' : 'var(--gray-10)' }}>{icon}</span>
       <span>{label}</span>
-    </div>
+    </Box>
   );
 }
 
@@ -644,31 +705,16 @@ function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotkeyConfig
 
   return (
     <div>
-      <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px', color: 'var(--desktop-text)' }}>
-        General
-      </h2>
-      <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px' }}>
-        Configure basic app settings
-      </p>
-
       {/* Keyboard Shortcuts */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-window-border)',
-        marginBottom: '16px',
-      }}>
-        <div>
-          <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: 'var(--desktop-text)' }}>
-            Keyboard shortcuts
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '12px' }}>
-            Hold and speak
-          </div>
-          <select
+      <Flex justify="between" align="center" mb="5">
+        <Text size="3" weight="medium">
+          Keyboard shortcuts
+        </Text>
+        <Box style={{ width: '200px' }}>
+          <Select.Root
             value={currentHotkeyLabel}
-            onChange={(e) => {
-              const option = HOTKEY_OPTIONS.find(opt => opt.label === e.target.value);
+            onValueChange={(value) => {
+              const option = HOTKEY_OPTIONS.find(opt => opt.label === value);
               if (option) {
                 setHotkeyConfig({
                   modifiers: option.modifiers || [],
@@ -687,171 +733,84 @@ function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotkeyConfig
                 }
               }
             }}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              fontSize: '14px',
-              border: '1px solid var(--desktop-window-border)',
-              background: 'var(--desktop-window-bg)',
-              color: 'var(--desktop-text)',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
-            }}
           >
-            {HOTKEY_OPTIONS.map((option) => (
-              <option key={option.label} value={option.label}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+            <Select.Trigger style={{ width: '100%' }} />
+            <Select.Content>
+              {HOTKEY_OPTIONS.map((option) => (
+                <Select.Item key={option.label} value={option.label}>
+                  {option.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        </Box>
+      </Flex>
 
       {/* Microphone */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-window-border)',
-        marginBottom: '16px',
-      }}>
-        <div>
-          <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: 'var(--desktop-text)' }}>
-            Microphone
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '12px' }}>
-            Select audio input device
-          </div>
-          <select
+      <Flex justify="between" align="center" mb="5">
+        <Text size="3" weight="medium">
+          Microphone
+        </Text>
+        <Box style={{ width: '200px' }}>
+          <Select.Root
             value={selectedMicrophone}
-            onChange={(e) => {
-              setSelectedMicrophone(e.target.value);
+            onValueChange={(value) => {
+              setSelectedMicrophone(value);
               // TODO: Save to settings and update audio capture
-              console.log('[Settings] Microphone changed to:', e.target.value);
-            }}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              fontSize: '14px',
-              border: '1px solid var(--desktop-window-border)',
-              background: 'var(--desktop-window-bg)',
-              color: 'var(--desktop-text)',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
+              console.log('[Settings] Microphone changed to:', value);
             }}
           >
-            {availableMicrophones.length === 0 ? (
-              <option value="default">Loading microphones...</option>
-            ) : (
-              availableMicrophones.map((device, index) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || `Microphone ${index + 1}`}
-                  {index === 0 ? ' (recommended)' : ''}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-      </div>
-
-      {/* App Settings Section */}
-      <h3 style={{ fontSize: '18px', fontWeight: '600', marginTop: '32px', marginBottom: '16px', color: 'var(--desktop-text)' }}>
-        App settings
-      </h3>
+            <Select.Trigger style={{ width: '100%' }} />
+            <Select.Content>
+              {availableMicrophones.length === 0 ? (
+                <Select.Item value="default">Loading microphones...</Select.Item>
+              ) : (
+                availableMicrophones.map((device, index) => (
+                  <Select.Item key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Microphone ${index + 1}`}
+                    {index === 0 ? ' (recommended)' : ''}
+                  </Select.Item>
+                ))
+              )}
+            </Select.Content>
+          </Select.Root>
+        </Box>
+      </Flex>
 
       {/* Show app in dock */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-window-border)',
-        marginBottom: '16px',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: '500', color: 'var(--desktop-text)' }}>
-              Show app in dock
-            </div>
-          </div>
-          <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '28px' }}>
-            <input
-              type="checkbox"
-              checked={showInDock}
-              onChange={(e) => handleDockVisibilityChange(e.target.checked)}
-              style={{ opacity: 0, width: 0, height: 0 }}
-            />
-            <span style={{
-              position: 'absolute',
-              cursor: 'pointer',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: showInDock ? 'var(--desktop-accent)' : '#555',
-              transition: '0.3s',
-              border: '1px solid var(--desktop-window-border)',
-            }}>
-              <span style={{
-                position: 'absolute',
-                content: '',
-                height: '22px',
-                width: '22px',
-                left: showInDock ? '24px' : '3px',
-                bottom: '2px',
-                background: 'var(--desktop-text)',
-                transition: '0.3s',
-              }} />
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {/* Data Section */}
-      <h3 style={{ fontSize: '18px', fontWeight: '600', marginTop: '32px', marginBottom: '16px', color: 'var(--desktop-text)' }}>
-        Data
-      </h3>
+      <Flex justify="between" align="center" mb="5">
+        <Text size="3" weight="medium">
+          Show app in dock
+        </Text>
+        <Switch
+          checked={showInDock}
+          onCheckedChange={handleDockVisibilityChange}
+        />
+      </Flex>
 
       {/* Reset app */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-window-border)',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: 'var(--desktop-text)' }}>
-              Reset app
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7 }}>
-              Reset only if advised by support
-            </div>
-          </div>
-          <button
-            onClick={async () => {
-              if (confirm('Are you sure you want to reset the app? This will clear all settings and history.')) {
-                if (window.electron) {
-                  try {
-                    console.log('[Settings] Invoking RESET_APP...');
-                    await (window.electron as any).invoke(IPC_CHANNELS.RESET_APP);
-                  } catch (error) {
-                    console.error('[Settings] Failed to reset app:', error);
-                  }
+      <Flex justify="between" align="center" mb="5">
+        <Text size="3" weight="medium">
+          Reset app
+        </Text>
+        <Button
+          variant="outline"
+          onClick={async () => {
+            if (confirm('Are you sure you want to reset the app? This will clear all settings and history.')) {
+              if (window.electron) {
+                try {
+                  console.log('[Settings] Invoking RESET_APP...');
+                  await (window.electron as any).invoke(IPC_CHANNELS.RESET_APP);
+                } catch (error) {
+                  console.error('[Settings] Failed to reset app:', error);
                 }
               }
-            }}
-            style={{
-              padding: '10px 20px',
-              fontSize: '14px',
-              fontWeight: '500',
-              border: '1px solid var(--desktop-window-border)',
-              background: 'var(--desktop-window-bg)',
-              cursor: 'pointer',
-              color: 'var(--desktop-text)',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            Reset & restart
-          </button>
-        </div>
-      </div>
+            }
+          }}
+        >
+          Reset & restart
+        </Button>
+      </Flex>
     </div>
   );
 }
@@ -891,46 +850,28 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
 
   return (
     <div>
-      <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px', color: 'var(--desktop-text)' }}>
-        Recording Pill
-      </h2>
-      <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px' }}>
-        Customize the visual indicator that appears while recording
-      </p>
-
       {/* Settings Controls */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-window-border)',
-        marginBottom: '20px',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '500', margin: 0, color: 'var(--desktop-text)' }}>Settings</h3>
-          <button
-            onClick={handleRandomize}
-            style={{
-              padding: '8px',
-              background: 'var(--desktop-accent)',
-              color: 'var(--desktop-bg)',
-              border: '1px solid var(--desktop-window-border)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ShuffleIcon />
-          </button>
-        </div>
+      <Flex justify="between" align="center" mb="4">
+        <Text size="4" weight="medium">Settings</Text>
+        <Button
+          onClick={handleRandomize}
+          style={{
+            padding: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ShuffleIcon />
+        </Button>
+      </Flex>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ marginBottom: '20px' }}>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Number of Bars */}
-          <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
-              <span>Number of Bars</span>
-              <span style={{ fontWeight: '500', color: 'var(--desktop-text)', opacity: 1 }}>{pillConfig.numBars}</span>
-            </label>
+          <Flex align="center" gap="4" justify="between">
+            <Text size="3" style={{ minWidth: '120px' }}>Number of Bars</Text>
             <input
               type="range"
               min="5"
@@ -938,39 +879,35 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
               value={pillConfig.numBars}
               onChange={(e) => setPillConfig({ ...pillConfig, numBars: parseInt(e.target.value) })}
               style={{
-                width: '100%',
+                flex: 1,
                 height: '4px',
                 cursor: 'pointer',
               }}
             />
-          </div>
+            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.numBars}</Text>
+          </Flex>
 
           {/* Bar Width */}
-          <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
-              <span>Bar Width</span>
-              <span style={{ fontWeight: '500', color: 'var(--desktop-text)', opacity: 1 }}>{pillConfig.barWidth}px</span>
-            </label>
+          <Flex align="center" gap="4" justify="between">
+            <Text size="3" style={{ minWidth: '120px' }}>Bar Width</Text>
             <input
               type="range"
-              min="5"
+              min="3"
               max="20"
               value={pillConfig.barWidth}
               onChange={(e) => setPillConfig({ ...pillConfig, barWidth: parseInt(e.target.value) })}
               style={{
-                width: '100%',
+                flex: 1,
                 height: '4px',
                 cursor: 'pointer',
               }}
             />
-          </div>
+            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barWidth}px</Text>
+          </Flex>
 
           {/* Bar Gap */}
-          <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
-              <span>Bar Gap</span>
-              <span style={{ fontWeight: '500', color: 'var(--desktop-text)', opacity: 1 }}>{pillConfig.barGap}px</span>
-            </label>
+          <Flex align="center" gap="4" justify="between">
+            <Text size="3" style={{ minWidth: '120px' }}>Bar Gap</Text>
             <input
               type="range"
               min="2"
@@ -978,39 +915,35 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
               value={pillConfig.barGap}
               onChange={(e) => setPillConfig({ ...pillConfig, barGap: parseInt(e.target.value) })}
               style={{
-                width: '100%',
+                flex: 1,
                 height: '4px',
                 cursor: 'pointer',
               }}
             />
-          </div>
+            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barGap}px</Text>
+          </Flex>
 
           {/* Max Height */}
-          <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
-              <span>Max Height</span>
-              <span style={{ fontWeight: '500', color: 'var(--desktop-text)', opacity: 1 }}>{pillConfig.maxHeight}px</span>
-            </label>
+          <Flex align="center" gap="4" justify="between">
+            <Text size="3" style={{ minWidth: '120px' }}>Max Height</Text>
             <input
               type="range"
-              min="15"
+              min="10"
               max="70"
               value={pillConfig.maxHeight}
               onChange={(e) => setPillConfig({ ...pillConfig, maxHeight: parseInt(e.target.value) })}
               style={{
-                width: '100%',
+                flex: 1,
                 height: '4px',
                 cursor: 'pointer',
               }}
             />
-          </div>
+            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.maxHeight}px</Text>
+          </Flex>
 
           {/* Border Radius (as percentage) */}
-          <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
-              <span>Border Radius</span>
-              <span style={{ fontWeight: '500', color: 'var(--desktop-text)', opacity: 1 }}>{Math.round((pillConfig.borderRadius / 10) * 100)}%</span>
-            </label>
+          <Flex align="center" gap="4" justify="between">
+            <Text size="3" style={{ minWidth: '120px' }}>Border Radius</Text>
             <input
               type="range"
               min="0"
@@ -1022,19 +955,17 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
                 setPillConfig({ ...pillConfig, borderRadius: pixels });
               }}
               style={{
-                width: '100%',
+                flex: 1,
                 height: '4px',
                 cursor: 'pointer',
               }}
             />
-          </div>
+            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{Math.round((pillConfig.borderRadius / 10) * 100)}%</Text>
+          </Flex>
 
           {/* Glow Intensity */}
-          <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
-              <span>Glow Intensity</span>
-              <span style={{ fontWeight: '500', color: 'var(--desktop-text)', opacity: 1 }}>{pillConfig.glowIntensity}</span>
-            </label>
+          <Flex align="center" gap="4" justify="between">
+            <Text size="3" style={{ minWidth: '120px' }}>Glow Intensity</Text>
             <input
               type="range"
               min="0"
@@ -1042,39 +973,27 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
               value={pillConfig.glowIntensity}
               onChange={(e) => setPillConfig({ ...pillConfig, glowIntensity: parseInt(e.target.value) })}
               style={{
-                width: '100%',
+                flex: 1,
                 height: '4px',
                 cursor: 'pointer',
               }}
             />
-          </div>
+            <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.glowIntensity}</Text>
+          </Flex>
         </div>
 
-        {/* Use Gradient Checkbox with Colors on same line */}
-        <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            color: 'var(--desktop-text)',
-          }}>
-            <input
-              type="checkbox"
+        {/* Use Gradient with Colors */}
+        <Flex justify="between" align="center" mt="4">
+          <Flex align="center" gap="2">
+            <Text size="3">Use Gradient</Text>
+            <Switch
               checked={pillConfig.useGradient}
-              onChange={(e) => setPillConfig({ ...pillConfig, useGradient: e.target.checked })}
-              style={{
-                cursor: 'pointer',
-                width: '16px',
-                height: '16px',
-              }}
+              onCheckedChange={(checked) => setPillConfig({ ...pillConfig, useGradient: checked })}
             />
-            <span>Use Gradient</span>
-          </label>
+          </Flex>
 
           {/* Colors on the right */}
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <Flex gap="3" align="center">
             <input
               type="color"
               value={pillConfig.color1}
@@ -1082,7 +1001,8 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
               style={{
                 width: '32px',
                 height: '32px',
-                border: '1px solid var(--desktop-window-border)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '4px',
                 cursor: 'pointer',
               }}
             />
@@ -1094,53 +1014,52 @@ function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectio
                 style={{
                   width: '32px',
                   height: '32px',
-                  border: '1px solid var(--desktop-window-border)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '4px',
                   cursor: 'pointer',
                 }}
               />
             )}
-          </div>
-        </div>
+          </Flex>
+        </Flex>
       </div>
 
       {/* Live Preview */}
-      <div style={{ position: 'relative' }}>
+      <Box position="relative" mt="4">
         {/* Dark/Light Mode Toggle */}
-        <div style={{
+        <Box style={{
           position: 'absolute',
           top: '12px',
           right: '12px',
           zIndex: 10,
         }}>
-          <button
+          <Button
+            variant="outline"
             onClick={() => setPreviewDarkMode(!previewDarkMode)}
             style={{
               padding: '8px',
-              background: previewDarkMode ? 'var(--desktop-text)' : 'var(--desktop-taskbar-bg)',
-              color: previewDarkMode ? 'var(--desktop-bg)' : 'var(--desktop-text)',
-              border: '1px solid var(--desktop-window-border)',
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             {previewDarkMode ? <SunIcon /> : <MoonIcon />}
-          </button>
-        </div>
+          </Button>
+        </Box>
 
-        <div style={{
+        <Box style={{
           padding: '40px',
-          background: previewDarkMode ? 'var(--desktop-taskbar-bg)' : '#f5f5f5',
-          border: '1px solid var(--desktop-window-border)',
+          background: previewDarkMode ? 'var(--bg-secondary)' : '#f5f5f5',
+          border: '1px solid var(--border-light)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           minHeight: '200px',
+          borderRadius: 'var(--radius-3)',
         }}>
           <PillPreview config={pillConfig} />
-        </div>
-      </div>
+        </Box>
+      </Box>
     </div>
   );
 }
@@ -1201,10 +1120,10 @@ function Toast({ message, visible }: ToastProps) {
       bottom: visible ? '24px' : '-100px',
       left: '50%',
       transform: 'translateX(-50%)',
-      background: 'var(--desktop-taskbar-bg)',
-      color: 'var(--desktop-text)',
+      background: 'var(--bg-secondary)',
+      color: 'var(--text-primary)',
       padding: '12px 20px',
-      border: '1px solid var(--desktop-window-border)',
+      border: '1px solid var(--border-light)',
       display: 'flex',
       alignItems: 'center',
       gap: '10px',
@@ -1214,12 +1133,12 @@ function Toast({ message, visible }: ToastProps) {
       opacity: visible ? 1 : 0,
       transition: 'all 0.3s ease-in-out',
       pointerEvents: 'none',
-      fontFamily: 'var(--font-mono)',
+      fontFamily: 'var(--font-system)',
     }}>
       <div style={{
         width: '18px',
         height: '18px',
-        background: 'var(--desktop-accent)',
+        background: 'var(--accent-primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1246,7 +1165,6 @@ interface HistorySectionProps {
 
 function HistorySection({ history, setHistory }: HistorySectionProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: '' });
 
   const showToast = (message: string) => {
@@ -1356,44 +1274,30 @@ function HistorySection({ history, setHistory }: HistorySectionProps) {
     <>
       <Toast message={toast.message} visible={toast.visible} />
       <div>
-        <div style={{ marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '600', margin: 0, color: 'var(--desktop-text)', marginBottom: '4px' }}>
-            Recent activity
-          </h2>
-          <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, margin: 0 }}>
-            Last 10 transcriptions
-          </p>
-        </div>
-
       {history.length === 0 ? (
-        <div style={{
+        <Box style={{
           padding: '64px 32px',
-          background: 'var(--desktop-window-bg)',
-          border: '1px solid var(--desktop-window-border)',
           textAlign: 'center',
         }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
-          <h3 style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'var(--desktop-text)' }}>
+          <Text size="4" weight="medium" mb="2">
             No history yet
-          </h3>
-          <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7 }}>
+          </Text>
+          <Text size="3" color="gray">
             Your transcriptions will appear here
-          </p>
-        </div>
+          </Text>
+        </Box>
       ) : (
         <div>
           {Object.entries(groupedHistory).map(([dateLabel, items], groupIndex) => (
             <div key={dateLabel} style={{ marginBottom: groupIndex < Object.keys(groupedHistory).length - 1 ? '32px' : '0' }}>
-              <div style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                color: 'var(--desktop-accent)',
+              <Text size="1" weight="bold" mb="3" style={{
+                color: 'var(--accent-9)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                marginBottom: '16px',
               }}>
                 {dateLabel}
-              </div>
+              </Text>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
                 {items.map((item, index) => (
               <div
@@ -1402,7 +1306,7 @@ function HistorySection({ history, setHistory }: HistorySectionProps) {
                 onMouseLeave={() => setHoveredItem(null)}
                 style={{
                   padding: '20px 0',
-                  borderBottom: index < items.length - 1 ? '1px solid var(--desktop-window-border)' : 'none',
+                  borderBottom: index < items.length - 1 ? '1px solid var(--border-light)' : 'none',
                   display: 'flex',
                   gap: '20px',
                   alignItems: 'flex-start',
@@ -1410,10 +1314,10 @@ function HistorySection({ history, setHistory }: HistorySectionProps) {
               >
                 <div style={{
                   fontSize: '13px',
-                  color: 'var(--desktop-text)',
+                  color: 'var(--text-primary)',
                   opacity: 0.7,
                   minWidth: '80px',
-                  fontFamily: 'var(--font-mono)',
+                  fontFamily: 'var(--font-system)',
                 }}>
                   {new Date(item.timestamp).toLocaleTimeString('en-US', {
                     hour: '2-digit',
@@ -1423,99 +1327,41 @@ function HistorySection({ history, setHistory }: HistorySectionProps) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: '15px',
-                    color: 'var(--desktop-text)',
+                    color: 'var(--text-primary)',
                     lineHeight: '1.5',
                     wordBreak: 'break-word',
                   }}>
                     {item.text}
                   </div>
                 </div>
-                <div style={{
-                  display: 'flex',
-                  gap: '8px',
-                  flexShrink: 0,
-                  opacity: hoveredItem === item.id ? 1 : 0,
-                  transition: 'opacity 0.2s',
-                }}>
-                  <div style={{ position: 'relative' }}>
-                    <button
+                <Flex
+                  gap="3"
+                  style={{
+                    flexShrink: 0,
+                    opacity: hoveredItem === item.id ? 1 : 0,
+                    transition: 'opacity 0.2s',
+                  }}
+                >
+                  <Tooltip content="Copy transcript">
+                    <IconButton
                       onClick={() => handleCopy(item.text)}
-                      onMouseEnter={() => setHoveredButton(`copy-${item.id}`)}
-                      onMouseLeave={() => setHoveredButton(null)}
-                      style={{
-                        padding: '6px',
-                        background: 'transparent',
-                        color: hoveredButton === `copy-${item.id}` ? 'var(--desktop-accent)' : 'var(--desktop-text)',
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'color 0.2s',
-                      }}
+                      size="2"
+                      variant="ghost"
                     >
                       <CopyIcon />
-                    </button>
-                    {hoveredButton === `copy-${item.id}` && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        marginBottom: '8px',
-                        padding: '6px 10px',
-                        background: 'var(--desktop-taskbar-bg)',
-                        color: 'var(--desktop-text)',
-                        border: '1px solid var(--desktop-window-border)',
-                        fontSize: '12px',
-                        whiteSpace: 'nowrap',
-                        pointerEvents: 'none',
-                        zIndex: 1000,
-                      }}>
-                        Copy transcript
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <button
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip content="Delete transcript">
+                    <IconButton
                       onClick={() => handleDelete(item.id)}
-                      onMouseEnter={() => setHoveredButton(`delete-${item.id}`)}
-                      onMouseLeave={() => setHoveredButton(null)}
-                      style={{
-                        padding: '6px',
-                        background: 'transparent',
-                        color: hoveredButton === `delete-${item.id}` ? '#ef4444' : 'var(--desktop-text)',
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'color 0.2s',
-                      }}
+                      size="2"
+                      variant="ghost"
+                      color="red"
                     >
                       <TrashIcon />
-                    </button>
-                    {hoveredButton === `delete-${item.id}` && (
-                      <div style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        marginBottom: '8px',
-                        padding: '6px 10px',
-                        background: 'var(--desktop-taskbar-bg)',
-                        color: 'var(--desktop-text)',
-                        border: '1px solid var(--desktop-window-border)',
-                        fontSize: '12px',
-                        whiteSpace: 'nowrap',
-                        pointerEvents: 'none',
-                        zIndex: 1000,
-                      }}>
-                        Delete
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    </IconButton>
+                  </Tooltip>
+                </Flex>
               </div>
                 ))}
               </div>
@@ -1571,6 +1417,7 @@ function AccountSection() {
   const [revokingLicense, setRevokingLicense] = useState<string | null>(null);
   const [cancelingLicense, setCancelingLicense] = useState<string | null>(null);
   const [currentMachineId, setCurrentMachineId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get current machine ID on mount
   useEffect(() => {
@@ -1822,17 +1669,47 @@ function AccountSection() {
     }
   };
 
+  const handleRefreshLicenses = async () => {
+    setIsRefreshing(true);
+    if (user) {
+      await fetchLicenses(user.id);
+    }
+    setIsRefreshing(false);
+  };
+
+  const handleAddLicense = () => {
+    // Open marketing site to purchase
+    const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://narraflow.com';
+    if (window.electron) {
+      (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: marketingSiteUrl });
+    } else {
+      window.open(marketingSiteUrl, '_blank');
+    }
+  };
+
+  const handleManageSubscription = async (stripeCustomerId: string) => {
+    try {
+      console.log('[Account] Opening customer portal for:', stripeCustomerId);
+      if (window.electron) {
+        const result = await (window.electron as any).invoke('OPEN_CUSTOMER_PORTAL', { stripeCustomerId });
+        console.log('[Account] Customer portal result:', result);
+        if (!result.success) {
+          console.error('[Account] Customer portal failed:', result.error);
+          alert(`Failed: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error("[Account] Customer portal error:", error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to open customer portal'}`);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '400px',
-      }}>
-        <div style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7 }}>Loading...</div>
-      </div>
+      <Flex align="center" justify="center" style={{ minHeight: '400px' }}>
+        <Text size="3" color="gray">Loading...</Text>
+      </Flex>
     );
   }
 
@@ -1848,58 +1725,26 @@ function AccountSection() {
     }} />;
   }
 
-  if (subscription.type === 'trial') {
-    return <TrialActiveView
-      user={user}
-      daysRemaining={subscription.daysRemaining}
-      licenses={licenses}
-      onUseLicense={handleUseLicense}
-      onRevokeLicense={handleRevokeLicense}
-      onCancelLicense={handleCancelLicense}
-      onRenameMachine={handleRenameMachine}
-      activatingLicense={activatingLicense}
-      revokingLicense={revokingLicense}
-      cancelingLicense={cancelingLicense}
-      currentMachineId={currentMachineId}
-      onSignOut={handleSignOut}
-      onDeleteAccount={handleDeleteAccount}
-    />;
-  }
+  // Determine if trial is expired
+  const trialExpired = subscription.type === 'trial_expired';
 
-  if (subscription.type === 'active') {
-    return <ActiveSubscriptionView
-      user={user}
-      subscription={subscription}
-      licenses={licenses}
-      onUseLicense={handleUseLicense}
-      onRevokeLicense={handleRevokeLicense}
-      onCancelLicense={handleCancelLicense}
-      onRenameMachine={handleRenameMachine}
-      activatingLicense={activatingLicense}
-      revokingLicense={revokingLicense}
-      cancelingLicense={cancelingLicense}
-      currentMachineId={currentMachineId}
-      onSignOut={handleSignOut}
-      onDeleteAccount={handleDeleteAccount}
-    />;
-  }
-
-  // Default case: user logged in but no subscription yet (show trial view with 0 days)
-  console.log('[Account] Rendering default view for user with no subscription');
-  return <TrialActiveView
+  // For all logged-in users, show the unified account view
+  return <UnifiedAccountView
     user={user}
-    daysRemaining={0}
-    licenses={licenses}
+    allLicenses={licenses}
     onUseLicense={handleUseLicense}
     onRevokeLicense={handleRevokeLicense}
-    onCancelLicense={handleCancelLicense}
+    onManageSubscription={handleManageSubscription}
     onRenameMachine={handleRenameMachine}
+    onRefreshLicenses={handleRefreshLicenses}
+    onAddLicense={handleAddLicense}
     activatingLicense={activatingLicense}
     revokingLicense={revokingLicense}
-    cancelingLicense={cancelingLicense}
+    isRefreshing={isRefreshing}
     currentMachineId={currentMachineId}
     onSignOut={handleSignOut}
     onDeleteAccount={handleDeleteAccount}
+    trialExpired={trialExpired}
   />;
 }
 
@@ -1961,14 +1806,14 @@ function LicenseItem({ license, onUseLicense, onRevokeLicense, onCancelLicense, 
       onMouseLeave={() => setIsHovered(false)}
       style={{
         padding: '16px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-window-border)',
+        background: 'var(--bg-secondary)',
+        borderRadius: 'var(--radius-md)',
         marginBottom: '12px',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '13px', fontFamily: 'var(--font-mono)', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
+          <div style={{ fontSize: '13px', fontFamily: 'var(--font-system)', color: 'var(--text-primary)', opacity: 0.7, marginBottom: '8px' }}>
             {license.key}
           </div>
           {license.metadata?.machine_name ? (
@@ -1985,51 +1830,45 @@ function LicenseItem({ license, onUseLicense, onRevokeLicense, onCancelLicense, 
                     style={{
                       fontSize: '14px',
                       padding: '4px 8px',
-                      border: '1px solid var(--desktop-accent)',
-                      background: 'var(--desktop-bg)',
-                      color: 'var(--desktop-text)',
+                      border: '1px solid var(--accent-primary)',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
                       outline: 'none',
-                      fontFamily: 'var(--font-mono)',
+                      fontFamily: 'var(--font-system)',
                     }}
                   />
                 </div>
               ) : (
                 <>
-                  <div style={{ fontSize: '14px', color: 'var(--desktop-text)' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--text-primary)' }}>
                     {license.metadata.machine_name}
                   </div>
-                  <button
+                  <IconButton
                     onClick={() => setIsEditing(true)}
+                    size="1"
+                    variant="ghost"
                     style={{
-                      padding: '4px',
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--desktop-text)',
                       opacity: isHovered ? 0.7 : 0,
                       visibility: isHovered ? 'visible' : 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
                       transition: 'opacity 0.2s, visibility 0.2s',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.7')}
                   >
                     <EditIcon />
-                  </button>
+                  </IconButton>
                 </>
               )}
             </div>
           ) : (
-            <div style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7 }}>
+            <div style={{ fontSize: '14px', color: 'var(--text-primary)', opacity: 0.7 }}>
               Not activated on any machine
             </div>
           )}
         </div>
         <div style={{
           padding: '4px 12px',
-          background: license.status === 'active' ? 'var(--desktop-accent)' : 'var(--desktop-secondary)',
-          color: 'var(--desktop-bg)',
+          background: license.status === 'active' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+          color: 'var(--bg-primary)',
           fontSize: '12px',
           fontWeight: '500',
         }}>
@@ -2039,75 +1878,53 @@ function LicenseItem({ license, onUseLicense, onRevokeLicense, onCancelLicense, 
 
       {/* Billing info */}
       {license.renews_at && (
-        <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginTop: '12px' }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-primary)', opacity: 0.7, marginTop: '12px' }}>
           Next billing: {new Date(license.renews_at).toLocaleDateString()} • ${MONTHLY_PRICE}/month
         </div>
       )}
 
       {/* Show "Use on this machine" if not activated on any machine */}
       {!license.metadata?.machine_id && (
-        <button
-          onClick={() => onUseLicense(license.key)}
-          disabled={activatingLicense === license.key}
-          style={{
-            padding: '8px 16px',
-            background: activatingLicense === license.key ? '#555' : 'var(--desktop-accent)',
-            color: 'var(--desktop-bg)',
-            border: '1px solid var(--desktop-window-border)',
-            fontSize: '13px',
-            fontWeight: '500',
-            cursor: activatingLicense === license.key ? 'not-allowed' : 'pointer',
-            marginTop: '8px',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          {activatingLicense === license.key ? 'Activating...' : 'Use on this machine'}
-        </button>
+        <Box mt="2">
+          <Button
+            onClick={() => onUseLicense(license.key)}
+            disabled={activatingLicense === license.key}
+            size="2"
+            variant="solid"
+          >
+            {activatingLicense === license.key ? 'Activating...' : 'Use on this machine'}
+          </Button>
+        </Box>
       )}
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+      <Flex gap="2" mt="3" wrap="wrap">
         {/* Show "Revoke from this machine" if activated on THIS machine */}
         {isActiveOnThisMachine && (
-          <button
+          <Button
             onClick={() => onRevokeLicense(license.key)}
             disabled={revokingLicense === license.key}
-            style={{
-              padding: '8px 16px',
-              background: revokingLicense === license.key ? '#555' : '#bf616a',
-              color: '#fff',
-              border: '1px solid var(--desktop-window-border)',
-              fontSize: '13px',
-              fontWeight: '500',
-              cursor: revokingLicense === license.key ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-mono)',
-            }}
+            size="2"
+            variant="solid"
+            color="red"
           >
             {revokingLicense === license.key ? 'Revoking...' : 'Revoke from this machine'}
-          </button>
+          </Button>
         )}
 
         {/* Cancel subscription button */}
         {onCancelLicense && license.stripe_customer_id && (
-          <button
+          <Button
             onClick={() => onCancelLicense(license.key)}
             disabled={cancelingLicense === license.key}
-            style={{
-              padding: '8px 16px',
-              background: cancelingLicense === license.key ? '#555' : 'var(--desktop-window-bg)',
-              color: 'var(--desktop-text)',
-              border: '1px solid var(--desktop-window-border)',
-              fontSize: '13px',
-              fontWeight: '500',
-              cursor: cancelingLicense === license.key ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-mono)',
-            }}
+            size="2"
+            variant="outline"
           >
             {cancelingLicense === license.key
               ? (license.status === 'canceled' ? 'Processing...' : 'Canceling...')
               : (license.status === 'canceled' ? 'Undo cancel' : 'Cancel subscription')}
-          </button>
+          </Button>
         )}
-      </div>
+      </Flex>
     </div>
   );
 }
@@ -2130,95 +1947,63 @@ interface NotLoggedInViewProps {
 
 function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100%',
-    }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '480px',
-      }}>
-        <div style={{
-          padding: '48px 32px',
-          background: 'var(--desktop-window-bg)',
-          border: '1px solid var(--desktop-window-border)',
-          textAlign: 'center',
+    <Flex align="center" justify="center" style={{ minHeight: '100%' }}>
+      <Box style={{ width: '100%', maxWidth: '480px', textAlign: 'center' }}>
+        <Box mb="4" style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '64px',
+          height: '64px',
+          border: '2px solid var(--accent-9)',
         }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '64px',
-            height: '64px',
-            border: '2px solid var(--desktop-accent)',
-            background: 'var(--desktop-bg)',
-            marginBottom: '24px',
-          }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--desktop-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-          </div>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: 'var(--desktop-text)' }}>
-            Get started with NarraFlow
-          </h3>
-          <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px', lineHeight: '1.6' }}>
-            Sign in with your Google account to start your 7-day free trial.<br/>
-            No credit card required.
-          </p>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent-9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </Box>
+        <Text size="5" weight="bold" mb="2" as="div">
+          Get started with NarraFlow
+        </Text>
+        <Text size="3" color="gray" mb="6" as="div" style={{ lineHeight: '1.6' }}>
+          Sign in with your Google account to start your 7-day free trial.<br/>
+          No credit card required.
+        </Text>
 
-          {/* Google Sign In Button - matching marketing site */}
-          <button
-            onClick={onSignIn}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '12px 24px',
-              background: 'white',
-              color: '#000',
-              border: '1px solid #ddd',
-              fontSize: '15px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-              transition: 'all 0.2s',
-              fontFamily: 'Roboto, sans-serif',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.currentTarget.style.borderColor = '#bbb';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
-              e.currentTarget.style.borderColor = '#ddd';
-            }}
-          >
-            <GoogleIcon />
-            Sign in with Google
-          </button>
+        {/* Google Sign In Button - matching marketing site */}
+        <Button
+          size="3"
+          onClick={onSignIn}
+          style={{
+            background: 'white',
+            color: '#000',
+            border: '1px solid #ddd',
+            fontFamily: 'Roboto, sans-serif',
+            cursor: 'pointer',
+          }}
+        >
+          <GoogleIcon />
+          Sign in with Google
+        </Button>
 
           {/* Pricing */}
-          <div style={{
+          <Box style={{
             marginTop: '32px',
             paddingTop: '32px',
-            borderTop: '1px solid var(--desktop-window-border)',
+            borderTop: '1px solid var(--border-light)',
           }}>
-            <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '8px' }}>
+            <Text size="2" color="gray" mb="2">
               After trial
-            </div>
-            <div style={{ fontSize: '24px', fontWeight: '600', color: 'var(--desktop-accent)' }}>
-              ${MONTHLY_PRICE}<span style={{ fontSize: '16px', fontWeight: '400', color: 'var(--desktop-text)', opacity: 0.7 }}>/month</span>
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginTop: '8px' }}>
+            </Text>
+            <Text size="7" weight="bold" style={{ color: 'var(--accent-9)' }}>
+              ${MONTHLY_PRICE}<Text as="span" size="4" weight="regular" color="gray">/month</Text>
+            </Text>
+            <Text size="2" color="gray" mt="2">
               Cancel anytime
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Text>
+          </Box>
+      </Box>
+    </Flex>
   );
 }
 
@@ -2230,190 +2015,473 @@ interface ProfileCardProps {
 }
 
 function ProfileCard({ user, onSignOut, onDeleteAccount }: ProfileCardProps) {
-  const [showActions, setShowActions] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  const avatarUrl = user.profilePicUrl;
+
+  // Fallback avatar
+  const fallbackAvatar = (
+    <div style={{
+      width: '48px',
+      height: '48px',
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, var(--accent-9) 0%, var(--accent-10) 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#ffffff',
+      fontWeight: '600',
+      fontSize: '20px',
+    }}>
+      {user.email?.[0]?.toUpperCase()}
+    </div>
+  );
 
   return (
-    <div style={{
-      padding: '24px',
-      background: 'var(--desktop-window-bg)',
-      border: '1px solid var(--desktop-window-border)',
-      marginBottom: '24px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-        {/* Profile Picture */}
-        <div style={{
-          width: '56px',
-          height: '56px',
-          border: '2px solid var(--desktop-accent)',
-          background: user.profilePicUrl ? `url(${user.profilePicUrl})` : 'var(--desktop-accent)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--desktop-bg)',
-          fontSize: '20px',
-          fontWeight: '600',
-        }}>
-          {!user.profilePicUrl && `${user.firstName[0]}${user.lastName[0]}`}
-        </div>
+    <Flex align="center" gap="3" mb="4">
+      {/* Profile Picture */}
+      {avatarUrl && !imageError ? (
+        <>
+          <img
+            src={avatarUrl}
+            alt="Profile"
+            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageError(true)}
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              display: imageLoaded ? 'block' : 'none',
+            }}
+          />
+          {!imageLoaded && fallbackAvatar}
+        </>
+      ) : (
+        fallbackAvatar
+      )}
 
-        {/* User Info */}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '16px', fontWeight: '600', color: 'var(--desktop-text)', marginBottom: '4px' }}>
-            {user.firstName} {user.lastName}
-          </div>
-          <div style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7 }}>
-            {user.email}
-          </div>
-        </div>
-      </div>
+      {/* User Info */}
+      <Flex direction="column">
+        <Text size="3" weight="bold">
+          {user.email}
+        </Text>
+        <Text size="1" style={{ opacity: 0.7 }}>
+          Created {new Date(user.id).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+        </Text>
+      </Flex>
+    </Flex>
+  );
+}
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button
-          onClick={onSignOut}
+// Unified Account View (combines Trial and Active subscription views)
+interface UnifiedAccountViewProps {
+  user: UserAccount;
+  allLicenses: License[];
+  onUseLicense: (licenseKey: string) => void;
+  onRevokeLicense: (licenseKey: string) => void;
+  onManageSubscription: (stripeCustomerId: string) => void;
+  onRenameMachine: (licenseId: string, newName: string) => void;
+  onRefreshLicenses: () => void;
+  onAddLicense: () => void;
+  activatingLicense: string | null;
+  revokingLicense: string | null;
+  isRefreshing: boolean;
+  currentMachineId: string | null;
+  onSignOut: () => void;
+  onDeleteAccount: () => void;
+  trialExpired: boolean;
+}
+
+function UnifiedAccountView({ user, allLicenses, onUseLicense, onRevokeLicense, onManageSubscription, onRenameMachine, onRefreshLicenses, onAddLicense, activatingLicense, revokingLicense, isRefreshing, currentMachineId, onSignOut, onDeleteAccount, trialExpired }: UnifiedAccountViewProps) {
+  const [editingLicense, setEditingLicense] = useState<string | null>(null);
+  const [editedName, setEditedName] = useState('');
+  const [hoveredLicense, setHoveredLicense] = useState<string | null>(null);
+
+  // Filter licenses for display: Show active, pending, and valid canceled licenses
+  const now = new Date();
+  const displayLicenses = allLicenses.filter(license => {
+    // Exclude revoked and expired licenses
+    if (license.status === 'revoked' || license.status === 'expired') {
+      return false;
+    }
+
+    // Keep active and pending licenses
+    if (license.status === 'active' || license.status === 'pending') {
+      return true;
+    }
+
+    // For canceled licenses, only show if not expired yet
+    if (license.status === 'canceled' && license.expires_at) {
+      const expiresAt = new Date(license.expires_at);
+      return expiresAt > now;
+    }
+
+    // Default: don't show
+    return false;
+  });
+
+  // Check if user has EVER had any license (even if canceled/expired)
+  const hasEverHadLicense = allLicenses.length > 0;
+
+  // Check if user has any licenses to display
+  const hasLicenses = displayLicenses.length > 0;
+
+  return (
+    <div>
+      {/* Profile Card */}
+      <ProfileCard user={user} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} />
+
+      {/* Trial Expired Banner - Only show if trial expired AND user has never purchased */}
+      {trialExpired && !hasEverHadLicense && (
+        <Flex
+          p="3"
+          mb="4"
           style={{
-            flex: 1,
-            padding: '10px 16px',
-            fontSize: '14px',
-            fontWeight: '500',
-            border: '1px solid var(--desktop-window-border)',
-            background: 'var(--desktop-bg)',
-            cursor: 'pointer',
-            color: 'var(--desktop-text)',
-            fontFamily: 'var(--font-mono)',
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
+            border: '2px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '8px',
           }}
         >
-          Sign out
-        </button>
-      </div>
+          <Text size="3" weight="bold" style={{ color: 'var(--red-11)' }}>
+            Your trial has ended
+          </Text>
+        </Flex>
+      )}
+
+      {/* Licenses Section Header */}
+      <Flex justify="between" align="center" mb="3">
+        <Text size="2" weight="bold" style={{ opacity: 0.7 }}>
+          LICENSES
+        </Text>
+        <Flex gap="2">
+          <Button
+            size="1"
+            variant="soft"
+            style={{ cursor: 'pointer', padding: '0 8px' }}
+            onClick={onAddLicense}
+          >
+            <Plus size={16} />
+          </Button>
+          <Button
+            size="1"
+            variant="soft"
+            color="gray"
+            style={{ cursor: 'pointer', padding: '0 8px' }}
+            onClick={onRefreshLicenses}
+            disabled={isRefreshing}
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+          </Button>
+        </Flex>
+      </Flex>
+
+      {/* Licenses List */}
+      {hasLicenses ? (
+        <Flex direction="column" gap="3">
+          {displayLicenses.map((license) => (
+            <LicenseCard
+              key={license.id}
+              license={license}
+              currentMachineId={currentMachineId}
+              onCopyKey={(key) => {
+                navigator.clipboard.writeText(key);
+              }}
+              onActivate={onUseLicense}
+              onRevoke={onRevokeLicense}
+              onRenameMachine={onRenameMachine}
+              onManageSubscription={onManageSubscription}
+              activating={activatingLicense === license.key}
+              revoking={revokingLicense === license.key}
+              editing={editingLicense === license.id}
+              setEditing={setEditingLicense}
+              editedName={editedName}
+              setEditedName={setEditedName}
+              hovered={hoveredLicense === license.id}
+              setHovered={setHoveredLicense}
+            />
+          ))}
+        </Flex>
+      ) : (
+        <Flex
+          direction="column"
+          align="center"
+          justify="center"
+          gap="3"
+          p="6"
+          style={{ background: 'var(--gray-a2)', borderRadius: '8px' }}
+        >
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Key size={24} style={{ opacity: 0.5 }} />
+          </div>
+          <Text size="2" style={{ opacity: 0.7, textAlign: 'center' }}>
+            No licenses yet. Add a license to activate NarraFlow on this device.
+          </Text>
+          <Button size="2" onClick={onAddLicense}>
+            <Plus size={14} />
+            Purchase License
+          </Button>
+        </Flex>
+      )}
     </div>
   );
 }
 
-// Trial Active View
-interface TrialActiveViewProps {
-  user: UserAccount;
-  daysRemaining: number;
-  licenses: License[];
-  onUseLicense: (licenseKey: string) => void;
-  onRevokeLicense: (licenseKey: string) => void;
-  onCancelLicense: (licenseKey: string) => void;
-  onRenameMachine: (licenseId: string, newName: string) => void;
-  activatingLicense: string | null;
-  revokingLicense: string | null;
-  cancelingLicense: string | null;
+// Keep old views as aliases for backwards compatibility
+const TrialActiveView = UnifiedAccountView;
+const ActiveSubscriptionView = UnifiedAccountView;
+
+// LicenseCard Component (matching Clipp's design)
+interface LicenseCardProps {
+  license: License;
   currentMachineId: string | null;
-  onSignOut: () => void;
-  onDeleteAccount: () => void;
-}
-
-function TrialActiveView({ user, daysRemaining, licenses, onUseLicense, onRevokeLicense, onCancelLicense, onRenameMachine, activatingLicense, revokingLicense, cancelingLicense, currentMachineId, onSignOut, onDeleteAccount }: TrialActiveViewProps) {
-  return (
-    <div>
-      <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px', color: 'var(--desktop-text)' }}>
-        Account
-      </h2>
-      <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px' }}>
-        Manage your subscription and licenses
-      </p>
-
-      {/* Profile Card */}
-      <ProfileCard user={user} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} />
-
-      {/* Trial Status */}
-      <div style={{
-        padding: '24px',
-        background: 'var(--desktop-window-bg)',
-        border: '1px solid var(--desktop-accent)',
-        marginBottom: '24px',
-      }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: 'var(--desktop-text)' }}>
-          Free Trial
-        </h3>
-        <div style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.9 }}>
-          {daysRemaining} days remaining
-        </div>
-        <div style={{ fontSize: '13px', color: 'var(--desktop-text)', opacity: 0.7, marginTop: '8px' }}>
-          After your trial ends, it's ${MONTHLY_PRICE}/month
-        </div>
-      </div>
-
-      {/* Licenses */}
-      <div>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--desktop-text)' }}>
-          Your Licenses
-        </h3>
-        {licenses.map(license => (
-          <LicenseItem
-            key={license.id}
-            license={license}
-            onUseLicense={onUseLicense}
-            onRevokeLicense={onRevokeLicense}
-            onCancelLicense={onCancelLicense}
-            onRenameMachine={onRenameMachine}
-            activatingLicense={activatingLicense}
-            revokingLicense={revokingLicense}
-            cancelingLicense={cancelingLicense}
-            currentMachineId={currentMachineId}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Active Subscription View
-interface ActiveSubscriptionViewProps {
-  user: UserAccount;
-  subscription: { type: 'active', startDate: number, nextBillingDate: number, plan: string };
-  licenses: License[];
-  onUseLicense: (licenseKey: string) => void;
-  onRevokeLicense: (licenseKey: string) => void;
-  onCancelLicense: (licenseKey: string) => void;
+  onCopyKey: (key: string) => void;
+  onActivate: (key: string) => void;
+  onRevoke: (key: string) => void;
   onRenameMachine: (licenseId: string, newName: string) => void;
-  activatingLicense: string | null;
-  revokingLicense: string | null;
-  cancelingLicense: string | null;
-  currentMachineId: string | null;
-  onSignOut: () => void;
-  onDeleteAccount: () => void;
+  onManageSubscription: (stripeCustomerId: string) => void;
+  activating: boolean;
+  revoking: boolean;
+  editing: boolean;
+  setEditing: (id: string | null) => void;
+  editedName: string;
+  setEditedName: (name: string) => void;
+  hovered: boolean;
+  setHovered: (id: string | null) => void;
 }
 
-function ActiveSubscriptionView({ user, subscription, licenses, onUseLicense, onRevokeLicense, onCancelLicense, onRenameMachine, activatingLicense, revokingLicense, cancelingLicense, currentMachineId, onSignOut, onDeleteAccount }: ActiveSubscriptionViewProps) {
+function LicenseCard({
+  license,
+  currentMachineId,
+  onCopyKey,
+  onActivate,
+  onRevoke,
+  onRenameMachine,
+  onManageSubscription,
+  activating,
+  revoking,
+  editing,
+  setEditing,
+  editedName,
+  setEditedName,
+  hovered,
+  setHovered,
+}: LicenseCardProps) {
+  const machineId = license.metadata?.machine_id || license.machine_id;
+  const machineName = license.metadata?.machine_name || license.machine_name;
+  const isActiveOnThisMachine = currentMachineId && machineId && machineId === currentMachineId;
+
+  const handleSave = () => {
+    if (editedName.trim() && editedName !== machineName) {
+      onRenameMachine(license.id, editedName.trim());
+    }
+    setEditing(null);
+  };
+
   return (
-    <div>
-      <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px', color: 'var(--desktop-text)' }}>
-        Account
-      </h2>
-      <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px' }}>
-        Manage your subscription and licenses
-      </p>
+    <div
+      style={{
+        padding: '16px',
+        background: 'var(--gray-a2)',
+        border: '1px solid var(--gray-a6)',
+        borderRadius: '8px',
+      }}
+    >
+      {/* License Key Row */}
+      <Flex align="center" gap="2" mb="3">
+        <div
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: 'var(--accent-a3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Key size={16} style={{ color: 'var(--accent-11)' }} />
+        </div>
+        <Flex direction="column" style={{ flex: 1, minWidth: 0 }}>
+          <Text size="1" style={{ opacity: 0.7, marginBottom: '4px' }}>
+            License Key
+          </Text>
+          <Text size="1" style={{ fontFamily: 'monospace', fontSize: '11px', opacity: 0.9 }}>
+            {license.key.slice(0, 20)}...
+          </Text>
+        </Flex>
+        <IconButton
+          onClick={() => onCopyKey(license.key)}
+          size="1"
+          variant="soft"
+          style={{ cursor: 'pointer' }}
+        >
+          <Copy size={14} />
+        </IconButton>
+      </Flex>
 
-      {/* Profile Card */}
-      <ProfileCard user={user} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} />
+      {/* Status Badge */}
+      <Flex align="center" gap="2" mb="3">
+        <Badge
+          color={
+            license.status === "active" ? "green" :
+            license.status === "canceled" ? "red" :
+            "yellow"
+          }
+          size="1"
+        >
+          {license.status.charAt(0).toUpperCase() + license.status.slice(1)}
+        </Badge>
+        {license.status === "canceled" && license.expires_at && (
+          <Text size="1" style={{ opacity: 0.7 }}>
+            Expires {new Date(license.expires_at).toLocaleDateString()}
+          </Text>
+        )}
+        {license.status === "active" && license.renews_at && (
+          <Text size="1" style={{ opacity: 0.7 }}>
+            Renews {new Date(license.renews_at).toLocaleDateString()}
+          </Text>
+        )}
+      </Flex>
 
-      {/* Licenses */}
-      <div>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--desktop-text)' }}>
-          Your Licenses
-        </h3>
-        {licenses.map(license => (
-          <LicenseItem
-            key={license.id}
-            license={license}
-            onUseLicense={onUseLicense}
-            onRevokeLicense={onRevokeLicense}
-            onCancelLicense={onCancelLicense}
-            onRenameMachine={onRenameMachine}
-            activatingLicense={activatingLicense}
-            revokingLicense={revokingLicense}
-            cancelingLicense={cancelingLicense}
-            currentMachineId={currentMachineId}
-          />
-        ))}
-      </div>
+      {/* Machine Info */}
+      {machineId && (
+        <div
+          onMouseEnter={() => setHovered(license.id)}
+          onMouseLeave={() => setHovered(null)}
+          style={{ marginBottom: '12px' }}
+        >
+          <Text size="1" style={{ opacity: 0.7, marginBottom: '4px', display: 'block' }}>
+            Machine Name
+          </Text>
+          <Flex
+            justify="between"
+            align="center"
+            gap="2"
+            style={{
+              background: editing ? 'var(--accent-a3)' : 'transparent',
+              borderRadius: '6px',
+              minHeight: '32px',
+              padding: '4px 8px'
+            }}
+          >
+            {editing ? (
+              <>
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSave();
+                    else if (e.key === "Escape") setEditing(null);
+                  }}
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    padding: '0',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--gray-12)',
+                    fontSize: '14px',
+                    outline: 'none',
+                  }}
+                />
+                <Button
+                  onClick={handleSave}
+                  size="1"
+                  variant="ghost"
+                  color="green"
+                  style={{ cursor: 'pointer', fontSize: '11px', padding: '4px 8px' }}
+                >
+                  Save
+                </Button>
+              </>
+            ) : (
+              <>
+                <Text size="2" weight="medium">
+                  {machineName || "Unknown"}
+                </Text>
+                {hovered && (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditing(license.id);
+                      setEditedName(machineName || "");
+                    }}
+                    size="1"
+                    variant="ghost"
+                    color="blue"
+                    style={{ cursor: 'pointer', fontSize: '11px', padding: '4px 8px' }}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </>
+            )}
+          </Flex>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <Flex gap="2" wrap="wrap">
+        {/* Show "Use on this machine" for licenses without a machine */}
+        {!machineId && (
+          <Button
+            onClick={() => onActivate(license.key)}
+            disabled={activating}
+            size="2"
+            variant="soft"
+            style={{ cursor: activating ? "not-allowed" : "pointer", flex: 1 }}
+          >
+            {activating ? "Activating..." : "Use on this machine"}
+          </Button>
+        )}
+
+        {/* Show "Revoke" only for licenses active on this machine */}
+        {isActiveOnThisMachine && (
+          <Button
+            onClick={() => onRevoke(license.key)}
+            disabled={revoking}
+            color="red"
+            size="2"
+            variant="soft"
+            style={{ cursor: revoking ? "not-allowed" : "pointer", flex: 1 }}
+          >
+            {revoking ? "Revoking..." : "Revoke"}
+          </Button>
+        )}
+
+        {/* Show "Reactivate" for canceled licenses, "Manage" for active */}
+        {license.stripe_customer_id && (
+          <Button
+            onClick={() => onManageSubscription(license.stripe_customer_id)}
+            size="2"
+            variant="soft"
+            color={license.status === "canceled" ? "green" : "gray"}
+            style={{ cursor: "pointer", flex: 1 }}
+          >
+            {license.status === "canceled" ? "Reactivate" : "Manage"}
+          </Button>
+        )}
+      </Flex>
     </div>
   );
 }
@@ -2438,32 +2506,25 @@ function TrialExpiredView({ user, onSubscribe }: TrialExpiredViewProps) {
       }}>
         <div style={{
           padding: '48px 32px',
-          background: 'var(--desktop-window-bg)',
-          border: '1px solid var(--desktop-window-border)',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-sm)',
           textAlign: 'center',
         }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: 'var(--desktop-text)' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-primary)' }}>
             Trial Expired
           </h3>
-          <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px', lineHeight: '1.6' }}>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '32px', lineHeight: '1.6' }}>
             Your 7-day trial has ended. Subscribe to continue using NarraFlow.
           </p>
 
-          <button
+          <Button
             onClick={onSubscribe}
-            style={{
-              padding: '12px 32px',
-              fontSize: '15px',
-              fontWeight: '600',
-              border: '1px solid var(--desktop-window-border)',
-              background: 'var(--desktop-accent)',
-              cursor: 'pointer',
-              color: 'var(--desktop-bg)',
-              fontFamily: 'var(--font-mono)',
-            }}
+            size="3"
+            variant="solid"
           >
             Subscribe for ${MONTHLY_PRICE}/month
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -2479,24 +2540,9 @@ function FeedbackSection() {
   const [appVersion, setAppVersion] = useState('');
   const [contactType, setContactType] = useState('');
   const [consentToShare, setConsentToShare] = useState(false);
-  const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [isSent, setIsSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleTooltipEnter = (tooltip: string, e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTooltipPosition({
-      x: rect.right + 8,
-      y: rect.top + rect.height / 2
-    });
-    setHoveredTooltip(tooltip);
-  };
-
-  const handleTooltipLeave = () => {
-    setHoveredTooltip(null);
-  };
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
@@ -2650,13 +2696,13 @@ function FeedbackSection() {
         minHeight: '400px',
       }}>
         <div style={{ textAlign: 'center' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '16px', color: 'var(--desktop-text)' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>
             Message sent!
           </h2>
-          <p style={{ fontSize: '14px', opacity: 0.8, maxWidth: '500px', color: 'var(--desktop-text)', marginBottom: '16px' }}>
+          <p style={{ fontSize: '14px', opacity: 0.8, maxWidth: '500px', color: 'var(--text-primary)', marginBottom: '16px' }}>
             Your message was sent. We'll try to respond within 48 hours.
           </p>
-          <p style={{ fontSize: '12px', opacity: 0.6, paddingTop: '16px', color: 'var(--desktop-text)' }}>
+          <p style={{ fontSize: '12px', opacity: 0.6, paddingTop: '16px', color: 'var(--text-primary)' }}>
             You can close this window now.
           </p>
         </div>
@@ -2666,13 +2712,6 @@ function FeedbackSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px', color: 'var(--desktop-text)' }}>
-        Share Feedback
-      </h2>
-      <p style={{ fontSize: '14px', color: 'var(--desktop-text)', opacity: 0.7, marginBottom: '32px' }}>
-        Help us improve NarraFlow
-      </p>
-
       <div style={{
         flex: 1,
         overflowY: 'auto',
@@ -2684,79 +2723,53 @@ function FeedbackSection() {
         paddingRight: '8px',
       }}>
         {/* Contact Type */}
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7, color: 'var(--desktop-text)' }}>
+        <Box>
+          <Text size="2" color="gray" mb="2" as="div">
             Type of contact
-          </label>
-          <select
+          </Text>
+          <Select.Root
             value={contactType}
-            onChange={(e) => setContactType(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px',
-              background: 'var(--desktop-window-bg)',
-              border: '1px solid var(--desktop-window-border)',
-              color: 'var(--desktop-text)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '14px',
-              cursor: 'pointer',
-              boxSizing: 'border-box',
-            }}
+            onValueChange={(value) => setContactType(value)}
           >
-            <option value="">Select type...</option>
-            <option value="bug">Bug Report</option>
-            <option value="feature">Feature Request</option>
-            <option value="feedback">General Feedback</option>
-            <option value="testimonial">Testimonial / Success Story</option>
-            <option value="help">Help/Support</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
+            <Select.Trigger style={{ width: '100%' }} placeholder="Select type..." />
+            <Select.Content>
+              <Select.Item value="bug">Bug Report</Select.Item>
+              <Select.Item value="feature">Feature Request</Select.Item>
+              <Select.Item value="feedback">General Feedback</Select.Item>
+              <Select.Item value="testimonial">Testimonial / Success Story</Select.Item>
+              <Select.Item value="help">Help/Support</Select.Item>
+              <Select.Item value="other">Other</Select.Item>
+            </Select.Content>
+          </Select.Root>
+        </Box>
 
         {/* Consent checkbox - only show for testimonials */}
         {contactType === 'testimonial' && (
-          <div style={{
+          <Box style={{
             padding: '16px',
-            background: 'rgba(163, 190, 140, 0.1)',
-            border: '1px solid rgba(163, 190, 140, 0.3)',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            borderRadius: 'var(--radius-3)',
           }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              color: 'var(--desktop-text)',
-            }}>
-              <input
-                type="checkbox"
+            <Flex align="start" gap="3">
+              <Switch
                 checked={consentToShare}
-                onChange={(e) => setConsentToShare(e.target.checked)}
-                style={{
-                  marginTop: '2px',
-                  cursor: 'pointer',
-                  width: '16px',
-                  height: '16px',
-                  flexShrink: 0,
-                }}
+                onCheckedChange={setConsentToShare}
+                style={{ marginTop: '2px' }}
               />
-              <span style={{ lineHeight: '1.5' }}>
+              <Text size="2" style={{ lineHeight: '1.5' }}>
                 I give permission for NarraFlow to use my testimonial in marketing materials (website, social media, etc.) and to contact me for additional details or photos if needed.
-              </span>
-            </label>
-          </div>
+              </Text>
+            </Flex>
+          </Box>
         )}
 
         {/* macOS Version - only show for bug reports */}
         {showVersionFields && (
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', opacity: 0.7, color: 'var(--desktop-text)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
               macOS version
-              <div
-                style={{ position: 'relative' }}
-                onMouseEnter={(e) => handleTooltipEnter('macos', e)}
-                onMouseLeave={handleTooltipLeave}
-              >
+              <Tooltip content="Find your macOS version: Apple menu → About This Mac">
                 <span style={{
                   cursor: 'help',
                   fontSize: '12px',
@@ -2768,21 +2781,23 @@ function FeedbackSection() {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>?</span>
-              </div>
+              </Tooltip>
             </label>
             <select
               value={macOSVersion}
               onChange={(e) => setMacOSVersion(e.target.value)}
               style={{
                 width: '100%',
-                padding: '8px',
-                background: 'var(--desktop-window-bg)',
-                border: '1px solid var(--desktop-window-border)',
-                color: 'var(--desktop-text)',
-                fontFamily: 'var(--font-mono)',
+                padding: '10px 12px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-system)',
                 fontSize: '14px',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
+                transition: 'all 0.2s ease',
               }}
             >
               <option value="">Select version...</option>
@@ -2799,13 +2814,9 @@ function FeedbackSection() {
         {/* App Version - only show for bug reports */}
         {showVersionFields && (
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', opacity: 0.7, color: 'var(--desktop-text)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
               app version
-              <div
-                style={{ position: 'relative' }}
-                onMouseEnter={(e) => handleTooltipEnter('app', e)}
-                onMouseLeave={handleTooltipLeave}
-              >
+              <Tooltip content="Find your app version: Open NarraFlow → version shown at bottom left of settings window">
                 <span style={{
                   cursor: 'help',
                   fontSize: '12px',
@@ -2817,21 +2828,23 @@ function FeedbackSection() {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>?</span>
-              </div>
+              </Tooltip>
             </label>
             <select
               value={appVersion}
               onChange={(e) => setAppVersion(e.target.value)}
               style={{
                 width: '100%',
-                padding: '8px',
-                background: 'var(--desktop-window-bg)',
-                border: '1px solid var(--desktop-window-border)',
-                color: 'var(--desktop-text)',
-                fontFamily: 'var(--font-mono)',
+                padding: '10px 12px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-system)',
                 fontSize: '14px',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
+                transition: 'all 0.2s ease',
               }}
             >
               <option value="">Select version...</option>
@@ -2846,7 +2859,7 @@ function FeedbackSection() {
         {/* Message field - only show when contact type is selected */}
         {contactType && (
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7, color: 'var(--desktop-text)' }}>
+            <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>
               {getMessageLabel()}
             </label>
             <textarea
@@ -2858,17 +2871,19 @@ function FeedbackSection() {
                 width: '100%',
                 height: '128px',
                 padding: '12px',
-                background: 'var(--desktop-window-bg)',
-                border: '1px solid var(--desktop-window-border)',
-                color: 'var(--desktop-text)',
-                fontFamily: 'var(--font-mono)',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-light)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-system)',
                 fontSize: '14px',
                 resize: 'none',
                 outline: 'none',
                 boxSizing: 'border-box',
+                transition: 'all 0.2s ease',
               }}
             />
-            <div style={{ textAlign: 'right', fontSize: '12px', opacity: 0.5, marginTop: '4px', color: 'var(--desktop-text)' }}>
+            <div style={{ textAlign: 'right', fontSize: '12px', opacity: 0.5, marginTop: '4px', color: 'var(--text-primary)' }}>
               {message.length} / {maxMessageLength} characters
             </div>
           </div>
@@ -2877,7 +2892,7 @@ function FeedbackSection() {
         {/* Attachments - only show when contact type is selected */}
         {contactType && (
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7, color: 'var(--desktop-text)' }}>
+            <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7, color: 'var(--text-primary)' }}>
               Attachments
             </label>
             <input
@@ -2897,7 +2912,7 @@ function FeedbackSection() {
                 width: '100%',
                 minHeight: '96px',
                 padding: '16px',
-                border: `2px dashed ${isDragging ? 'var(--desktop-accent)' : 'var(--desktop-window-border)'}`,
+                border: `2px dashed ${isDragging ? 'var(--accent-primary)' : 'var(--border-light)'}`,
                 background: isDragging ? 'rgba(163, 190, 140, 0.1)' : 'transparent',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2908,7 +2923,7 @@ function FeedbackSection() {
                 boxSizing: 'border-box',
               }}
             >
-              <p style={{ textAlign: 'center', opacity: 0.5, fontSize: '12px', color: 'var(--desktop-text)' }}>
+              <p style={{ textAlign: 'center', opacity: 0.5, fontSize: '12px', color: 'var(--text-primary)' }}>
                 Drag and drop images here or click to browse
               </p>
             </div>
@@ -2927,32 +2942,18 @@ function FeedbackSection() {
                       background: 'rgba(163, 190, 140, 0.1)',
                       border: '1px solid rgba(163, 190, 140, 0.3)',
                       fontSize: '12px',
-                      color: 'var(--desktop-text)',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     <span style={{ opacity: 0.8 }}>{file.name}</span>
-                    <button
+                    <IconButton
                       onClick={() => removeAttachment(index)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--desktop-text)',
-                        opacity: 0.5,
-                        cursor: 'pointer',
-                        padding: 0,
-                        fontSize: '14px',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '1';
-                        e.currentTarget.style.color = '#ef4444';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '0.5';
-                        e.currentTarget.style.color = 'var(--desktop-text)';
-                      }}
+                      size="1"
+                      variant="ghost"
+                      color="red"
                     >
                       ✕
-                    </button>
+                    </IconButton>
                   </div>
                 ))}
               </div>
@@ -2962,25 +2963,12 @@ function FeedbackSection() {
       </div>
 
       {/* Send button */}
-      <div style={{ paddingTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button
+      <Flex pt="4" justify="end">
+        <Button
           onClick={handleSend}
           disabled={!message.trim() || isLoading}
-          style={{
-            padding: '10px 24px',
-            fontWeight: '700',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: message.trim() && !isLoading ? 'var(--desktop-accent)' : 'var(--desktop-window-border)',
-            color: message.trim() && !isLoading ? 'var(--desktop-window-bg)' : 'var(--desktop-text)',
-            border: 'none',
-            opacity: message.trim() && !isLoading ? 1 : 0.5,
-            cursor: message.trim() && !isLoading ? 'pointer' : 'not-allowed',
-            transition: 'opacity 0.2s',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '14px',
-          }}
+          size="3"
+          variant="solid"
         >
           {isLoading && (
             <svg style={{ animation: 'spin 1s linear infinite', height: '16px', width: '16px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -2989,57 +2977,8 @@ function FeedbackSection() {
             </svg>
           )}
           {isLoading ? 'Sending...' : 'Send'}
-        </button>
-      </div>
-
-      {/* Tooltips */}
-      {hoveredTooltip === 'macos' && (
-        <div
-          style={{
-            position: 'fixed',
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y}px`,
-            transform: 'translateY(-50%)',
-            zIndex: 10000,
-            background: 'var(--desktop-taskbar-bg)',
-            border: '1px solid var(--desktop-window-border)',
-            padding: '12px',
-            fontSize: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--desktop-text)',
-            maxWidth: '300px',
-          }}
-        >
-          <div style={{ fontWeight: '700', marginBottom: '4px', opacity: 0.9 }}>How to get your version:</div>
-          <div style={{ opacity: 0.8 }}>Apple icon (top left screen) → About This Mac</div>
-          <div style={{ opacity: 0.8 }}>→ you should see the macOS version</div>
-        </div>
-      )}
-
-      {hoveredTooltip === 'app' && (
-        <div
-          style={{
-            position: 'fixed',
-            left: `${tooltipPosition.x}px`,
-            top: `${tooltipPosition.y}px`,
-            transform: 'translateY(-50%)',
-            zIndex: 10000,
-            background: 'var(--desktop-taskbar-bg)',
-            border: '1px solid var(--desktop-window-border)',
-            padding: '12px',
-            fontSize: '12px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--desktop-text)',
-            maxWidth: '300px',
-          }}
-        >
-          <div style={{ fontWeight: '700', marginBottom: '4px', opacity: 0.9 }}>How to get your app version:</div>
-          <div style={{ opacity: 0.8 }}>Open app (click icon in dock or Cmd+Space → type NarraFlow)</div>
-          <div style={{ opacity: 0.8 }}>→ version shown at bottom left of settings window</div>
-        </div>
-      )}
+        </Button>
+      </Flex>
 
       {/* Spinner animation */}
       <style>{`
