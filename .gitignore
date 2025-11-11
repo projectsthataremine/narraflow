@@ -1,4 +1,5 @@
 # Root-level (applies to all projects)
+node_modules/
 .env
 .env.local
 .env.secrets
