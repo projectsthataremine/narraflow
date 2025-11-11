@@ -1,39 +1,36 @@
-# Dependencies
-node_modules/
-package-lock.json
-yarn.lock
-
-# Build outputs
-dist/
-release/
-*.log
-
-# Environment
+# Root-level (applies to all projects)
 .env
 .env.local
 .env.secrets
-
-# Supabase
-supabase/.temp/
-
-# IDE
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# Claude Code config (project-specific settings)
 .claude.json
+.playwright-mcp/
+.vite/
 
-# OS
-.DS_Store
-Thumbs.db
+# Electron app
+electron/node_modules/
+electron/package-lock.json
+electron/yarn.lock
+electron/dist/
+electron/release/
+electron/coverage/
+electron/*.log
+electron/resources/models/*.onnx
+electron/resources/models/llm/*.gguf
 
-# Test coverage
-coverage/
+# Marketing site
+marketing-site/node_modules/
+marketing-site/.next/
+marketing-site/out/
+marketing-site/*.log
 
-# Model files (too large for git)
-resources/models/*.onnx
-resources/models/llm/*.gguf
-prototype/phase-1/models/*.onnx
-prototype/phase-1/models/sherpa-onnx-whisper-tiny.en/
+# Supabase
+supabase/.temp/
+
+# Legacy/deprecated
+prototype/
