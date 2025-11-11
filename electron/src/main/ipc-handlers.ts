@@ -364,54 +364,6 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   });
 
   // ========================================================================
-  // License Management Handlers
-  // ========================================================================
-
-  // Handle Add License Key
-  ipcMain.handle(IPC_CHANNELS.LICENSE_ADD_KEY, async (event, data: { licenseKey: string }) => {
-    console.log('[Main] LICENSE_ADD_KEY called');
-    const { appStore } = require('./AppStore');
-
-    try {
-      await appStore.addLicenseKey(data.licenseKey);
-      return { success: true };
-    } catch (error) {
-      console.error('[Main] Failed to add license key:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to add license key',
-      };
-    }
-  });
-
-  // Handle Validate License
-  ipcMain.handle(IPC_CHANNELS.LICENSE_VALIDATE, async () => {
-    console.log('[Main] LICENSE_VALIDATE called');
-    const { appStore } = require('./AppStore');
-
-    try {
-      await appStore.validateLicense();
-      return { success: true };
-    } catch (error) {
-      console.error('[Main] Failed to validate license:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to validate license',
-      };
-    }
-  });
-
-  // Handle Get License Status
-  ipcMain.handle(IPC_CHANNELS.LICENSE_GET_STATUS, async () => {
-    console.log('[Main] LICENSE_GET_STATUS called');
-    const { appStore } = require('./AppStore');
-
-    return {
-      valid: appStore.getLicenseValid(),
-    };
-  });
-
-  // ========================================================================
   // Auth & Subscription Handlers (Placeholders for future implementation)
   // ========================================================================
 
@@ -500,6 +452,18 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to open URL',
       };
+    }
+  });
+
+  // Handle Get App Version
+  ipcMain.handle('GET_APP_VERSION', async () => {
+    console.log('[Main] GET_APP_VERSION called');
+    try {
+      const { app } = require('electron');
+      return app.getVersion();
+    } catch (error) {
+      console.error('[Main] Failed to get app version:', error);
+      return '0.0.0';
     }
   });
 }

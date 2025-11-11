@@ -70,6 +70,7 @@ export function AccountSection() {
             lastName: nameParts.slice(1).join(' ') || '',
             profilePicUrl: authData.user.user_metadata?.avatar_url,
             provider: 'google',
+            createdAt: authData.user.created_at,
           });
 
           // Fetch licenses
@@ -253,7 +254,7 @@ export function AccountSection() {
       console.log('[Account] Opening marketing site account page for license:', licenseKey);
 
       // Determine marketing site URL based on environment
-      const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://narraflow.com';
+      const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://trynarraflow.com';
       const accountUrl = `${marketingSiteUrl}?openAccount=true`;
 
       // Open marketing site with account dialog open
@@ -273,15 +274,28 @@ export function AccountSection() {
 
   const handleRefreshLicenses = async () => {
     setIsRefreshing(true);
+
+    // Start both the fetch and the minimum 1-second delay
+    const startTime = Date.now();
+
     if (user) {
       await fetchLicenses(user.id);
     }
+
+    // Ensure at least 1 second has passed before re-enabling the button
+    const elapsed = Date.now() - startTime;
+    const remainingTime = Math.max(0, 1000 - elapsed);
+
+    if (remainingTime > 0) {
+      await new Promise(resolve => setTimeout(resolve, remainingTime));
+    }
+
     setIsRefreshing(false);
   };
 
   const handleAddLicense = () => {
     // Open marketing site to purchase
-    const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://narraflow.com';
+    const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://trynarraflow.com';
     if (window.electron) {
       (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: marketingSiteUrl });
     } else {
@@ -480,11 +494,11 @@ function ProfileCard({ user, onSignOut, onDeleteAccount }: ProfileCardProps) {
           {user.email}
         </Text>
         <Text size="1" style={{ opacity: 0.7 }}>
-          Created {new Date(user.id).toLocaleDateString('en-US', {
+          {user.createdAt ? `Created ${new Date(user.createdAt).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric'
-          })}
+          })}` : ''}
         </Text>
       </Flex>
     </Flex>

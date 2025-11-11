@@ -19,15 +19,15 @@ export default defineConfig({
   server: {
     port: 5173,
     fs: {
-      // Allow access to project root for serving HTML files
-      allow: [path.join(__dirname, 'src')],
+      // Allow access to project root for serving HTML files and package.json
+      allow: [__dirname],
     },
   },
   resolve: {
     alias: {
       '@': path.join(__dirname, 'src'),
     },
-    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],

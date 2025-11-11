@@ -2,12 +2,20 @@
 
 import { Check } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Box, Flex, Heading, Text, Card, Button } from '@radix-ui/themes';
+import { getMonthlyPrice, getAnnualPrice, formatPrice } from '@/lib/config';
 
 export default function Pricing() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-25%' });
+  const [monthlyPrice, setMonthlyPrice] = useState(5);
+  const [annualPrice, setAnnualPrice] = useState(50);
+
+  useEffect(() => {
+    getMonthlyPrice().then(setMonthlyPrice);
+    getAnnualPrice().then(setAnnualPrice);
+  }, []);
 
   const features = [
     'Unlimited transcriptions',
@@ -30,11 +38,8 @@ export default function Pricing() {
           >
             <Flex direction="column" gap="4" align="center" mb="8">
               <Heading size="8" weight="bold" align="center">
-                <Text color="blue">$5/month.</Text> Cancel anytime.
+                <Text color="blue">{formatPrice(monthlyPrice)}/month.</Text> Cancel anytime.
               </Heading>
-              <Text size="5" color="gray" align="center">
-                Simple pricing. No hidden fees. Ever.
-              </Text>
             </Flex>
           </motion.div>
 
@@ -96,11 +101,11 @@ export default function Pricing() {
                       Pro
                     </Heading>
                     <Flex align="baseline" justify="center" gap="1">
-                      <Text size="9" weight="bold" style={{ color: 'white', fontSize: '4rem', lineHeight: '1' }}>$5</Text>
+                      <Text size="9" weight="bold" style={{ color: 'white', fontSize: '4rem', lineHeight: '1' }}>{formatPrice(monthlyPrice)}</Text>
                       <Text size="5" style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.5rem' }}>/month</Text>
                     </Flex>
                     <Text size="2" mt="3" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                      or $50/year (save $10)
+                      or {formatPrice(annualPrice)}/year (save {formatPrice(monthlyPrice * 12 - annualPrice)})
                     </Text>
                   </Box>
 
@@ -149,7 +154,7 @@ export default function Pricing() {
                     whileTap={{ scale: 0.98 }}
                   >
                     <Button asChild size="4" variant="solid" style={{ width: '100%' }}>
-                      <a href="/login">Get Started</a>
+                      <a href="/download">Get Started</a>
                     </Button>
                   </motion.div>
 

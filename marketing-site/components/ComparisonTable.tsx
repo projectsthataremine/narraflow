@@ -2,12 +2,18 @@
 
 import { Check } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Box, Flex, Heading, Text, Table, Badge } from '@radix-ui/themes';
+import { getMonthlyPrice, formatPrice } from '@/lib/config';
 
 export default function ComparisonTable() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-25%' });
+  const [monthlyPrice, setMonthlyPrice] = useState(5);
+
+  useEffect(() => {
+    getMonthlyPrice().then(setMonthlyPrice);
+  }, []);
 
   const features = [
     { name: 'Speech-to-text transcription' },
@@ -16,7 +22,7 @@ export default function ComparisonTable() {
     { name: 'Custom hotkey (Fn by default)' },
     { name: 'Transcription history' },
     { name: '100% local processing (privacy)', highlight: true },
-    { name: 'Silence detection & trimming' },
+    { name: 'Zero telemetry or usage tracking', highlight: true },
     { name: 'Automatic clipboard copy' },
     { name: 'Visual feedback pill' },
     { name: 'Language support', value: 'English' },
@@ -98,7 +104,7 @@ export default function ComparisonTable() {
           >
             <Text size="4" color="gray" align="center" mt="6" asChild>
               <p>
-                <Text weight="bold">$5/month</Text> for everything above. No hidden tiers.
+                <Text weight="bold">{formatPrice(monthlyPrice)}/month</Text> for everything above. No hidden tiers.
               </p>
             </Text>
           </motion.div>

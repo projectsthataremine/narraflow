@@ -21,6 +21,7 @@ export interface UserAccount {
   lastName: string;
   profilePicUrl?: string;
   provider: 'google' | 'github' | 'email';
+  createdAt?: string;
 }
 
 export interface License {

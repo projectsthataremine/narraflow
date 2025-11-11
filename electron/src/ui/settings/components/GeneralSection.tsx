@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Flex, Text, Box, Select, Switch, Button } from '@radix-ui/themes';
 import { HotkeyConfig, HOTKEY_OPTIONS } from './types';
 import { IPC_CHANNELS } from '../../../types/ipc-contracts';
+import packageJson from '../../../../package.json';
 
 interface GeneralSectionProps {
   aiEnabled: boolean;
@@ -19,6 +20,10 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
   const [showInDock, setShowInDock] = useState(false);
   const [selectedMicrophone, setSelectedMicrophone] = useState('default');
   const [availableMicrophones, setAvailableMicrophones] = useState<MediaDeviceInfo[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [latestVersion, setLatestVersion] = useState<string>('');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
   // Find the matching option from HOTKEY_OPTIONS based on current config
   const currentOption = HOTKEY_OPTIONS.find(
@@ -82,6 +87,59 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
       }
     } else {
       console.error('[Settings] window.electron not available!');
+    }
+  };
+
+  // Load current version and check for updates on mount
+  useEffect(() => {
+    // Set current version from package.json
+    const currentVer = packageJson.version;
+    setCurrentVersion(currentVer);
+
+    // Fetch latest version from GitHub and compare
+    checkForUpdates(currentVer);
+  }, []);
+
+  const checkForUpdates = async (currentVer?: string) => {
+    const versionToCompare = currentVer || currentVersion;
+    setCheckingUpdate(true);
+    try {
+      const response = await fetch('https://api.github.com/repos/projectsthataremine/narraflow/releases/latest');
+      const data = await response.json();
+      const latestVer = data.tag_name?.replace('v', '') || '';
+      setLatestVersion(latestVer);
+
+      // Compare versions - check if latest is actually newer than current
+      if (versionToCompare && latestVer) {
+        const current = versionToCompare.split('.').map(Number);
+        const latest = latestVer.split('.').map(Number);
+
+        let isNewer = false;
+        for (let i = 0; i < Math.max(current.length, latest.length); i++) {
+          const currPart = current[i] || 0;
+          const latestPart = latest[i] || 0;
+          if (latestPart > currPart) {
+            isNewer = true;
+            break;
+          } else if (latestPart < currPart) {
+            break;
+          }
+        }
+
+        setUpdateAvailable(isNewer);
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to check for updates:', error);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handleDownloadUpdate = () => {
+    if (window.electron) {
+      (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: 'https://trynarraflow.com' });
+    } else {
+      window.open('https://trynarraflow.com', '_blank');
     }
   };
 
@@ -193,6 +251,81 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
           Reset & restart
         </Button>
       </Flex>
+
+      {/* Version & Updates Section */}
+      <Box
+        mt="6"
+        pt="6"
+        style={{
+          borderTop: '1px solid var(--gray-a6)',
+        }}
+      >
+        <Text size="2" weight="bold" style={{ opacity: 0.7, display: 'block', marginBottom: '12px' }}>
+          ABOUT
+        </Text>
+
+        {/* Version Info */}
+        <Flex justify="between" align="center" mb="3">
+          <Text size="3" weight="medium">
+            Version
+          </Text>
+          <Text size="3" style={{ fontFamily: 'monospace', opacity: 0.9 }}>
+            {currentVersion || 'Loading...'}
+          </Text>
+        </Flex>
+
+        {/* Update Available */}
+        {updateAvailable && latestVersion && (
+          <Flex
+            direction="column"
+            gap="2"
+            p="3"
+            style={{
+              background: 'linear-gradient(135deg, rgba(0, 144, 255, 0.1) 0%, rgba(0, 119, 255, 0.1) 100%)',
+              border: '2px solid rgba(0, 144, 255, 0.3)',
+              borderRadius: '8px',
+              marginTop: '12px',
+            }}
+          >
+            <Flex justify="between" align="center">
+              <Box>
+                <Text size="3" weight="bold" style={{ color: 'var(--blue-11)', marginBottom: '4px', display: 'block' }}>
+                  Update Available
+                </Text>
+                <Text size="2" style={{ opacity: 0.8 }}>
+                  Version {latestVersion} is now available
+                </Text>
+              </Box>
+              <Button
+                onClick={handleDownloadUpdate}
+                size="2"
+                variant="solid"
+                style={{ cursor: 'pointer' }}
+              >
+                Download
+              </Button>
+            </Flex>
+          </Flex>
+        )}
+
+        {/* Check for Updates Button */}
+        {!updateAvailable && (
+          <Flex justify="between" align="center" mt="3">
+            <Text size="2" style={{ opacity: 0.7 }}>
+              {checkingUpdate ? 'Checking for updates...' : latestVersion ? 'You\'re up to date' : ''}
+            </Text>
+            <Button
+              variant="soft"
+              size="2"
+              onClick={checkForUpdates}
+              disabled={checkingUpdate}
+              style={{ cursor: checkingUpdate ? 'not-allowed' : 'pointer' }}
+            >
+              Check for updates
+            </Button>
+          </Flex>
+        )}
+      </Box>
     </div>
   );
 }

@@ -22,7 +22,6 @@ import {
 import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { ensurePermissions } from './permissions';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
-import { appStore } from './AppStore';
 import { initAuthHandlers } from './auth-handler';
 
 // Configure auto-updater logging
@@ -255,11 +254,18 @@ async function initialize(): Promise<void> {
   // Initialize auth handlers (pass settings window reference)
   initAuthHandlers(mainWindow);
 
-  // Initialize AppStore and validate license
-  appStore.setWindow(overlayWindow);
-  console.log('[Main] Validating license on startup...');
-  await appStore.validateLicense();
-  console.log('[Main] License validation complete. Valid:', appStore.getLicenseValid());
+  // Migration: Remove legacy license.json file if it exists
+  try {
+    const fs = await import('fs');
+    const licensePath = path.join(app.getPath('userData'), 'license.json');
+    if (fs.existsSync(licensePath)) {
+      console.log('[Migration] Removing legacy license.json file');
+      fs.unlinkSync(licensePath);
+      console.log('[Migration] Legacy license.json removed successfully');
+    }
+  } catch (error) {
+    console.error('[Migration] Failed to remove legacy license.json:', error);
+  }
 
   // Get saved hotkey config
   const savedHotkey = getSavedHotkeyConfig();

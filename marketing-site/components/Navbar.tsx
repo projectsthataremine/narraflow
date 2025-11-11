@@ -39,19 +39,54 @@ export default function Navbar() {
       <Box className="container">
         <Flex justify="between" align="center" style={{ height: '72px' }}>
           {/* Logo */}
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <motion.img
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+            <motion.svg
               whileHover={{ scale: 1.05 }}
-              src="/logo-small.svg"
-              alt="NarraFlow"
-              style={{ height: '32px' }}
-            />
+              width="26"
+              height="25"
+              viewBox="0 0 33 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient
+                  id="logoGradient"
+                  x1="0"
+                  y1="0"
+                  x2="33"
+                  y2="0"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0%" stopColor="#0090ff" />
+                  <stop offset="100%" stopColor="#0f1f30" />
+                </linearGradient>
+              </defs>
+              {/* Vertical bars */}
+              <rect x="0" y="13" width="3" height="6" rx="1.5" fill="url(#logoGradient)" />
+              <rect x="5" y="10" width="3" height="12" rx="1.5" fill="url(#logoGradient)" />
+              <rect x="10" y="7" width="3" height="18" rx="1.5" fill="url(#logoGradient)" />
+              <rect x="15" y="4" width="3" height="24" rx="1.5" fill="url(#logoGradient)" />
+              <rect x="20" y="7" width="3" height="18" rx="1.5" fill="url(#logoGradient)" />
+              <rect x="25" y="10" width="3" height="12" rx="1.5" fill="url(#logoGradient)" />
+              <rect x="30" y="13" width="3" height="6" rx="1.5" fill="url(#logoGradient)" />
+            </motion.svg>
+            <Text
+              style={{
+                fontFamily: 'Helvetica Neue, Helvetica, Arial, sans-serif',
+                fontSize: '20px',
+                fontWeight: 700,
+                color: '#ffffff',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              NarraFlow
+            </Text>
           </Link>
 
           {/* Nav Links */}
           <Flex gap="8" align="center" className="desktop-nav">
             <Link
-              href="#features"
+              href="#features-list"
               style={{
                 color: 'rgba(255, 255, 255, 0.85)',
                 transition: 'color 0.2s ease',
@@ -81,7 +116,7 @@ export default function Navbar() {
               Pricing
             </Link>
             <Link
-              href="/docs"
+              href="#faq"
               style={{
                 color: 'rgba(255, 255, 255, 0.85)',
                 transition: 'color 0.2s ease',
@@ -93,22 +128,7 @@ export default function Navbar() {
               onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
               onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)'}
             >
-              Docs
-            </Link>
-            <Link
-              href="/login"
-              style={{
-                color: 'rgba(255, 255, 255, 0.85)',
-                transition: 'color 0.2s ease',
-                textDecoration: 'none',
-                fontSize: '0.9375rem',
-                fontWeight: '500',
-                letterSpacing: '-0.01em'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)'}
-            >
-              Account
+              FAQ
             </Link>
           </Flex>
 
@@ -128,10 +148,10 @@ export default function Navbar() {
                 letterSpacing: '-0.01em',
                 paddingLeft: '20px',
                 paddingRight: '20px',
-                background: 'linear-gradient(135deg, rgba(0, 112, 243, 0.9) 0%, rgba(0, 92, 203, 0.9) 100%)',
+                background: 'linear-gradient(135deg, var(--accent-9) 0%, #004073 100%)',
                 border: 'none',
                 color: 'white',
-                boxShadow: '0 2px 8px rgba(0, 112, 243, 0.15)'
+                boxShadow: '0 2px 8px rgba(0, 112, 243, 0.25)'
               }}
             >
               <Link href="/download" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'white' }}>

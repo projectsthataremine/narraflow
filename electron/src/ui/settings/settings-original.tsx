@@ -1959,7 +1959,7 @@ function AccountSection() {
       console.log('[Account] Opening marketing site account page for license:', licenseKey);
 
       // Determine marketing site URL based on environment
-      const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://narraflow.com';
+      const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://trynarraflow.com';
       const accountUrl = `${marketingSiteUrl}?openAccount=true`;
 
       // Open marketing site with account dialog open
@@ -1987,7 +1987,7 @@ function AccountSection() {
 
   const handleAddLicense = () => {
     // Open marketing site to purchase
-    const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://narraflow.com';
+    const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://trynarraflow.com';
     if (window.electron) {
       (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: marketingSiteUrl });
     } else {

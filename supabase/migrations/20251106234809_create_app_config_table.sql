@@ -25,6 +25,33 @@ VALUES (
 )
 ON CONFLICT (key) DO NOTHING;
 
+-- Insert pricing config
+INSERT INTO app_config (key, value, description)
+VALUES (
+  'monthly_price',
+  '5',
+  'Monthly subscription price in USD'
+)
+ON CONFLICT (key) DO NOTHING;
+
+-- Insert trial days config
+INSERT INTO app_config (key, value, description)
+VALUES (
+  'trial_days',
+  '7',
+  'Number of days for free trial'
+)
+ON CONFLICT (key) DO NOTHING;
+
+-- Insert app name config
+INSERT INTO app_config (key, value, description)
+VALUES (
+  'app_name',
+  'NarraFlow',
+  'Application name'
+)
+ON CONFLICT (key) DO NOTHING;
+
 -- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_app_config_updated_at()
 RETURNS TRIGGER AS $$

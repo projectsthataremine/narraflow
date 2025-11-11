@@ -204,11 +204,6 @@ STRIPE_SECRET_KEY_SANDBOX
 STRIPE_PRICE_ID_SANDBOX
 STRIPE_WEBHOOK_SECRET_SANDBOX
 
-# Licensing (shared between dev and prod)
-LICENSE_PRIVATE_KEY
-LICENSE_PUBLIC_KEY
-EDGE_FUNCTION_SECRET
-
 # Supabase (auto-provided)
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
@@ -292,7 +287,6 @@ npx supabase functions logs stripe-webhook
 1. **Migration conflicts**: Run migrations in order, check `supabase/migrations/` directory
 2. **Edge function 401 errors**: Check JWT verification settings in `supabase/config.toml`
 3. **Stripe webhook failures**: Verify `verify_jwt = false` for webhook functions
-4. **License activation fails**: Check `EDGE_FUNCTION_SECRET` matches between Supabase and Electron app
 
 ---
 

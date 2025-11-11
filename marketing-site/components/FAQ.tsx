@@ -1,18 +1,24 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { motion, useInView } from 'framer-motion';
 import { Box, Flex, Heading, Text, Card } from '@radix-ui/themes';
+import { getMonthlyPrice, formatPrice } from '@/lib/config';
 
 export default function FAQ() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-25%' });
+  const [monthlyPrice, setMonthlyPrice] = useState(5);
+
+  useEffect(() => {
+    getMonthlyPrice().then(setMonthlyPrice);
+  }, []);
 
   const faqs = [
     {
       question: 'How does NarraFlow compare to other dictation apps?',
-      answer: "NarraFlow focuses on core dictation at an honest price. We don't add features you won't use. Just great transcription, auto-formatting, and privacy—all for $5/month with no hidden tiers.",
+      answer: `NarraFlow focuses on core dictation at an honest price. We don't add features you won't use. Just great transcription, auto-formatting, and privacy—all for ${formatPrice(monthlyPrice)}/month with no hidden tiers.`,
     },
     {
       question: 'Does it work on Windows or iPhone?',
@@ -24,7 +30,7 @@ export default function FAQ() {
     },
     {
       question: 'Can I try before I pay?',
-      answer: 'Yes! 7-day free trial, no credit card required. Download and start using it immediately. After the trial, it\'s just $5/month.',
+      answer: `Yes! 7-day free trial, no credit card required. Download and start using it immediately. After the trial, it's just ${formatPrice(monthlyPrice)}/month.`,
     },
     {
       question: "What if I don't like it?",
@@ -138,12 +144,17 @@ function FAQItem({ question, answer }: FAQItemProps) {
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
-          style={{ flexShrink: 0 }}
+          style={{
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
         >
           <ChevronDown
             size={20}
             color={isOpen ? 'var(--accent-9)' : 'var(--gray-9)'}
-            style={{ transition: 'color 0.3s' }}
+            style={{ transition: 'color 0.3s', display: 'block' }}
           />
         </motion.div>
       </motion.button>

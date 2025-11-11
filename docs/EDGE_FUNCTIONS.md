@@ -29,16 +29,12 @@ All edge functions now have separate dev and production versions that use differ
   - Same functionality as production, uses Stripe test mode
 
 ### License-Related
-**Note**: License functions share the same environment variables between dev and prod versions.
+**Note**: License management is now OAuth-based. License functions use Supabase Auth for user validation.
 
-- `validate_license` / `validate_license-dev` - Uses `LICENSE_PRIVATE_KEY`, `EDGE_FUNCTION_SECRET`
-  - Validates license keys and checks machine activation status
-- `assign_license_to_machine` / `assign_license_to_machine-dev` - Uses `LICENSE_PRIVATE_KEY`
+- `assign_license_to_machine` / `assign_license_to_machine-dev` - OAuth-based
   - Assigns a license to a specific machine (stores machine_id in metadata)
-- `revoke_license_from_machine` / `revoke_license_from_machine-dev` - Uses `LICENSE_PRIVATE_KEY`
+- `revoke_license_from_machine` / `revoke_license_from_machine-dev` - OAuth-based
   - Removes license from a machine (clears machine_id from metadata)
-- `activate_license` - Uses `LICENSE_PRIVATE_KEY`
-  - Activates a license key for a user
 
 ## Environment Variables Required
 
@@ -54,11 +50,6 @@ STRIPE_WEBHOOK_SECRET_SANDBOX
 STRIPE_SECRET_KEY_PROD
 STRIPE_PRICE_ID_PROD
 STRIPE_WEBHOOK_SECRET_PROD
-
-# License-related (shared between dev and prod)
-LICENSE_PRIVATE_KEY
-LICENSE_PUBLIC_KEY
-EDGE_FUNCTION_SECRET
 
 # Supabase (automatically provided)
 SUPABASE_URL
@@ -141,11 +132,6 @@ STRIPE_WEBHOOK_SECRET_PROD=whsec_xxxxx
 STRIPE_SECRET_KEY_SANDBOX=sk_test_xxxxx
 STRIPE_PRICE_ID_SANDBOX=price_xxxxx
 STRIPE_WEBHOOK_SECRET_SANDBOX=whsec_xxxxx
-
-# Licensing (shared between dev and prod)
-LICENSE_PRIVATE_KEY=base64_encoded_private_key
-LICENSE_PUBLIC_KEY=base64_encoded_public_key
-EDGE_FUNCTION_SECRET=random_secret_string
 ```
 
 ### Upload Secrets to Supabase
@@ -176,11 +162,6 @@ npx supabase secrets set STRIPE_SECRET_KEY_SANDBOX="$STRIPE_SECRET_KEY_SANDBOX"
 npx supabase secrets set STRIPE_PRICE_ID_SANDBOX="$STRIPE_PRICE_ID_SANDBOX"
 npx supabase secrets set STRIPE_WEBHOOK_SECRET_SANDBOX="$STRIPE_WEBHOOK_SECRET_SANDBOX"
 
-# Licensing
-npx supabase secrets set LICENSE_PRIVATE_KEY="$LICENSE_PRIVATE_KEY"
-npx supabase secrets set LICENSE_PUBLIC_KEY="$LICENSE_PUBLIC_KEY"
-npx supabase secrets set EDGE_FUNCTION_SECRET="$EDGE_FUNCTION_SECRET"
-
 echo "✅ All secrets uploaded successfully!"
 ```
 
@@ -207,9 +188,6 @@ The actual secret values are not shown for security. To see which secrets are se
 npx supabase secrets list
 
 # Output:
-# EDGE_FUNCTION_SECRET
-# LICENSE_PRIVATE_KEY
-# LICENSE_PUBLIC_KEY
 # STRIPE_PRICE_ID_PROD
 # STRIPE_PRICE_ID_SANDBOX
 # STRIPE_SECRET_KEY_PROD

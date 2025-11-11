@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { Box, Flex, Heading, Text, Button } from '@radix-ui/themes';
 import { Mic, Sparkles, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getMonthlyPrice, formatPrice } from '@/lib/config';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -25,6 +27,12 @@ const itemVariants = {
 };
 
 export default function Hero() {
+  const [monthlyPrice, setMonthlyPrice] = useState(5);
+
+  useEffect(() => {
+    getMonthlyPrice().then(setMonthlyPrice);
+  }, []);
+
   return (
     <Box asChild>
       <section style={{ paddingTop: '12rem', paddingBottom: '8rem', position: 'relative', overflow: 'hidden' }}>
@@ -64,7 +72,7 @@ export default function Hero() {
                 }}>
                   <Sparkles size={14} />
                   <Text size="1" weight="medium" style={{ letterSpacing: '0.02em' }}>
-                    Simple, powerful, affordable
+                    Simple, private, affordable
                   </Text>
                 </Box>
               </Flex>
@@ -91,7 +99,8 @@ export default function Hero() {
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
-                    display: 'inline-block'
+                    display: 'inline-block',
+                    paddingBottom: '0.15em'
                   }}>
                     at an honest price
                   </Text>
@@ -107,7 +116,7 @@ export default function Hero() {
                     fontWeight: '400'
                   }}
                 >
-                  Professional dictation software that respects your privacy. Hold Fn, speak naturally, and watch your words appear perfectly formatted. $5/month, no BS.
+                  Professional dictation software that respects your privacy. Hold Fn, speak naturally, and watch your words appear perfectly formatted. {formatPrice(monthlyPrice)}/month.
                 </Text>
               </Flex>
             </motion.div>
@@ -134,7 +143,7 @@ export default function Hero() {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    <a href="/login" style={{ display: 'flex', alignItems: 'center', height: '100%' }}>Start Free Trial</a>
+                    <a href="/download" style={{ display: 'flex', alignItems: 'center', height: '100%' }}>Start Free Trial</a>
                   </Button>
                 </motion.div>
                 <motion.div

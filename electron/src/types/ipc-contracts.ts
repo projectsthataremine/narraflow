@@ -172,11 +172,6 @@ export const IPC_CHANNELS = {
   SUBSCRIPTION_GET_STATUS: 'ipc:subscription-get-status',
   SUBSCRIPTION_CREATE_CHECKOUT: 'ipc:subscription-create-checkout',
   SUBSCRIPTION_OPEN_PORTAL: 'ipc:subscription-open-portal',
-  // License Management
-  LICENSE_ADD_KEY: 'ipc:license-add-key',
-  LICENSE_VALIDATE: 'ipc:license-validate',
-  LICENSE_GET_STATUS: 'ipc:license-get-status',
-  LICENSE_CHECK_COMPLETE: 'ipc:license-check-complete',
 } as const;
 
 // ============================================================================

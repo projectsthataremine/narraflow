@@ -67,7 +67,7 @@ export default function FinalCTA() {
               <Flex gap="4" justify="center" align="center" wrap="wrap">
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button asChild size="4" variant="solid" style={{ background: 'white', color: 'var(--accent-9)' }}>
-                    <a href="/login">Get Started</a>
+                    <a href="/download">Get Started</a>
                   </Button>
                 </motion.div>
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
