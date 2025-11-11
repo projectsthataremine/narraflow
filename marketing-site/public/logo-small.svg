@@ -1,8 +1,8 @@
-<svg width="140" height="32" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="133" height="25" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="logoGradient" x1="0" y1="0" x2="140" y2="0">
+    <linearGradient id="logoGradient" x1="0" y1="0" x2="140" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#0090ff"/>
-      <stop offset="100%" stop-color="#0070dd"/>
+      <stop offset="100%" stop-color="#0f1f30"/>
     </linearGradient>
   </defs>
   <!-- Vertical bars - scaled down by ~15% -->
