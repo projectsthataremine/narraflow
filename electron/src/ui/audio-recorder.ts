@@ -188,6 +188,6 @@ export class AudioRecorder {
     this.audioSource = null;
     this.audioWorklet = null;
     this.audioChunks = [];
-    // Don't null mediaStream here - might be shared
+    this.mediaStream = null; // Release reference to allow garbage collection
   }
 }

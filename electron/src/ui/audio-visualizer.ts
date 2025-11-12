@@ -220,6 +220,6 @@ export class AudioVisualizer {
     this.dataArray = null;
     this.animationFrameId = null;
     this.frameCount = 0;
-    // Don't null mediaStream here - might be shared
+    this.mediaStream = null; // Release reference to allow garbage collection
   }
 }

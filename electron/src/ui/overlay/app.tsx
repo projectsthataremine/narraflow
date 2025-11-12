@@ -107,13 +107,18 @@ export const App: React.FC = () => {
   useEffect(() => {
     const visualizer = visualizerRef.current;
     const recorder = recorderRef.current;
-    if (!visualizer || !recorder) return;
+    if (!visualizer || !recorder) {
+      return;
+    }
 
     const shouldRecord =
       uiState.mode === 'loading' || uiState.mode === 'silent' || uiState.mode === 'talking';
 
     if (shouldRecord && !isRecordingRef.current) {
       // Start both visualizer and recorder with shared stream
+
+      // Set flag IMMEDIATELY to prevent duplicate getUserMedia calls
+      isRecordingRef.current = true;
 
       // Request microphone once
       navigator.mediaDevices
@@ -140,13 +145,13 @@ export const App: React.FC = () => {
               if (!recSuccess) {
                 throw new Error('Failed to start recorder');
               }
-
-              isRecordingRef.current = true;
             });
           });
         })
         .catch((error) => {
           console.error('[App] Failed to start audio modules:', error);
+          // Reset flag on error
+          isRecordingRef.current = false;
         });
     } else if (!shouldRecord && isRecordingRef.current) {
       // Stop both modules
@@ -162,15 +167,25 @@ export const App: React.FC = () => {
 
       isRecordingRef.current = false;
 
-      // CRITICAL: Stop tracks IMMEDIATELY and SYNCHRONOUSLY
-      // This must happen before any async operations to release microphone
+      // FIRST: Disconnect audio nodes while stream is still active
+      if (visualizer.isRunning()) {
+        // Manually disconnect nodes before stopping anything
+        if ((visualizer as any).analyser) {
+          (visualizer as any).analyser.disconnect();
+        }
+        if ((visualizer as any).audioSource) {
+          (visualizer as any).audioSource.disconnect();
+        }
+      }
+
+      // THEN: Stop tracks IMMEDIATELY and SYNCHRONOUSLY
       if (sharedStreamRef.current) {
         sharedStreamRef.current.getTracks().forEach((track) => {
           track.stop();
         });
       }
 
-      // THEN do async cleanup of audio modules
+      // FINALLY: Async cleanup of audio modules
       (async () => {
         try {
           // Stop recorder (stream already stopped above)
