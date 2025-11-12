@@ -1,6 +1,6 @@
 # Pre-Launch Checklist
 
-This is the final checklist to complete before launching Clipp to the public.
+This is the final checklist to complete before launching your application to the public.
 
 ## Infrastructure & Deployment
 

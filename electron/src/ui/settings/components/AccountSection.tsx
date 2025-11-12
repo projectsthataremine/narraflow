@@ -370,62 +370,284 @@ interface NotLoggedInViewProps {
 }
 
 function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
-  return (
-    <Flex align="center" justify="center" style={{ minHeight: '100%' }}>
-      <Box style={{ width: '100%', maxWidth: '480px', textAlign: 'center' }}>
-        <Box mb="4" style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '64px',
-          height: '64px',
-          border: '2px solid var(--accent-9)',
-        }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent-9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-        </Box>
-        <Text size="5" weight="bold" mb="2" as="div">
-          Get started with NarraFlow
-        </Text>
-        <Text size="3" color="gray" mb="6" as="div" style={{ lineHeight: '1.6' }}>
-          Sign in with your Google account to start your 7-day free trial.<br/>
-          No credit card required.
-        </Text>
+  const [googleHover, setGoogleHover] = useState(false);
+  const [emailHover, setEmailHover] = useState(false);
+  const [showEmailFlow, setShowEmailFlow] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-        {/* Google Sign In Button - matching marketing site */}
-        <Button
-          size="3"
-          onClick={onSignIn}
-          style={{
-            background: 'white',
-            color: '#000',
-            border: '1px solid #ddd',
-            fontFamily: 'Roboto, sans-serif',
-            cursor: 'pointer',
-          }}
-        >
-          <GoogleIcon />
-          Sign in with Google
-        </Button>
+  const handleEmailSignIn = () => {
+    setShowEmailFlow(true);
+  };
 
-          {/* Pricing */}
-          <Box style={{
-            marginTop: '32px',
-            paddingTop: '32px',
-            borderTop: '1px solid var(--border-light)',
-          }}>
-            <Text size="2" color="gray" mb="2">
-              After trial
+  const handleBackToOptions = () => {
+    setShowEmailFlow(false);
+    setIsSignUp(false);
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setError('');
+  };
+
+  const handleAuth = async () => {
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (isSignUp && password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (window.electron) {
+        const handler = isSignUp ? 'SIGN_UP_EMAIL' : 'SIGN_IN_EMAIL';
+        await (window.electron as any).invoke(handler, { email, password });
+        // Auth state will be updated automatically via checkAuth
+      }
+    } catch (err) {
+      console.error(`[Account] Failed to ${isSignUp ? 'sign up' : 'sign in'}:`, err);
+      setError(err instanceof Error ? err.message : `Failed to ${isSignUp ? 'sign up' : 'sign in'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Email flow view
+  if (showEmailFlow) {
+    return (
+      <Flex align="center" justify="center" style={{ height: '100%', width: '100%' }}>
+        <Box style={{ width: '100%', maxWidth: '400px', padding: '40px 24px' }}>
+          {/* Back button */}
+          <Button
+            size="1"
+            variant="ghost"
+            onClick={handleBackToOptions}
+            style={{ marginBottom: '24px', cursor: 'pointer' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back
+          </Button>
+
+          {/* Heading */}
+          <Box mb="6" style={{ textAlign: 'center' }}>
+            <Text size="6" weight="bold" mb="2" as="div" style={{ letterSpacing: '-0.03em', lineHeight: '1.1' }}>
+              {isSignUp ? 'Create an account' : 'Welcome back'}
             </Text>
-            <Text size="7" weight="bold" style={{ color: 'var(--accent-9)' }}>
-              ${MONTHLY_PRICE}<Text as="span" size="4" weight="regular" color="gray">/month</Text>
-            </Text>
-            <Text size="2" color="gray" mt="2">
-              Cancel anytime
+            <Text size="3" color="gray" as="div" style={{ lineHeight: '1.5' }}>
+              {isSignUp
+                ? 'Enter your email and password to sign up'
+                : 'Sign in to your account'
+              }
             </Text>
           </Box>
+
+          {/* Email and password inputs */}
+          <Flex direction="column" gap="3">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                border: '1px solid var(--gray-a6)',
+                borderRadius: '8px',
+                background: 'var(--gray-a2)',
+                color: 'var(--gray-12)',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => !isSignUp && e.key === 'Enter' && handleAuth()}
+              placeholder="Password (min 6 characters)"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                border: '1px solid var(--gray-a6)',
+                borderRadius: '8px',
+                background: 'var(--gray-a2)',
+                color: 'var(--gray-12)',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+            />
+            {isSignUp && (
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAuth()}
+                placeholder="Confirm password"
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  fontSize: '15px',
+                  border: '1px solid var(--gray-a6)',
+                  borderRadius: '8px',
+                  background: 'var(--gray-a2)',
+                  color: 'var(--gray-12)',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                }}
+              />
+            )}
+            {error && (
+              <Text size="2" color="red" style={{ marginTop: '-8px' }}>
+                {error}
+              </Text>
+            )}
+            <Button
+              size="3"
+              onClick={handleAuth}
+              disabled={loading}
+              style={{
+                width: '100%',
+                height: '48px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? (isSignUp ? 'Creating account...' : 'Signing in...') : (isSignUp ? 'Sign up' : 'Sign in')}
+            </Button>
+
+            {/* Toggle between sign in and sign up */}
+            <Text size="2" color="gray" style={{ textAlign: 'center', marginTop: '8px' }}>
+              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+              <Text
+                as="span"
+                color="blue"
+                style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setConfirmPassword('');
+                  setError('');
+                }}
+              >
+                {isSignUp ? 'Sign in' : 'Sign up'}
+              </Text>
+            </Text>
+          </Flex>
+        </Box>
+      </Flex>
+    );
+  }
+
+  // Default view with options
+  return (
+    <Flex align="center" justify="center" style={{ height: '100%', width: '100%' }}>
+      <Box style={{ width: '100%', maxWidth: '400px', padding: '40px 24px' }}>
+        {/* Heading */}
+        <Box mb="6" style={{ textAlign: 'center' }}>
+          <Text size="7" weight="bold" mb="2" as="div" style={{ letterSpacing: '-0.03em', lineHeight: '1.1' }}>
+            Welcome to NarraFlow
+          </Text>
+          <Text size="3" color="gray" as="div" style={{ lineHeight: '1.5' }}>
+            Start your 7-day free trial. No credit card required.
+          </Text>
+        </Box>
+
+        {/* Sign In Buttons */}
+        <Flex direction="column" gap="3" mb="6">
+          {/* Google Sign In */}
+          <Button
+            size="3"
+            onClick={onSignIn}
+            onMouseEnter={() => setGoogleHover(true)}
+            onMouseLeave={() => setGoogleHover(false)}
+            style={{
+              width: '100%',
+              background: 'white',
+              color: '#1f1f1f',
+              border: '1px solid var(--gray-a6)',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: '500',
+              padding: '12px 20px',
+              height: '48px',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: googleHover ? '0 4px 12px rgba(0, 0, 0, 0.08)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
+              transform: googleHover ? 'translateY(-1px)' : 'translateY(0)',
+              borderColor: googleHover ? 'var(--gray-a7)' : 'var(--gray-a6)',
+            }}
+          >
+            <GoogleIcon />
+            Continue with Google
+          </Button>
+
+          {/* Email Sign In */}
+          <Button
+            size="3"
+            onClick={handleEmailSignIn}
+            onMouseEnter={() => setEmailHover(true)}
+            onMouseLeave={() => setEmailHover(false)}
+            style={{
+              width: '100%',
+              background: 'white',
+              color: '#1f1f1f',
+              border: '1px solid var(--gray-a6)',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: '500',
+              padding: '12px 20px',
+              height: '48px',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: emailHover ? '0 4px 12px rgba(0, 0, 0, 0.08)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
+              transform: emailHover ? 'translateY(-1px)' : 'translateY(0)',
+              borderColor: emailHover ? 'var(--gray-a7)' : 'var(--gray-a6)',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="m22 7-10 7L2 7"/>
+            </svg>
+            Continue with Email
+          </Button>
+        </Flex>
+
+        {/* Pricing */}
+        <Box style={{
+          paddingTop: '24px',
+          borderTop: '1px solid var(--gray-a4)',
+          textAlign: 'center',
+        }}>
+          <Flex align="center" justify="center" gap="2" mb="1">
+            <Text size="6" weight="bold" style={{ color: 'var(--gray-12)', letterSpacing: '-0.02em' }}>
+              ${MONTHLY_PRICE}
+            </Text>
+            <Text size="3" color="gray" weight="medium">
+              / month after trial
+            </Text>
+          </Flex>
+          <Text size="2" color="gray" style={{ opacity: 0.7 }}>
+            Cancel anytime, no questions asked
+          </Text>
+        </Box>
       </Box>
     </Flex>
   );
@@ -463,44 +685,57 @@ function ProfileCard({ user, onSignOut, onDeleteAccount }: ProfileCardProps) {
   );
 
   return (
-    <Flex align="center" gap="3" mb="4">
-      {/* Profile Picture */}
-      {avatarUrl && !imageError ? (
-        <>
-          <img
-            src={avatarUrl}
-            alt="Profile"
-            crossOrigin="anonymous"
-            referrerPolicy="no-referrer"
-            onLoad={() => setImageLoaded(true)}
-            onError={() => setImageError(true)}
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              objectFit: 'cover',
-              display: imageLoaded ? 'block' : 'none',
-            }}
-          />
-          {!imageLoaded && fallbackAvatar}
-        </>
-      ) : (
-        fallbackAvatar
-      )}
+    <Flex align="center" gap="3" justify="between" mb="4">
+      <Flex align="center" gap="3" style={{ flex: 1 }}>
+        {/* Profile Picture */}
+        {avatarUrl && !imageError ? (
+          <>
+            <img
+              src={avatarUrl}
+              alt="Profile"
+              crossOrigin="anonymous"
+              referrerPolicy="no-referrer"
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                display: imageLoaded ? 'block' : 'none',
+              }}
+            />
+            {!imageLoaded && fallbackAvatar}
+          </>
+        ) : (
+          fallbackAvatar
+        )}
 
-      {/* User Info */}
-      <Flex direction="column">
-        <Text size="3" weight="bold">
-          {user.email}
-        </Text>
-        <Text size="1" style={{ opacity: 0.7 }}>
-          {user.createdAt ? `Created ${new Date(user.createdAt).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          })}` : ''}
-        </Text>
+        {/* User Info */}
+        <Flex direction="column">
+          <Text size="3" weight="bold">
+            {user.email}
+          </Text>
+          <Text size="1" style={{ opacity: 0.7 }}>
+            {user.createdAt ? `Created ${new Date(user.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}` : ''}
+          </Text>
+        </Flex>
       </Flex>
+
+      {/* Sign Out Button */}
+      <Button
+        size="2"
+        variant="soft"
+        color="gray"
+        onClick={onSignOut}
+        style={{ cursor: 'pointer' }}
+      >
+        Sign Out
+      </Button>
     </Flex>
   );
 }
@@ -562,6 +797,14 @@ function UnifiedAccountView({ user, allLicenses, onUseLicense, onRevokeLicense, 
     <div>
       {/* Profile Card */}
       <ProfileCard user={user} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} />
+
+      {/* Divider */}
+      <Box
+        mb="4"
+        style={{
+          borderBottom: '1px solid var(--gray-a4)',
+        }}
+      />
 
       {/* Trial Expired Banner - Only show if trial expired AND user has never purchased */}
       {trialExpired && !hasEverHadLicense && (
@@ -664,6 +907,29 @@ function UnifiedAccountView({ user, allLicenses, onUseLicense, onRevokeLicense, 
           </Button>
         </Flex>
       )}
+
+      {/* Danger Zone - Delete Account */}
+      <Box
+        pt="4"
+        mt="6"
+        style={{
+          borderTop: '1px solid var(--gray-a4)',
+        }}
+      >
+        <Button
+          size="1"
+          variant="ghost"
+          color="red"
+          onClick={onDeleteAccount}
+          style={{
+            cursor: 'pointer',
+            opacity: 0.6,
+            fontSize: '12px',
+          }}
+        >
+          Delete Account
+        </Button>
+      </Box>
     </div>
   );
 }

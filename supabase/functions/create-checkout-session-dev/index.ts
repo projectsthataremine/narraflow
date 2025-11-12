@@ -81,8 +81,8 @@ Deno.serve(async (req) => {
       httpClient: Stripe.createFetchHttpClient()
     });
 
-    // Get origin from request headers
-    const origin = req.headers.get('origin') || 'https://clipp.app';
+    // Get website URL from environment
+    const websiteUrl = Deno.env.get('WEBSITE_URL') || 'https://trynarraflow.com';
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -93,8 +93,8 @@ Deno.serve(async (req) => {
         },
       ],
       mode: 'subscription',
-      success_url: success_url || `${origin}/account?success=true`,
-      cancel_url: cancel_url || `${origin}/account`,
+      success_url: success_url || `${websiteUrl}/account?success=true`,
+      cancel_url: cancel_url || `${websiteUrl}/account`,
       customer_email: user.email,
       metadata: {
         user_id: user.id,

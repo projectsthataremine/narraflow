@@ -1,8 +1,8 @@
-# Supabase Setup Guide for Clipp
+# Supabase Setup Guide
 
 ## Project Information
-- **Project ID**: `jijhacdgtccfftlangjq`
-- **Project URL**: `https://jijhacdgtccfftlangjq.supabase.co`
+- **Project ID**: `buqkvxtxjwyohzsogfbz`
+- **Project URL**: `https://buqkvxtxjwyohzsogfbz.supabase.co`
 - **Anon Key**: Already configured in `.env` files
 
 ---
@@ -171,7 +171,7 @@ All migrations are in `/supabase/migrations/`. To apply them:
 
 ```bash
 # From project root
-cd /Users/joshuaarnold/Dev/clipp
+cd /path/to/your/project
 
 # Link to your Supabase project
 npx supabase link --project-ref jijhacdgtccfftlangjq

@@ -1,4 +1,4 @@
-# Clipp Testing Guide
+# Testing Guide
 
 ## Manual Testing
 
@@ -26,7 +26,7 @@
 
 ### Overview
 
-Clipp uses [Playwright](https://playwright.dev/) for end-to-end testing of clipboard operations. Tests run against the actual Electron app and use the real system clipboard for verification.
+The application uses [Playwright](https://playwright.dev/) for end-to-end testing of clipboard operations. Tests run against the actual Electron app and use the real system clipboard for verification.
 
 ### Running Tests
 
@@ -45,7 +45,7 @@ This will:
 #### Test Mode
 
 Tests run with `TEST_MODE=true` which:
-- Uses a separate data directory: `~/Library/Application Support/Clipp-Test/`
+- Uses a separate data directory: `~/Library/Application Support/YourApp-Test/`
 - Skips authentication and license checks
 - Disables DevTools
 - Loads test fixtures instead of real clipboard history

@@ -1,13 +1,12 @@
 # Licensing
 
-**Last Updated:** 2025-11-09
-**Project:** Clipp
+**Last Updated:** 2025-11-11
 
 ---
 
 ## 📋 Overview
 
-This document explains how licenses and subscription renewals/cancellations work in Clipp, particularly focusing on the `expires_at` and `renews_at` logic.
+This document explains how licenses and subscription renewals/cancellations work, particularly focusing on the `expires_at` and `renews_at` logic.
 
 ---
 

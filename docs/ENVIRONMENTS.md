@@ -1,10 +1,10 @@
-# Clipp Environments
+# Application Environments
 
-This document describes the two environments used for developing and testing Clipp.
+This document describes the two environments used for developing and testing the application.
 
 ## Overview
 
-Clipp uses two distinct environments to ensure safe testing and deployment:
+The application uses two distinct environments to ensure safe testing and deployment:
 
 1. **DEV** - Development and testing with Stripe Sandbox
 2. **PROD** - Production with Stripe Live mode
@@ -33,7 +33,7 @@ Clipp uses two distinct environments to ensure safe testing and deployment:
 - Reads `STRIPE_WEBHOOK_SECRET_SANDBOX` for webhook verification
 
 **Environment Variable:**
-- Set `CLIPP_ENV=dev` in Electron app `backend/.env` file
+- Set `APP_ENV=dev` in Electron app `src/.env` file
 - Or build with `npm run build:dev` which calls `set-env.js dev`
 
 ---
@@ -49,7 +49,7 @@ Clipp uses two distinct environments to ensure safe testing and deployment:
 **Stripe:**
 - **Stripe Live mode**
 - Webhook in Stripe Live Mode dashboard → `stripe-webhook` edge function
-- Real pricing ($5/month or $24/year)
+- Real pricing
 
 **Edge Functions:**
 - Uses production edge functions (no `-dev` suffix)
@@ -64,8 +64,8 @@ Clipp uses two distinct environments to ensure safe testing and deployment:
 
 ## Environment Variable Summary
 
-| Environment | `CLIPP_ENV` | Edge Functions | Stripe Mode | Webhooks |
-|-------------|-------------|----------------|-------------|----------|
+| Environment | `APP_ENV` | Edge Functions | Stripe Mode | Webhooks |
+|-------------|-----------|----------------|-------------|----------|
 | DEV | `dev` | `-dev` | Sandbox | Dashboard webhook → `-dev` |
 | PROD | `prod` | production | Live | Dashboard webhook → production |
 
@@ -75,9 +75,9 @@ Clipp uses two distinct environments to ensure safe testing and deployment:
 
 ### 1. Electron App Determines Environment
 
-The Electron app reads `CLIPP_ENV` and:
-- If `CLIPP_ENV=dev` → Calls `-dev` edge functions
-- If `CLIPP_ENV=prod` → Calls production edge functions (no suffix)
+The Electron app reads `APP_ENV` and:
+- If `APP_ENV=dev` → Calls `-dev` edge functions
+- If `APP_ENV=prod` → Calls production edge functions (no suffix)
 
 ### 2. Edge Functions Use Credentials
 
@@ -107,24 +107,24 @@ Stripe uses the credentials provided:
 
 **Local development:**
 ```bash
-# In Electron app backend/.env (already set by default)
-CLIPP_ENV=dev
+# In Electron app src/.env (already set by default)
+APP_ENV=dev
 
 # Or run with environment variable (package.json does this):
-npm start  # Sets CLIPP_ENV=dev automatically
+npm start  # Sets APP_ENV=dev automatically
 
 # No stripe listen needed - webhook is in Stripe Sandbox dashboard
 ```
 
 **Build for testing:**
 ```bash
-# Build with dev environment (automatically sets CLIPP_ENV=dev in backend/.env)
+# Build with dev environment (automatically sets APP_ENV=dev in src/.env)
 npm run build:dev
 ```
 
 **Build for production:**
 ```bash
-# Build with production environment (automatically sets CLIPP_ENV=prod in backend/.env)
+# Build with production environment (automatically sets APP_ENV=prod in src/.env)
 npm run build:prod
 # or
 npm run build  # Defaults to prod
@@ -152,6 +152,9 @@ All Stripe secrets are stored in Supabase and managed via `.env.secrets` file (n
 
 **Required secrets:**
 ```bash
+# Application Configuration
+WEBSITE_URL=https://yourapp.com  # Your marketing website URL
+
 # SANDBOX Environment (used by DEV - Stripe Sandbox)
 STRIPE_SECRET_KEY_SANDBOX="sk_test_..." # From Stripe Sandbox
 STRIPE_PRICE_ID_MONTHLY_SANDBOX="price_..." # Monthly subscription in Sandbox
@@ -168,6 +171,7 @@ STRIPE_WEBHOOK_SECRET_PROD="whsec_..." # Webhook signing secret from Live
 To upload secrets:
 ```bash
 npx supabase secrets set \
+  WEBSITE_URL="https://yourapp.com" \
   STRIPE_SECRET_KEY_SANDBOX="sk_test_..." \
   STRIPE_PRICE_ID_MONTHLY_SANDBOX="price_..." \
   STRIPE_PRICE_ID_ANNUAL_SANDBOX="price_..." \

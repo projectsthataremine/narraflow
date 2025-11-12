@@ -7,9 +7,10 @@ import { BrowserWindow, ipcMain, shell } from 'electron';
 import { supabase } from './supabase-client';
 import { getMachineInfo } from './machine-info';
 import { machineIdSync } from 'node-machine-id';
-import { appStore } from './AppStore';
 import { SUPABASE_URL } from './constants';
 import * as http from 'http';
+import { getAccessManager } from './access-manager';
+import { broadcastAccessStatusChanged } from './ipc-handlers';
 
 // Store auth session in memory
 let currentSession: any = null;
@@ -19,22 +20,112 @@ let settingsWindowRef: BrowserWindow | null = null;
  * Initialize auth IPC handlers
  */
 export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
+  console.log('[Auth] ========== INITIALIZING AUTH HANDLERS ==========');
   settingsWindowRef = settingsWindow || null;
   // Get current auth status
+  console.log('[Auth] Registering GET_AUTH_STATUS handler');
   ipcMain.handle('GET_AUTH_STATUS', async () => {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
         console.error('[Auth] Failed to get session:', error);
+        // Clear user ID from access manager
+        getAccessManager().setUserId(null);
         return { user: null };
       }
 
       currentSession = session;
+
+      // Update access manager with current user ID
+      if (session?.user) {
+        getAccessManager().setUserId(session.user.id);
+      } else {
+        getAccessManager().setUserId(null);
+      }
+
       return { user: session?.user || null };
     } catch (error) {
       console.error('[Auth] GET_AUTH_STATUS error:', error);
+      getAccessManager().setUserId(null);
       return { user: null };
+    }
+  });
+
+  // Sign up with email and password
+  console.log('[Auth] Registering SIGN_UP_EMAIL handler');
+  ipcMain.handle('SIGN_UP_EMAIL', async (event, { email, password }) => {
+    try {
+      console.log('[Auth] Signing up with email:', email);
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('[Auth] Failed to sign up:', error);
+        throw error;
+      }
+
+      currentSession = data.session;
+      console.log('[Auth] Sign up successful, user:', data.user?.email);
+
+      // Update access manager with current user ID
+      if (data.user) {
+        getAccessManager().setUserId(data.user.id);
+
+        // Check if user has a trial - if not, create one
+        await ensureUserHasTrial(data.user.id);
+      }
+
+      // Notify settings window to refresh auth state
+      if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
+        console.log('[Auth] Notifying settings window of auth success');
+        settingsWindowRef.webContents.send('AUTH_STATE_CHANGED');
+      }
+
+      return { success: true, user: data.user };
+    } catch (error) {
+      console.error('[Auth] SIGN_UP_EMAIL error:', error);
+      throw error;
+    }
+  });
+
+  // Sign in with email and password
+  console.log('[Auth] Registering SIGN_IN_EMAIL handler');
+  ipcMain.handle('SIGN_IN_EMAIL', async (event, { email, password }) => {
+    try {
+      console.log('[Auth] Signing in with email:', email);
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('[Auth] Failed to sign in:', error);
+        throw error;
+      }
+
+      currentSession = data.session;
+      console.log('[Auth] Sign in successful, user:', data.user?.email);
+
+      // Update access manager with current user ID
+      if (data.user) {
+        getAccessManager().setUserId(data.user.id);
+      }
+
+      // Notify settings window to refresh auth state
+      if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
+        console.log('[Auth] Notifying settings window of auth success');
+        settingsWindowRef.webContents.send('AUTH_STATE_CHANGED');
+      }
+
+      return { success: true, user: data.user };
+    } catch (error) {
+      console.error('[Auth] SIGN_IN_EMAIL error:', error);
+      throw error;
     }
   });
 
@@ -256,6 +347,9 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
       // The license is managed in the database and validated via the API
       // Local license.json is only used for standalone license key activation
 
+      // Broadcast access status change
+      await broadcastAccessStatusChanged();
+
       return { success: true, license: result.license };
     } catch (error) {
       console.error('[Auth] ACTIVATE_LICENSE error:', error);
@@ -276,6 +370,12 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
       currentSession = null;
       console.log('[Auth] User signed out');
 
+      // Clear user ID from access manager
+      getAccessManager().setUserId(null);
+
+      // Broadcast access status change
+      await broadcastAccessStatusChanged();
+
       return { success: true };
     } catch (error) {
       console.error('[Auth] SIGN_OUT error:', error);
@@ -286,28 +386,50 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
   // Delete account
   ipcMain.handle('DELETE_ACCOUNT', async () => {
     try {
-      // Get current user
-      if (!currentSession?.user) {
-        throw new Error('No user logged in');
+      // Refresh session to ensure we have a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('Not authenticated - please sign in first');
+      }
+      currentSession = session;
+
+      console.log('[Auth] Deleting account for user:', session.user.id);
+
+      // Call Edge Function to delete account (requires service_role key)
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/delete_user`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentSession.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Auth] Account deletion failed:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        } catch (parseError) {
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
       }
 
-      const userId = currentSession.user.id;
+      const result = await response.json();
+      console.log('[Auth] Account deleted successfully:', result);
 
-      // Delete user's licenses
-      const { error: licensesError } = await supabase
-        .from('licenses')
-        .delete()
-        .eq('user_id', userId);
-
-      if (licensesError) {
-        console.error('[Auth] Failed to delete licenses:', licensesError);
-      }
-
-      // Sign out (Supabase doesn't have client-side user deletion)
+      // Sign out locally
       await supabase.auth.signOut();
       currentSession = null;
 
-      console.log('[Auth] Account deleted');
+      // Clear user ID from access manager
+      getAccessManager().setUserId(null);
+
+      // Broadcast access status change
+      await broadcastAccessStatusChanged();
 
       return { success: true };
     } catch (error) {
@@ -407,6 +529,9 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
 
       const result = await response.json() as { success: boolean; license: any };
       console.log('[Auth] License revoked successfully:', result);
+
+      // Broadcast access status change
+      await broadcastAccessStatusChanged();
 
       return { success: true, license: result.license };
     } catch (error) {

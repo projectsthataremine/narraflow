@@ -13,7 +13,7 @@
     "dev": "npm run copy:helper && concurrently \"npm run dev:vite\" \"npm run dev:main\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:main": "tsc -p tsconfig.json --watch",
-    "dev:electron": "wait-on http://localhost:5173/ui/overlay/index.html && ORT_LOGGING_LEVEL=error NODE_ENV=development NARRAFLOW_ENV=dev electron .",
+    "dev:electron": "wait-on http://localhost:5173/ui/overlay/index.html && ORT_LOGGING_LEVEL=error NODE_ENV=development APP_ENV=dev electron .",
     "build": "tsc && vite build && npm run copy:helper",
     "build:main": "tsc -p tsconfig.json",
     "build:renderer": "vite build",

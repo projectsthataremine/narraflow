@@ -1,7 +1,9 @@
 # Edge Functions - Dev vs Production
 
 ## Overview
-All edge functions now have separate dev and production versions that use different environment variables. Dev functions use Stripe test mode (SANDBOX), and production functions use Stripe live mode (PROD).
+All edge functions have separate dev and production versions that use different environment variables. Dev functions use Stripe test mode (SANDBOX), and production functions use Stripe live mode (PROD).
+
+All edge functions also use the `WEBSITE_URL` secret for Stripe redirect URLs, ensuring proper return URLs for checkout sessions and customer portal.
 
 ## Edge Functions List
 
@@ -41,19 +43,25 @@ All edge functions now have separate dev and production versions that use differ
 All these must be set in Supabase:
 
 ```bash
+# Application Configuration
+WEBSITE_URL                    # Your marketing website URL (e.g., https://yourapp.com)
+
 # Development/Sandbox (Stripe Test Mode)
 STRIPE_SECRET_KEY_SANDBOX
-STRIPE_PRICE_ID_SANDBOX
+STRIPE_PRICE_ID_MONTHLY_SANDBOX
+STRIPE_PRICE_ID_ANNUAL_SANDBOX
 STRIPE_WEBHOOK_SECRET_SANDBOX
 
 # Production (Stripe Live Mode)
 STRIPE_SECRET_KEY_PROD
-STRIPE_PRICE_ID_PROD
+STRIPE_PRICE_ID_MONTHLY_PROD
+STRIPE_PRICE_ID_ANNUAL_PROD
 STRIPE_WEBHOOK_SECRET_PROD
 
 # Supabase (automatically provided)
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_ANON_KEY
 ```
 
 ## Stripe Webhook Configuration
@@ -70,7 +78,7 @@ verify_jwt = false
 ```
 
 ### Test Webhook (Stripe Test Mode)
-- URL: `https://jijhacdgtccfftlangjq.supabase.co/functions/v1/stripe-webhook-dev`
+- URL: `https://buqkvxtxjwyohzsogfbz.supabase.co/functions/v1/stripe-webhook-dev`
 - Events to listen for:
   - `customer.subscription.created` - Creates license for trial subscriptions
   - `customer.subscription.updated` - Handles renewals, cancellations, reactivations
@@ -79,7 +87,7 @@ verify_jwt = false
 - Get signing secret → Set as `STRIPE_WEBHOOK_SECRET_SANDBOX`
 
 ### Production Webhook (Stripe Live Mode)
-- URL: `https://jijhacdgtccfftlangjq.supabase.co/functions/v1/stripe-webhook`
+- URL: `https://buqkvxtxjwyohzsogfbz.supabase.co/functions/v1/stripe-webhook`
 - Events: Same as above
 - Get signing secret → Set as `STRIPE_WEBHOOK_SECRET_PROD`
 
@@ -123,54 +131,35 @@ Create a `.env.secrets` file in the project root to store all edge function secr
 # .env.secrets
 # DO NOT COMMIT THIS FILE
 
-# Stripe (Production)
-STRIPE_SECRET_KEY_PROD=sk_live_xxxxx
-STRIPE_PRICE_ID_PROD=price_xxxxx
-STRIPE_WEBHOOK_SECRET_PROD=whsec_xxxxx
+# Application Configuration
+WEBSITE_URL=https://yourapp.com
 
-# Stripe (Sandbox/Test Mode)
+# Stripe (Sandbox - Test Mode)
 STRIPE_SECRET_KEY_SANDBOX=sk_test_xxxxx
-STRIPE_PRICE_ID_SANDBOX=price_xxxxx
+STRIPE_PRICE_ID_MONTHLY_SANDBOX=price_xxxxx
+STRIPE_PRICE_ID_ANNUAL_SANDBOX=price_xxxxx
 STRIPE_WEBHOOK_SECRET_SANDBOX=whsec_xxxxx
+
+# Stripe (Production - Live Mode)
+STRIPE_SECRET_KEY_PROD=sk_live_xxxxx
+STRIPE_PRICE_ID_MONTHLY_PROD=price_xxxxx
+STRIPE_PRICE_ID_ANNUAL_PROD=price_xxxxx
+STRIPE_WEBHOOK_SECRET_PROD=whsec_xxxxx
 ```
 
 ### Upload Secrets to Supabase
 
-Use this script to upload all secrets from `.env.secrets` to Supabase:
+Use the provided script to upload all secrets from `.env.secrets` to Supabase:
 
 ```bash
-#!/bin/bash
-# scripts/upload-secrets.sh
-
-# Load .env.secrets
-if [ ! -f .env.secrets ]; then
-  echo "Error: .env.secrets file not found"
-  exit 1
-fi
-
-source .env.secrets
-
-echo "Uploading secrets to Supabase..."
-
-# Stripe Production
-npx supabase secrets set STRIPE_SECRET_KEY_PROD="$STRIPE_SECRET_KEY_PROD"
-npx supabase secrets set STRIPE_PRICE_ID_PROD="$STRIPE_PRICE_ID_PROD"
-npx supabase secrets set STRIPE_WEBHOOK_SECRET_PROD="$STRIPE_WEBHOOK_SECRET_PROD"
-
-# Stripe Sandbox
-npx supabase secrets set STRIPE_SECRET_KEY_SANDBOX="$STRIPE_SECRET_KEY_SANDBOX"
-npx supabase secrets set STRIPE_PRICE_ID_SANDBOX="$STRIPE_PRICE_ID_SANDBOX"
-npx supabase secrets set STRIPE_WEBHOOK_SECRET_SANDBOX="$STRIPE_WEBHOOK_SECRET_SANDBOX"
-
-echo "✅ All secrets uploaded successfully!"
-```
-
-Make the script executable and run it:
-
-```bash
-chmod +x scripts/upload-secrets.sh
 ./scripts/upload-secrets.sh
 ```
+
+This script will:
+- Read all secrets from `.env.secrets`
+- Show you what will be uploaded
+- Ask for confirmation
+- Upload everything to Supabase in one command
 
 ### Verify Secrets
 
@@ -187,15 +176,19 @@ The actual secret values are not shown for security. To see which secrets are se
 ```bash
 npx supabase secrets list
 
-# Output:
-# STRIPE_PRICE_ID_PROD
-# STRIPE_PRICE_ID_SANDBOX
+# Expected output:
+# WEBSITE_URL
+# STRIPE_PRICE_ID_MONTHLY_PROD
+# STRIPE_PRICE_ID_ANNUAL_PROD
+# STRIPE_PRICE_ID_MONTHLY_SANDBOX
+# STRIPE_PRICE_ID_ANNUAL_SANDBOX
 # STRIPE_SECRET_KEY_PROD
 # STRIPE_SECRET_KEY_SANDBOX
 # STRIPE_WEBHOOK_SECRET_PROD
 # STRIPE_WEBHOOK_SECRET_SANDBOX
 # SUPABASE_SERVICE_ROLE_KEY (auto-provided)
 # SUPABASE_URL (auto-provided)
+# SUPABASE_ANON_KEY (auto-provided)
 ```
 
 ### Unset a Secret

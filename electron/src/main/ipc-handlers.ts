@@ -22,6 +22,9 @@ import { AudioSessionManager } from '../audio/session';
 import { PasteSimulator } from '../paste/paste';
 import { SettingsManager } from './settings-manager';
 import { registerShortcuts, unregisterShortcuts } from './shortcuts';
+import { getAppEnv, SUPABASE_URL } from './constants';
+import { getCurrentSession } from './auth-handler';
+import { getAccessManager } from './access-manager';
 
 let audioSessionManager: AudioSessionManager | null = null;
 let transcriptionWorker: Worker | null = null;
@@ -34,6 +37,93 @@ let settingsManager: SettingsManager | null = null;
 // Constants for window positioning
 const GLOW_SPACE = 40; // 20px top + 20px bottom for glow effect
 const BOTTOM_PADDING = 20; // Additional spacing from screen bottom
+
+/**
+ * Broadcast access status change to all renderer processes
+ */
+async function broadcastAccessStatusChanged() {
+  const accessManager = getAccessManager();
+  const status = await accessManager.getAccessStatus();
+
+  console.log('[IPC] Broadcasting ACCESS_STATUS_CHANGED:', status);
+
+  // Send to overlay window
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('ACCESS_STATUS_CHANGED', status);
+  }
+
+  // Send to settings window
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('ACCESS_STATUS_CHANGED', status);
+  }
+}
+
+/**
+ * Export for use in auth-handler
+ */
+export { broadcastAccessStatusChanged };
+
+/**
+ * Handle opening Stripe customer portal
+ * Calls the appropriate edge function based on APP_ENV (dev or prod)
+ */
+async function handleOpenCustomerPortal(stripeCustomerId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('[Main] Opening customer portal for:', stripeCustomerId);
+
+    // Get current session for authentication
+    const session = getCurrentSession();
+    if (!session || !session.access_token) {
+      console.error('[Main] No active session found');
+      return {
+        success: false,
+        error: 'Not authenticated. Please sign in first.',
+      };
+    }
+
+    // Determine which edge function to call based on environment
+    const env = getAppEnv();
+    const functionName = env === 'dev' ? 'create-customer-portal-dev' : 'create-customer-portal';
+    const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/${functionName}`;
+
+    console.log(`[Main] Calling edge function: ${functionName} (env: ${env})`);
+
+    // Call edge function to create customer portal session
+    const response = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        stripe_customer_id: stripeCustomerId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Main] Customer portal creation failed:', response.status, errorText);
+      return {
+        success: false,
+        error: `Failed to create customer portal session: ${errorText}`,
+      };
+    }
+
+    const result = await response.json() as { url: string };
+    console.log('[Main] Customer portal URL received:', result.url);
+
+    // Open portal URL in browser
+    await shell.openExternal(result.url);
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Main] handleOpenCustomerPortal error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
 
 /**
  * Set overlay window reference
@@ -98,6 +188,16 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     };
 
     try {
+      // CHECK ACCESS BEFORE ALLOWING RECORDING
+      const accessManager = getAccessManager();
+      const accessStatus = await accessManager.getAccessStatus();
+
+      if (!accessStatus.hasValidAccess) {
+        response.error = 'Access denied: ' + (accessStatus.reason || 'Trial expired and no valid license');
+        console.log('[IPC] Recording blocked:', response.error);
+        return response;
+      }
+
       if (!audioSessionManager) {
         response.error = 'Audio session manager not initialized';
         return response;
@@ -428,16 +528,22 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     };
   });
 
-  // Handle Open Customer Portal
-  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_OPEN_PORTAL, async () => {
-    console.log('[Main] SUBSCRIPTION_OPEN_PORTAL called');
-    // TODO: Create Stripe customer portal session, open in browser
-    // 1. Call backend API to create portal session
-    // 2. Open portal URL in browser
-    return {
-      success: false,
-      error: 'Stripe portal not implemented yet',
-    };
+  // Handle Open Customer Portal (legacy name - kept for backwards compatibility)
+  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_OPEN_PORTAL, async (event, data: { stripeCustomerId: string }) => {
+    return handleOpenCustomerPortal(data.stripeCustomerId);
+  });
+
+  // Handle Open Customer Portal (new name)
+  ipcMain.handle('OPEN_CUSTOMER_PORTAL', async (event, data: { stripeCustomerId: string }) => {
+    return handleOpenCustomerPortal(data.stripeCustomerId);
+  });
+
+  // Handle Get Access Status
+  ipcMain.handle('GET_ACCESS_STATUS', async () => {
+    console.log('[Main] GET_ACCESS_STATUS called');
+    const accessManager = getAccessManager();
+    const status = await accessManager.getAccessStatus();
+    return status;
   });
 
   // Handle Open External URL

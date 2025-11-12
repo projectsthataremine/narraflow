@@ -23,15 +23,15 @@ try {
     envContent = fs.readFileSync(srcEnvPath, 'utf8');
   }
 
-  // Remove any existing NARRAFLOW_ENV line
-  envContent = envContent.split('\n').filter(line => !line.startsWith('NARRAFLOW_ENV=')).join('\n');
+  // Remove any existing APP_ENV line
+  envContent = envContent.split('\n').filter(line => !line.startsWith('APP_ENV=')).join('\n');
 
-  // Add NARRAFLOW_ENV at the top
-  envContent = `NARRAFLOW_ENV=${env}\n${envContent}`;
+  // Add APP_ENV at the top
+  envContent = `APP_ENV=${env}\n${envContent}`;
 
   // Write back to file
   fs.writeFileSync(srcEnvPath, envContent, 'utf8');
-  console.log(`✅ Set NARRAFLOW_ENV=${env} in src/.env file`);
+  console.log(`✅ Set APP_ENV=${env} in src/.env file`);
 } catch (error) {
   console.error('❌ Failed to write src/.env file:', error);
   process.exit(1);
