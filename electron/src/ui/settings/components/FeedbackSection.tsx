@@ -206,7 +206,7 @@ export function FeedbackSection() {
             onValueChange={(value) => setContactType(value)}
           >
             <Select.Trigger style={{ width: '100%' }} placeholder="Select type..." />
-            <Select.Content>
+            <Select.Content position="popper" side="bottom" align="start">
               <Select.Item value="bug">Bug Report</Select.Item>
               <Select.Item value="feature">Feature Request</Select.Item>
               <Select.Item value="feedback">General Feedback</Select.Item>

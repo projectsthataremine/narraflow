@@ -187,7 +187,7 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
             }}
           >
             <Select.Trigger style={{ width: '100%' }} />
-            <Select.Content>
+            <Select.Content position="popper" side="bottom" align="start">
               {HOTKEY_OPTIONS.map((option) => (
                 <Select.Item key={option.label} value={option.label}>
                   {option.label}
@@ -213,7 +213,7 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
             }}
           >
             <Select.Trigger style={{ width: '100%' }} />
-            <Select.Content>
+            <Select.Content position="popper" side="bottom" align="start">
               {availableMicrophones.length === 0 ? (
                 <Select.Item value="default">Loading microphones...</Select.Item>
               ) : (

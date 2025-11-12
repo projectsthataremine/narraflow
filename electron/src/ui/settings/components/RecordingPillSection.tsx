@@ -254,7 +254,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
             disabled={presets.length === 0}
           >
             <Select.Trigger placeholder={presets.length === 0 ? "No presets" : "Load preset..."} style={{ minWidth: '150px' }} />
-            <Select.Content>
+            <Select.Content position="popper" side="bottom" align="start">
               {presets.map((preset) => (
                 <Select.Item key={preset.id} value={preset.id}>
                   {preset.name}
