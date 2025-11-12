@@ -51,14 +51,16 @@ function createOverlayWindow(): void {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x: workX, y: workY, width: workWidth, height: workHeight } = primaryDisplay.workArea;
 
-  const windowWidth = 320;
-  const windowHeight = 180;
+  const windowWidth = 280;
+  const windowHeight = 160;
   const xPos = workX + Math.floor((workWidth - windowWidth) / 2);
   const yPos = workY + workHeight - windowHeight; // Align bottom of window to bottom of work area
 
   overlayWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
+    minWidth: windowWidth,
+    minHeight: windowHeight,
     x: xPos,
     y: yPos,
     frame: false,
@@ -119,7 +121,7 @@ function createSettingsWindow(): void {
     transparent: false,
     show: true, // TESTING: Show on startup
     skipTaskbar: false, // TESTING: Show in taskbar
-    resizable: true,
+    resizable: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
