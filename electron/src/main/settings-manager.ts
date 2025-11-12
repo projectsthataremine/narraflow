@@ -48,9 +48,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     borderColor: '#0090ff',
   },
   hotkey: {
-    modifiers: ['Shift', 'Alt'],
-    key: 'Shift',
-    keycode: 42, // Shift key keycode
+    modifiers: [],
+    key: 'Fn',
+    keycode: 63, // Fn key keycode
   },
   showInDock: true, // Default to visible
 };

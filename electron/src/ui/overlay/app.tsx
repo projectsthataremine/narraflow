@@ -114,7 +114,6 @@ export const App: React.FC = () => {
 
     if (shouldRecord && !isRecordingRef.current) {
       // Start both visualizer and recorder with shared stream
-      console.log('[App] Starting audio modules');
 
       // Request microphone once
       navigator.mediaDevices
@@ -143,7 +142,6 @@ export const App: React.FC = () => {
               }
 
               isRecordingRef.current = true;
-              console.log('[App] Both audio modules started successfully');
             });
           });
         })
@@ -152,29 +150,24 @@ export const App: React.FC = () => {
         });
     } else if (!shouldRecord && isRecordingRef.current) {
       // Stop both modules
-      console.log('[App] Stopping audio modules');
 
       // Get audio data BEFORE stopping recorder
       const audioData = recorder.getAudioData();
-      console.log(`[App] Collected ${audioData.length} audio samples for transcription`);
 
       // Send to main process for transcription
       if (window.electron && audioData.length > 0) {
         const audioArray = Array.from(audioData);
         window.electron.send(IPC_CHANNELS.AUDIO_DATA, { audio: audioArray });
-        console.log('[App] Sent audio data to main process');
       }
 
       // Stop recorder (don't close stream yet)
       recorder
         .stop(false)
         .then(() => {
-          console.log('[App] Recorder stopped');
           // Then stop visualizer (closes stream)
           return visualizer.stop(true);
         })
         .then(() => {
-          console.log('[App] Visualizer stopped');
           sharedStreamRef.current = null;
         })
         .catch((error) => {
@@ -228,18 +221,11 @@ export const App: React.FC = () => {
       });
 
       window.electron.on(IPC_CHANNELS.PILL_CONFIG_UPDATE, (event: any) => {
-        console.log('[Overlay] Received pill config update:', event.config);
         setPillConfig(event.config);
       });
     }
   }, []);
 
-  // Debug: log when pillConfig changes
-  useEffect(() => {
-    if (pillConfig) {
-      console.log('[Overlay] Pill config updated:', pillConfig);
-    }
-  }, [pillConfig]);
 
   const handleErrorDismiss = () => {
     setUiState((prev) => ({

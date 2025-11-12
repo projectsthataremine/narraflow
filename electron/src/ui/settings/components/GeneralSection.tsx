@@ -31,7 +31,7 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
     opt => JSON.stringify(opt.modifiers) === JSON.stringify(hotkeyConfig.modifiers) &&
            opt.key === hotkeyConfig.key
   );
-  const currentHotkeyLabel = currentOption ? currentOption.label : 'Shift + Option';
+  const currentHotkeyLabel = currentOption ? currentOption.label : 'Fn (Globe)';
 
   // Load available microphones on mount
   useEffect(() => {
