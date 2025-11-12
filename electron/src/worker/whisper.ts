@@ -109,6 +109,7 @@ export class WhisperTranscriber {
       /\s*\*sigh\*\s*[.,!?]?\s*/gi,
       /\s*\[INAUDIBLE\]\s*[.,!?]?\s*/gi,
       /\s*\[Music\]\s*[.,!?]?\s*/gi,
+      /\s*\[SOUND\]\s*[.,!?]?\s*/gi,
     ];
 
     let cleaned = text;

@@ -1,0 +1,1 @@
+Read .dev-server-id to get the current dev server shell ID. Kill that shell using KillShell. Clear the .dev-server-id file (leave only the header comments). Report to the user that the server has been killed.

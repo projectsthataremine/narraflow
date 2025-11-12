@@ -1,0 +1,1 @@
+Read .dev-server-id to get the current dev server shell ID. Use BashOutput with that shell ID to check if it's running and show recent output. Report the status to the user (running/not running) and show the shell ID.

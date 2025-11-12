@@ -1,0 +1,1 @@
+Read .dev-server-id to get the current dev server shell ID. Kill that shell using KillShell. Then kill any remaining electron/vite/tsc processes with pkill. Wait 2 seconds, then start a fresh dev server with `npm run dev` in background mode. Save the new shell ID to .dev-server-id file. Report the new shell ID to the user.
