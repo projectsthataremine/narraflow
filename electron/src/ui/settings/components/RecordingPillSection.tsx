@@ -175,8 +175,18 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
       if (window.electron) {
         const saved = await (window.electron as any).savePreset(presetName.trim(), pillConfig);
         if (saved) {
-          setPresets([...presets, saved]);
-          setSelectedPresetId(saved.id); // Select the newly saved preset
+          // Check if preset with this name already exists
+          const existingIndex = presets.findIndex(p => p.name === saved.name);
+          if (existingIndex !== -1) {
+            // Update existing preset
+            const updatedPresets = [...presets];
+            updatedPresets[existingIndex] = saved;
+            setPresets(updatedPresets);
+          } else {
+            // Add new preset
+            setPresets([...presets, saved]);
+          }
+          setSelectedPresetId(saved.id); // Select the saved preset
           setSaveDialogOpen(false);
           setPresetName('');
           console.log('[RecordingPill] Preset saved:', saved.name);

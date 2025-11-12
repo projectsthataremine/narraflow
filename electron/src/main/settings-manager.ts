@@ -306,9 +306,25 @@ export class SettingsManager {
   }
 
   /**
-   * Save a new preset
+   * Save a new preset (or overwrite existing preset with same name)
    */
   savePreset(name: string, config: PillConfig): PillPreset {
+    // Check if preset with this name already exists
+    const existingIndex = this.presets.findIndex(p => p.name === name);
+
+    if (existingIndex !== -1) {
+      // Overwrite existing preset, keep the same ID
+      this.presets[existingIndex] = {
+        ...this.presets[existingIndex],
+        config: { ...config },
+        createdAt: Date.now(), // Update timestamp
+      };
+      this.savePresets();
+      console.log('[SettingsManager] Preset updated:', name);
+      return this.presets[existingIndex];
+    }
+
+    // Create new preset
     const preset: PillPreset = {
       id: Date.now().toString(),
       name,
