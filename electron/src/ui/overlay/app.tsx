@@ -162,27 +162,29 @@ export const App: React.FC = () => {
 
       isRecordingRef.current = false;
 
-      // CRITICAL: Stop microphone tracks IMMEDIATELY (synchronous)
+      // CRITICAL: Stop tracks IMMEDIATELY and SYNCHRONOUSLY
+      // This must happen before any async operations to release microphone
       if (sharedStreamRef.current) {
         sharedStreamRef.current.getTracks().forEach((track) => {
           track.stop();
         });
       }
 
-      // THEN cleanup audio contexts asynchronously (with finally block guarantee)
+      // THEN do async cleanup of audio modules
       (async () => {
         try {
+          // Stop recorder (stream already stopped above)
           await recorder.stop(false);
+
+          // Stop visualizer (stream already stopped above)
           await visualizer.stop(false);
+
+          // Null out our reference
           sharedStreamRef.current = null;
         } catch (error) {
           console.error('[App] Error during async cleanup:', error);
-        } finally {
-          // GUARANTEE: Force cleanup even if errors occurred
-          if (sharedStreamRef.current) {
-            sharedStreamRef.current.getTracks().forEach((track) => track.stop());
-            sharedStreamRef.current = null;
-          }
+          // Already stopped tracks synchronously above, so just null out ref
+          sharedStreamRef.current = null;
         }
       })();
 
