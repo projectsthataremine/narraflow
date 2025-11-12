@@ -26,7 +26,7 @@ export function AccountSection() {
     const getMachineId = async () => {
       try {
         if (window.electron) {
-          const result = await (window.electron as any).invoke('GET_MACHINE_ID');
+          const result = await (window.electron as any).getMachineId();
           console.log('[Account] Got machine ID:', result.machineId);
           setCurrentMachineId(result.machineId);
         }
@@ -55,7 +55,7 @@ export function AccountSection() {
       console.log('[Account] Checking auth status...');
       if (window.electron) {
         // Get auth status from main process
-        const authData = await (window.electron as any).invoke('GET_AUTH_STATUS');
+        const authData = await (window.electron as any).getAuthStatus();
         console.log('[Account] Auth data received:', authData);
 
         if (authData && authData.user) {
@@ -91,7 +91,7 @@ export function AccountSection() {
   const fetchLicenses = async (userId: string) => {
     try {
       if (window.electron) {
-        const licensesData = await (window.electron as any).invoke('GET_LICENSES', { userId });
+        const licensesData = await (window.electron as any).getLicenses(userId);
         setLicenses(licensesData || []);
 
         // Determine subscription status based on licenses
@@ -134,7 +134,7 @@ export function AccountSection() {
     try {
       if (window.electron) {
         console.log('[Account] Starting Google OAuth flow...');
-        await (window.electron as any).invoke('START_OAUTH', { provider: 'google' });
+        await (window.electron as any).startOAuth('google');
         // After OAuth completes, checkAuth will be called again
         await checkAuth();
       }
@@ -146,7 +146,7 @@ export function AccountSection() {
   const handleSignOut = async () => {
     try {
       if (window.electron) {
-        await (window.electron as any).invoke('SIGN_OUT');
+        await (window.electron as any).signOut();
         setUser(null);
         setSubscription({ type: 'none' });
         setLicenses([]);
@@ -162,7 +162,7 @@ export function AccountSection() {
 
       if (window.electron) {
         console.log('[Account] Activating license:', licenseKey);
-        const result = await (window.electron as any).invoke('ACTIVATE_LICENSE', { licenseKey });
+        const result = await (window.electron as any).activateLicense(licenseKey);
         console.log('[Account] Activation result:', result);
 
         // Reload licenses to show updated status
@@ -191,7 +191,7 @@ export function AccountSection() {
 
       if (window.electron) {
         console.log('[Account] Revoking license:', licenseKey);
-        const result = await (window.electron as any).invoke('REVOKE_LICENSE', { licenseKey });
+        const result = await (window.electron as any).revokeLicense(licenseKey);
         console.log('[Account] Revocation result:', result);
 
         // Reload licenses to show updated status
@@ -217,7 +217,7 @@ export function AccountSection() {
 
     try {
       if (window.electron) {
-        await (window.electron as any).invoke('DELETE_ACCOUNT');
+        await (window.electron as any).deleteAccount();
         setUser(null);
         setSubscription({ type: 'none' });
         setLicenses([]);
@@ -232,12 +232,12 @@ export function AccountSection() {
     try {
       if (window.electron) {
         console.log('[Account] Renaming machine for license:', licenseId, 'to:', newName);
-        await (window.electron as any).invoke('RENAME_MACHINE', { licenseId, newName });
+        await (window.electron as any).renameMachine(licenseId, newName);
 
         // Update local state
         setLicenses(licenses.map(license =>
           license.id === licenseId
-            ? { ...license, metadata: { ...license.metadata, machine_name: newName } }
+            ? { ...license, metadata: { ...(license.metadata || {}), machine_name: newName } }
             : license
         ));
       }
@@ -259,7 +259,7 @@ export function AccountSection() {
 
       // Open marketing site with account dialog open
       if (window.electron) {
-        await (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: accountUrl });
+        await (window.electron as any).openExternalUrl(accountUrl);
       } else {
         window.open(accountUrl, '_blank');
       }
@@ -293,13 +293,25 @@ export function AccountSection() {
     setIsRefreshing(false);
   };
 
-  const handleAddLicense = () => {
-    // Open marketing site to purchase
-    const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://trynarraflow.com';
-    if (window.electron) {
-      (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: marketingSiteUrl });
-    } else {
-      window.open(marketingSiteUrl, '_blank');
+  const handleAddLicense = async () => {
+    try {
+      console.log('[Account] Creating checkout session...');
+      if (window.electron) {
+        const result = await (window.electron as any).createCheckoutSession('monthly');
+        if (!result.success) {
+          console.error('[Account] Failed to create checkout session:', result.error);
+          alert(`Failed to create checkout session: ${result.error}`);
+        } else {
+          console.log('[Account] Checkout session created, opening in browser...');
+        }
+      } else {
+        // Fallback to marketing site if not in Electron
+        const marketingSiteUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://trynarraflow.com';
+        window.open(marketingSiteUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('[Account] Error creating checkout session:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -307,7 +319,7 @@ export function AccountSection() {
     try {
       console.log('[Account] Opening customer portal for:', stripeCustomerId);
       if (window.electron) {
-        const result = await (window.electron as any).invoke('OPEN_CUSTOMER_PORTAL', { stripeCustomerId });
+        const result = await (window.electron as any).openCustomerPortal(stripeCustomerId);
         console.log('[Account] Customer portal result:', result);
         if (!result.success) {
           console.error('[Account] Customer portal failed:', result.error);
@@ -414,8 +426,11 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
 
     try {
       if (window.electron) {
-        const handler = isSignUp ? 'SIGN_UP_EMAIL' : 'SIGN_IN_EMAIL';
-        await (window.electron as any).invoke(handler, { email, password });
+        if (isSignUp) {
+          await (window.electron as any).signUpWithEmail(email, password);
+        } else {
+          await (window.electron as any).signInWithEmail(email, password);
+        }
         // Auth state will be updated automatically via checkAuth
       }
     } catch (err) {
@@ -1010,8 +1025,8 @@ function LicenseCard({
           <Text size="1" style={{ opacity: 0.7, marginBottom: '4px' }}>
             License Key
           </Text>
-          <Text size="1" style={{ fontFamily: 'monospace', fontSize: '11px', opacity: 0.9 }}>
-            {license.key.slice(0, 20)}...
+          <Text size="1" style={{ fontFamily: 'monospace', fontSize: '11px', opacity: 0.9, wordBreak: 'break-all' }}>
+            {license.key}
           </Text>
         </Flex>
         <IconButton

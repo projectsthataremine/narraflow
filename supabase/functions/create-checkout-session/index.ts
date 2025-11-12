@@ -79,8 +79,8 @@ Deno.serve(async (req) => {
         },
       ],
       mode: 'subscription',
-      success_url: success_url || `${websiteUrl}/account?success=true`,
-      cancel_url: cancel_url || `${websiteUrl}/account`,
+      success_url: success_url || `${websiteUrl}/checkout-success`,
+      cancel_url: cancel_url || `${websiteUrl}`,
       customer_email: user.email,
       metadata: {
         user_id: user.id,

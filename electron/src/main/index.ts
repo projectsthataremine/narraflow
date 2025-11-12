@@ -342,8 +342,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  // Don't recreate windows on activate (app runs in background)
+  // Show settings window when dock icon is clicked
   console.log('App activated');
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
 });
 
 app.on('will-quit', () => {

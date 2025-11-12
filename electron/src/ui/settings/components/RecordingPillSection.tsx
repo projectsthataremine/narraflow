@@ -3,11 +3,18 @@
  * Customization options for the recording pill overlay
  */
 
-import React, { useState } from 'react';
-import { Flex, Text, Box, Button, Switch, IconButton, Badge } from '@radix-ui/themes';
-import { Link, Unlink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Flex, Text, Box, Button, Switch, IconButton, Badge, Select, Dialog, TextField } from '@radix-ui/themes';
+import { Link, Unlink, Save, Trash2 } from 'lucide-react';
 import { PillConfig } from './types';
 import { ShuffleIcon, SunIcon, MoonIcon, BarChartIcon, LayersIcon, ChevronIcon } from './Icons';
+
+interface PillPreset {
+  id: string;
+  name: string;
+  config: PillConfig;
+  createdAt: number;
+}
 
 interface RecordingPillSectionProps {
   pillConfig: PillConfig;
@@ -18,6 +25,31 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
   const [previewDarkMode, setPreviewDarkMode] = useState(true);
   const [openSection, setOpenSection] = useState<'bars' | 'background' | null>(null);
   const [paddingLinked, setPaddingLinked] = useState(true);
+  const [presets, setPresets] = useState<PillPreset[]>([]);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+
+  // Wrapper function to update config and clear preset selection
+  const updatePillConfig = (config: PillConfig) => {
+    setPillConfig(config);
+    setSelectedPresetId(null); // Clear selection when manually changing settings
+  };
+
+  // Load presets on mount
+  useEffect(() => {
+    const loadPresets = async () => {
+      if (window.electron) {
+        try {
+          const loadedPresets = await (window.electron as any).getAllPresets();
+          setPresets(loadedPresets || []);
+        } catch (error) {
+          console.error('[RecordingPill] Failed to load presets:', error);
+        }
+      }
+    };
+    loadPresets();
+  }, []);
 
   const handleRandomize = () => {
     const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -84,8 +116,18 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
     ];
     const randomColor = colors[randomInt(0, colors.length - 1)];
 
+    // Generate max height first (needed for padding calculation)
+    const maxHeight = randomInt(15, 70);
+
+    // Calculate padding based on max height
+    const paddingY = Math.floor(maxHeight / 2);
+    const paddingX = Math.floor(maxHeight / 2) + 5;
+
     // 50% chance of having a background
     const hasBackground = Math.random() < 0.5;
+
+    // 50% chance of using gradient
+    const useGradient = Math.random() < 0.5;
 
     let backgroundConfig = {};
     if (hasBackground) {
@@ -97,8 +139,8 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
         hasBackground: true,
         backgroundColor: darkBackgroundColor,
         backgroundShape: Math.random() < 0.5 ? 'pill' : 'rectangle',
-        backgroundPaddingX: 12,
-        backgroundPaddingY: 8,
+        backgroundPaddingX: paddingX,
+        backgroundPaddingY: paddingY,
         borderWidth: randomInt(0, 3),
         borderColor: randomColor[0], // Use dominant color for border
       };
@@ -108,38 +150,182 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
       };
     }
 
-    setPillConfig({
+    updatePillConfig({
       ...pillConfig,
       numBars: randomInt(5, 15),
       barWidth: randomInt(5, 20),
       barGap: randomInt(2, 10),
-      maxHeight: randomInt(15, 70),
+      maxHeight: maxHeight,
       borderRadius: randomInt(0, 10),
       glowIntensity: randomInt(0, 20),
       color1: randomColor[0],
       color2: randomColor[1],
+      useGradient: useGradient,
       ...backgroundConfig,
     });
   };
 
+  const handleSavePreset = async () => {
+    if (!presetName.trim()) {
+      alert('Please enter a name for the preset');
+      return;
+    }
+
+    try {
+      if (window.electron) {
+        const saved = await (window.electron as any).savePreset(presetName.trim(), pillConfig);
+        if (saved) {
+          setPresets([...presets, saved]);
+          setSelectedPresetId(saved.id); // Select the newly saved preset
+          setSaveDialogOpen(false);
+          setPresetName('');
+          console.log('[RecordingPill] Preset saved:', saved.name);
+        }
+      }
+    } catch (error) {
+      console.error('[RecordingPill] Failed to save preset:', error);
+      alert('Failed to save preset');
+    }
+  };
+
+  const handleLoadPreset = async (id: string) => {
+    try {
+      if (window.electron) {
+        const config = await (window.electron as any).loadPreset(id);
+        if (config) {
+          setPillConfig(config);
+          setSelectedPresetId(id);
+          console.log('[RecordingPill] Preset loaded');
+        }
+      }
+    } catch (error) {
+      console.error('[RecordingPill] Failed to load preset:', error);
+      alert('Failed to load preset');
+    }
+  };
+
+  const handleDeletePreset = async () => {
+    if (!selectedPresetId) return;
+
+    if (!confirm('Are you sure you want to delete this preset?')) {
+      return;
+    }
+
+    try {
+      if (window.electron) {
+        const deleted = await (window.electron as any).deletePreset(selectedPresetId);
+        if (deleted) {
+          setPresets(presets.filter(p => p.id !== selectedPresetId));
+          setSelectedPresetId(null);
+          console.log('[RecordingPill] Preset deleted');
+        }
+      }
+    } catch (error) {
+      console.error('[RecordingPill] Failed to delete preset:', error);
+      alert('Failed to delete preset');
+    }
+  };
+
   return (
     <div>
-      {/* Header with Randomize button */}
+      {/* Header with Preset dropdown, Randomize, and Save buttons */}
       <Flex justify="between" align="center" mb="5">
         <Text size="5" weight="bold">Customize Recording Pill</Text>
-        <Button
-          onClick={handleRandomize}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-          }}
-        >
-          <ShuffleIcon />
-          <Text size="2" weight="medium">Randomize</Text>
-        </Button>
+
+        <Flex gap="2" align="center">
+          {/* Preset Dropdown */}
+          <Select.Root
+            value={selectedPresetId ?? ""}
+            onValueChange={(value) => {
+              if (value) {
+                handleLoadPreset(value);
+              }
+            }}
+            disabled={presets.length === 0}
+          >
+            <Select.Trigger placeholder={presets.length === 0 ? "No presets" : "Load preset..."} style={{ minWidth: '150px' }} />
+            <Select.Content>
+              {presets.map((preset) => (
+                <Select.Item key={preset.id} value={preset.id}>
+                  {preset.name}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+
+          {/* Delete Button (only when preset is selected) */}
+          {selectedPresetId && (
+            <IconButton
+              onClick={handleDeletePreset}
+              size="2"
+              variant="soft"
+              color="red"
+              style={{ cursor: 'pointer' }}
+              title="Delete preset"
+            >
+              <Trash2 size={16} />
+            </IconButton>
+          )}
+
+          {/* Randomize Button (icon only) */}
+          <IconButton
+            onClick={handleRandomize}
+            size="2"
+            variant="soft"
+            style={{ cursor: 'pointer' }}
+            title="Randomize"
+          >
+            <ShuffleIcon />
+          </IconButton>
+
+          {/* Save Button (icon only, disabled when preset selected) */}
+          <IconButton
+            onClick={() => setSaveDialogOpen(true)}
+            size="2"
+            variant="soft"
+            style={{ cursor: selectedPresetId ? 'not-allowed' : 'pointer', opacity: selectedPresetId ? 0.5 : 1 }}
+            title={selectedPresetId ? "Cannot save over existing preset" : "Save preset"}
+            disabled={!!selectedPresetId}
+          >
+            <Save size={16} />
+          </IconButton>
+        </Flex>
       </Flex>
+
+      {/* Save Preset Dialog */}
+      <Dialog.Root open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <Dialog.Content style={{ maxWidth: 450 }}>
+          <Dialog.Title>Save Preset</Dialog.Title>
+          <Dialog.Description size="2" mb="4">
+            Give your preset a name to save it.
+          </Dialog.Description>
+
+          <Flex direction="column" gap="3">
+            <TextField.Root
+              placeholder="Preset name"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSavePreset();
+                }
+              }}
+              autoFocus
+            />
+          </Flex>
+
+          <Flex gap="3" mt="4" justify="end">
+            <Dialog.Close>
+              <Button variant="soft" color="gray">
+                Cancel
+              </Button>
+            </Dialog.Close>
+            <Button onClick={handleSavePreset}>
+              Save Preset
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
 
       {/* Accordion Sections */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
@@ -208,7 +394,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   min="5"
                   max="15"
                   value={pillConfig.numBars}
-                  onChange={(e) => setPillConfig({ ...pillConfig, numBars: parseInt(e.target.value) })}
+                  onChange={(e) => updatePillConfig({ ...pillConfig, numBars: parseInt(e.target.value) })}
                   style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                 />
                 <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.numBars}</Text>
@@ -222,7 +408,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   min="2"
                   max="20"
                   value={pillConfig.barWidth}
-                  onChange={(e) => setPillConfig({ ...pillConfig, barWidth: parseInt(e.target.value) })}
+                  onChange={(e) => updatePillConfig({ ...pillConfig, barWidth: parseInt(e.target.value) })}
                   style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                 />
                 <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barWidth}px</Text>
@@ -236,7 +422,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   min="2"
                   max="10"
                   value={pillConfig.barGap}
-                  onChange={(e) => setPillConfig({ ...pillConfig, barGap: parseInt(e.target.value) })}
+                  onChange={(e) => updatePillConfig({ ...pillConfig, barGap: parseInt(e.target.value) })}
                   style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                 />
                 <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.barGap}px</Text>
@@ -250,7 +436,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   min="8"
                   max="70"
                   value={pillConfig.maxHeight}
-                  onChange={(e) => setPillConfig({ ...pillConfig, maxHeight: parseInt(e.target.value) })}
+                  onChange={(e) => updatePillConfig({ ...pillConfig, maxHeight: parseInt(e.target.value) })}
                   style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                 />
                 <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.maxHeight}px</Text>
@@ -267,7 +453,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   onChange={(e) => {
                     const percentage = parseInt(e.target.value);
                     const pixels = Math.round((percentage / 100) * 10);
-                    setPillConfig({ ...pillConfig, borderRadius: pixels });
+                    updatePillConfig({ ...pillConfig, borderRadius: pixels });
                   }}
                   style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                 />
@@ -282,7 +468,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   min="0"
                   max="20"
                   value={pillConfig.glowIntensity}
-                  onChange={(e) => setPillConfig({ ...pillConfig, glowIntensity: parseInt(e.target.value) })}
+                  onChange={(e) => updatePillConfig({ ...pillConfig, glowIntensity: parseInt(e.target.value) })}
                   style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                 />
                 <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.glowIntensity}</Text>
@@ -294,7 +480,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   <Text size="3">Use Gradient</Text>
                   <Switch
                     checked={pillConfig.useGradient}
-                    onCheckedChange={(checked) => setPillConfig({ ...pillConfig, useGradient: checked })}
+                    onCheckedChange={(checked) => updatePillConfig({ ...pillConfig, useGradient: checked })}
                   />
                 </Flex>
 
@@ -303,7 +489,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                   <input
                     type="color"
                     value={pillConfig.color1}
-                    onChange={(e) => setPillConfig({ ...pillConfig, color1: e.target.value })}
+                    onChange={(e) => updatePillConfig({ ...pillConfig, color1: e.target.value })}
                     style={{
                       width: '20px',
                       height: '20px',
@@ -316,7 +502,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                     <input
                       type="color"
                       value={pillConfig.color2}
-                      onChange={(e) => setPillConfig({ ...pillConfig, color2: e.target.value })}
+                      onChange={(e) => updatePillConfig({ ...pillConfig, color2: e.target.value })}
                       style={{
                         width: '20px',
                         height: '20px',
@@ -398,7 +584,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                 <Text size="3">Enable Background</Text>
                 <Switch
                   checked={pillConfig.hasBackground}
-                  onCheckedChange={(checked) => setPillConfig({ ...pillConfig, hasBackground: checked })}
+                  onCheckedChange={(checked) => updatePillConfig({ ...pillConfig, hasBackground: checked })}
                 />
               </Flex>
 
@@ -410,14 +596,14 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                     <Flex gap="2">
                       <Button
                         variant={pillConfig.backgroundShape === 'pill' ? 'solid' : 'outline'}
-                        onClick={() => setPillConfig({ ...pillConfig, backgroundShape: 'pill' })}
+                        onClick={() => updatePillConfig({ ...pillConfig, backgroundShape: 'pill' })}
                         style={{ flex: 1 }}
                       >
                         Pill
                       </Button>
                       <Button
                         variant={pillConfig.backgroundShape === 'rectangle' ? 'solid' : 'outline'}
-                        onClick={() => setPillConfig({ ...pillConfig, backgroundShape: 'rectangle' })}
+                        onClick={() => updatePillConfig({ ...pillConfig, backgroundShape: 'rectangle' })}
                         style={{ flex: 1 }}
                       >
                         Rectangle
@@ -431,7 +617,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                     <input
                       type="color"
                       value={pillConfig.backgroundColor}
-                      onChange={(e) => setPillConfig({ ...pillConfig, backgroundColor: e.target.value })}
+                      onChange={(e) => updatePillConfig({ ...pillConfig, backgroundColor: e.target.value })}
                       style={{
                         width: '24px',
                         height: '24px',
@@ -455,13 +641,13 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                         onChange={(e) => {
                           const newValue = parseInt(e.target.value);
                           if (paddingLinked) {
-                            setPillConfig({
+                            updatePillConfig({
                               ...pillConfig,
                               backgroundPaddingX: newValue,
                               backgroundPaddingY: newValue
                             });
                           } else {
-                            setPillConfig({ ...pillConfig, backgroundPaddingX: newValue });
+                            updatePillConfig({ ...pillConfig, backgroundPaddingX: newValue });
                           }
                         }}
                         style={{ flex: 1, height: '4px', cursor: 'pointer' }}
@@ -478,7 +664,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                         onClick={() => {
                           if (!paddingLinked) {
                             // When linking, sync Y to match X
-                            setPillConfig({
+                            updatePillConfig({
                               ...pillConfig,
                               backgroundPaddingY: pillConfig.backgroundPaddingX ?? 12
                             });
@@ -503,13 +689,13 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                         onChange={(e) => {
                           const newValue = parseInt(e.target.value);
                           if (paddingLinked) {
-                            setPillConfig({
+                            updatePillConfig({
                               ...pillConfig,
                               backgroundPaddingX: newValue,
                               backgroundPaddingY: newValue
                             });
                           } else {
-                            setPillConfig({ ...pillConfig, backgroundPaddingY: newValue });
+                            updatePillConfig({ ...pillConfig, backgroundPaddingY: newValue });
                           }
                         }}
                         style={{ flex: 1, height: '4px', cursor: 'pointer' }}
@@ -526,7 +712,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                       min="0"
                       max="3"
                       value={pillConfig.borderWidth}
-                      onChange={(e) => setPillConfig({ ...pillConfig, borderWidth: parseInt(e.target.value) })}
+                      onChange={(e) => updatePillConfig({ ...pillConfig, borderWidth: parseInt(e.target.value) })}
                       style={{ flex: 1, height: '4px', cursor: 'pointer' }}
                     />
                     <Text size="3" weight="medium" style={{ minWidth: '40px', textAlign: 'right' }}>{pillConfig.borderWidth}px</Text>
@@ -539,7 +725,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
                       <input
                         type="color"
                         value={pillConfig.borderColor}
-                        onChange={(e) => setPillConfig({ ...pillConfig, borderColor: e.target.value })}
+                        onChange={(e) => updatePillConfig({ ...pillConfig, borderColor: e.target.value })}
                         style={{
                           width: '24px',
                           height: '24px',

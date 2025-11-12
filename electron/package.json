@@ -1,6 +1,6 @@
 {
   "name": "narraflow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Offline speech-to-text with hotkey activation for macOS",
   "main": "dist/main/main/index.js",
   "author": "NarraFlow Team",

@@ -325,6 +325,48 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // Handle Pill Preset Save
+  ipcMain.handle('PRESET_SAVE', async (event, data: { name: string; config: PillConfig }) => {
+    console.log('[Main] Saving preset:', data.name);
+    if (!settingsManager) {
+      return null;
+    }
+    return settingsManager.savePreset(data.name, data.config);
+  });
+
+  // Handle Pill Preset Load
+  ipcMain.handle('PRESET_LOAD', async (event, data: { id: string }) => {
+    console.log('[Main] Loading preset:', data.id);
+    if (!settingsManager) {
+      return null;
+    }
+    const config = settingsManager.loadPreset(data.id);
+
+    // Forward to overlay window
+    if (config && overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, { config });
+    }
+
+    return config;
+  });
+
+  // Handle Pill Preset Delete
+  ipcMain.handle('PRESET_DELETE', async (event, data: { id: string }) => {
+    console.log('[Main] Deleting preset:', data.id);
+    if (!settingsManager) {
+      return false;
+    }
+    return settingsManager.deletePreset(data.id);
+  });
+
+  // Handle Pill Preset Get All
+  ipcMain.handle('PRESET_GET_ALL', async () => {
+    if (!settingsManager) {
+      return [];
+    }
+    return settingsManager.getPresets();
+  });
+
   // Handle Hotkey Config Update
   ipcMain.on(IPC_CHANNELS.HOTKEY_CONFIG_UPDATE, async (event, data: { config: import('./settings-manager').HotkeyConfig }) => {
     console.log('[Main] Updating hotkey config:', data.config);
@@ -516,16 +558,62 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Handle Create Checkout Session
-  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_CREATE_CHECKOUT, async () => {
-    console.log('[Main] SUBSCRIPTION_CREATE_CHECKOUT called');
-    // TODO: Create Stripe checkout session, open in browser
-    // 1. Call backend API to create checkout session
-    // 2. Open checkout URL in browser
-    // 3. Listen for success webhook
-    return {
-      success: false,
-      error: 'Stripe checkout not implemented yet',
-    };
+  ipcMain.handle(IPC_CHANNELS.SUBSCRIPTION_CREATE_CHECKOUT, async (event, data?: { billingInterval?: 'monthly' | 'annual' }) => {
+    try {
+      console.log('[Main] Creating checkout session, billing interval:', data?.billingInterval || 'monthly');
+
+      // Get current session for authentication
+      const session = getCurrentSession();
+      if (!session || !session.access_token) {
+        console.error('[Main] No active session found');
+        return {
+          success: false,
+          error: 'Not authenticated. Please sign in first.',
+        };
+      }
+
+      // Determine which edge function to call based on environment
+      const env = getAppEnv();
+      const functionName = env === 'dev' ? 'create-checkout-session-dev' : 'create-checkout-session';
+      const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/${functionName}`;
+
+      console.log(`[Main] Calling edge function: ${functionName} (env: ${env})`);
+
+      // Call edge function to create checkout session
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          billing_interval: data?.billingInterval || 'monthly',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Main] Checkout session creation failed:', response.status, errorText);
+        return {
+          success: false,
+          error: `Failed to create checkout session: ${errorText}`,
+        };
+      }
+
+      const result = await response.json() as { url: string };
+      console.log('[Main] Checkout session URL received:', result.url);
+
+      // Open checkout URL in browser
+      await shell.openExternal(result.url);
+
+      return { success: true, url: result.url };
+    } catch (error) {
+      console.error('[Main] SUBSCRIPTION_CREATE_CHECKOUT error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   });
 
   // Handle Open Customer Portal (legacy name - kept for backwards compatibility)

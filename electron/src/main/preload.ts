@@ -1,75 +1,59 @@
 /**
  * Preload script
  * Exposes safe IPC methods to renderer process
+ *
+ * Following Clipp's pattern - explicit method exposure without whitelist validation
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
 
 console.log('[Preload] Script starting...');
 
-// IPC channel constants (inlined to avoid import issues in preload context)
-const IPC_CHANNELS = {
-  START_RECORDING: 'ipc:start-recording',
-  STOP_RECORDING: 'ipc:stop-recording',
-  AUDIO_DATA: 'ipc:audio-data',
-  PASTE_TEXT: 'ipc:paste-text',
-  VAD_UPDATE: 'ipc:vad-update',
-  ERROR_NOTIFICATION: 'ipc:error-notification',
-  UI_STATE_UPDATE: 'ipc:ui-state-update',
-  PILL_CONFIG_UPDATE: 'ipc:pill-config-update',
-  HOTKEY_CONFIG_UPDATE: 'HOTKEY_CONFIG_UPDATE',
-  HISTORY_GET: 'ipc:history-get',
-  HISTORY_ADD: 'ipc:history-add',
-  HISTORY_DELETE: 'ipc:history-delete',
-  HISTORY_CLEAR: 'ipc:history-clear',
-  HISTORY_UPDATE: 'ipc:history-update',
-  TRANSCRIBE: 'worker:transcribe',
-  REWRITE_TEXT: 'worker:rewrite-text',
-  SET_DOCK_VISIBILITY: 'ipc:set-dock-visibility',
-  GET_DOCK_VISIBILITY: 'ipc:get-dock-visibility',
-  RESET_APP: 'ipc:reset-app',
-  // Auth & Subscription (matching auth-handler.ts)
-  GET_AUTH_STATUS: 'GET_AUTH_STATUS',
-  START_OAUTH: 'START_OAUTH',
-  SIGN_UP_EMAIL: 'SIGN_UP_EMAIL',
-  SIGN_IN_EMAIL: 'SIGN_IN_EMAIL',
-  GET_LICENSES: 'GET_LICENSES',
-  ACTIVATE_LICENSE: 'ACTIVATE_LICENSE',
-  SIGN_OUT: 'SIGN_OUT',
-  DELETE_ACCOUNT: 'DELETE_ACCOUNT',
-  RENAME_MACHINE: 'RENAME_MACHINE',
-  GET_MACHINE_ID: 'GET_MACHINE_ID',
-  REVOKE_LICENSE: 'REVOKE_LICENSE',
-  AUTH_STATE_CHANGED: 'AUTH_STATE_CHANGED',
-  OPEN_EXTERNAL_URL: 'OPEN_EXTERNAL_URL',
-} as const;
-
 // Expose electron API to renderer
 contextBridge.exposeInMainWorld('electron', {
-  // Send messages to main process
-  send: (channel: string, data: any) => {
-    const validChannels = Object.values(IPC_CHANNELS);
-    if (validChannels.includes(channel as any)) {
-      ipcRenderer.send(channel, data);
-    }
-  },
-
-  // Receive messages from main process
+  // Recording methods
+  send: (channel: string, data: any) => ipcRenderer.send(channel, data),
   on: (channel: string, callback: (data: any) => void) => {
-    const validChannels = Object.values(IPC_CHANNELS);
-    if (validChannels.includes(channel as any)) {
-      ipcRenderer.on(channel, (_event, data) => callback(data));
-    }
+    ipcRenderer.on(channel, (_event, data) => callback(data));
+  },
+  invoke: (channel: string, data?: any) => ipcRenderer.invoke(channel, data),
+
+  // Auth methods
+  getAuthStatus: () => ipcRenderer.invoke('GET_AUTH_STATUS'),
+  startOAuth: (provider: string) => ipcRenderer.invoke('START_OAUTH', { provider }),
+  signUpWithEmail: (email: string, password: string) => ipcRenderer.invoke('SIGN_UP_EMAIL', { email, password }),
+  signInWithEmail: (email: string, password: string) => ipcRenderer.invoke('SIGN_IN_EMAIL', { email, password }),
+  signOut: () => ipcRenderer.invoke('SIGN_OUT'),
+  deleteAccount: () => ipcRenderer.invoke('DELETE_ACCOUNT'),
+  onAuthStateChanged: (callback: () => void) => {
+    ipcRenderer.on('AUTH_STATE_CHANGED', callback);
   },
 
-  // Invoke (request-response)
-  invoke: async (channel: string, data?: any) => {
-    const validChannels = Object.values(IPC_CHANNELS);
-    if (validChannels.includes(channel as any)) {
-      return await ipcRenderer.invoke(channel, data);
-    }
-    throw new Error(`Invalid IPC channel: ${channel}`);
+  // License methods
+  getLicenses: (userId: string) => ipcRenderer.invoke('GET_LICENSES', { userId }),
+  activateLicense: (licenseKey: string) => ipcRenderer.invoke('ACTIVATE_LICENSE', { licenseKey }),
+  revokeLicense: (licenseKey: string) => ipcRenderer.invoke('REVOKE_LICENSE', { licenseKey }),
+  renameMachine: (licenseId: string, newName: string) => ipcRenderer.invoke('RENAME_MACHINE', { licenseId, newName }),
+  getMachineId: () => ipcRenderer.invoke('GET_MACHINE_ID'),
+
+  // Preset methods
+  savePreset: (name: string, config: any) => ipcRenderer.invoke('PRESET_SAVE', { name, config }),
+  loadPreset: (id: string) => ipcRenderer.invoke('PRESET_LOAD', { id }),
+  deletePreset: (id: string) => ipcRenderer.invoke('PRESET_DELETE', { id }),
+  getAllPresets: () => ipcRenderer.invoke('PRESET_GET_ALL'),
+
+  // Stripe/Checkout methods
+  createCheckoutSession: (billingInterval?: string) => ipcRenderer.invoke('ipc:subscription-create-checkout', { billingInterval }),
+  openCustomerPortal: (stripeCustomerId: string) => ipcRenderer.invoke('OPEN_CUSTOMER_PORTAL', { stripeCustomerId }),
+
+  // Access control
+  getAccessStatus: () => ipcRenderer.invoke('GET_ACCESS_STATUS'),
+  onAccessStatusChanged: (callback: (data: any) => void) => {
+    ipcRenderer.on('ACCESS_STATUS_CHANGED', (_event, data) => callback(data));
   },
+
+  // External URL
+  openExternalUrl: (url: string) => ipcRenderer.invoke('OPEN_EXTERNAL_URL', { url }),
 
   // Auto-updater methods
   onUpdateAvailable: (callback: (info: any) => void) => {
@@ -78,12 +62,8 @@ contextBridge.exposeInMainWorld('electron', {
   onUpdateDownloaded: (callback: (info: any) => void) => {
     ipcRenderer.on('update-downloaded', (_event, info) => callback(info));
   },
-  downloadUpdate: async () => {
-    return await ipcRenderer.invoke('download-update');
-  },
-  installUpdate: async () => {
-    return await ipcRenderer.invoke('install-update');
-  },
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
 });
 
 console.log('[Preload] window.electron exposed successfully');

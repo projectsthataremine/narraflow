@@ -55,10 +55,14 @@ Deno.serve(async (req) => {
     }
 
     // DEV FUNCTION: Restrict to authorized dev users only
-    const allowedDevUsers = (Deno.env.get('ALLOWED_DEV_USER_IDS') ?? '').split(',');
-    if (!allowedDevUsers.includes(user.id)) {
+    const allowedDevUsers = (Deno.env.get('ALLOWED_DEV_USER_IDS') ?? '').split(',').filter(id => id.length > 0);
+    if (allowedDevUsers.length > 0 && !allowedDevUsers.includes(user.id)) {
       console.error(`Unauthorized dev function access attempt by user: ${user.id}`);
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.log(`To allow this user, run: npx supabase secrets set ALLOWED_DEV_USER_IDS="${user.id}"`);
+      return new Response(JSON.stringify({
+        error: 'Unauthorized',
+        message: `User ${user.id} not in ALLOWED_DEV_USER_IDS. Run: npx supabase secrets set ALLOWED_DEV_USER_IDS="${user.id}"`
+      }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });

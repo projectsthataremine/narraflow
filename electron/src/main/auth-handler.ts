@@ -457,7 +457,7 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
 
       // Update metadata with new machine name
       const updatedMetadata = {
-        ...license.metadata,
+        ...(license.metadata || {}),
         machine_name: newName,
       };
 

@@ -15,6 +15,13 @@ export interface HotkeyConfig {
   keycode: number; // UiohookKey enum value
 }
 
+export interface PillPreset {
+  id: string;
+  name: string;
+  config: PillConfig;
+  createdAt: number;
+}
+
 interface AppSettings {
   pillConfig: PillConfig;
   hotkey: HotkeyConfig;
@@ -51,15 +58,19 @@ const DEFAULT_SETTINGS: AppSettings = {
 export class SettingsManager {
   private settingsPath: string;
   private historyPath: string;
+  private presetsPath: string;
   private settings: AppSettings;
   private history: HistoryItem[] = [];
+  private presets: PillPreset[] = [];
 
   constructor() {
     const userDataPath = app.getPath('userData');
     this.settingsPath = path.join(userDataPath, 'settings.json');
     this.historyPath = path.join(userDataPath, 'history.json');
+    this.presetsPath = path.join(userDataPath, 'presets.json');
     this.settings = this.loadSettings();
     this.history = this.loadHistory();
+    this.presets = this.loadPresets();
   }
 
   /**
@@ -254,5 +265,88 @@ export class SettingsManager {
     this.saveSettings();
     this.saveHistory();
     console.log('[SettingsManager] Reset complete');
+  }
+
+  /**
+   * Load presets from disk
+   */
+  private loadPresets(): PillPreset[] {
+    try {
+      if (fs.existsSync(this.presetsPath)) {
+        const data = fs.readFileSync(this.presetsPath, 'utf-8');
+        return JSON.parse(data);
+      }
+    } catch (error) {
+      console.error('[SettingsManager] Error loading presets:', error);
+    }
+    return [];
+  }
+
+  /**
+   * Save presets to disk
+   */
+  private savePresets(): void {
+    try {
+      const userDataPath = app.getPath('userData');
+      if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true });
+      }
+      fs.writeFileSync(this.presetsPath, JSON.stringify(this.presets, null, 2), 'utf-8');
+      console.log('[SettingsManager] Presets saved to:', this.presetsPath);
+    } catch (error) {
+      console.error('[SettingsManager] Error saving presets:', error);
+    }
+  }
+
+  /**
+   * Get all presets
+   */
+  getPresets(): PillPreset[] {
+    return [...this.presets];
+  }
+
+  /**
+   * Save a new preset
+   */
+  savePreset(name: string, config: PillConfig): PillPreset {
+    const preset: PillPreset = {
+      id: Date.now().toString(),
+      name,
+      config: { ...config },
+      createdAt: Date.now(),
+    };
+
+    this.presets.push(preset);
+    this.savePresets();
+    console.log('[SettingsManager] Preset saved:', name);
+    return preset;
+  }
+
+  /**
+   * Delete a preset
+   */
+  deletePreset(id: string): boolean {
+    const initialLength = this.presets.length;
+    this.presets = this.presets.filter((preset) => preset.id !== id);
+
+    if (this.presets.length !== initialLength) {
+      this.savePresets();
+      console.log('[SettingsManager] Preset deleted:', id);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Load a preset (apply it to current config)
+   */
+  loadPreset(id: string): PillConfig | null {
+    const preset = this.presets.find((p) => p.id === id);
+    if (preset) {
+      this.setPillConfig(preset.config);
+      console.log('[SettingsManager] Preset loaded:', preset.name);
+      return { ...preset.config };
+    }
+    return null;
   }
 }

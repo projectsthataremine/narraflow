@@ -24,6 +24,7 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
   const [latestVersion, setLatestVersion] = useState<string>('');
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateCheckCooldown, setUpdateCheckCooldown] = useState(false);
 
   // Find the matching option from HOTKEY_OPTIONS based on current config
   const currentOption = HOTKEY_OPTIONS.find(
@@ -101,8 +102,15 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
   }, []);
 
   const checkForUpdates = async (currentVer?: string) => {
+    // Prevent rapid successive checks
+    if (updateCheckCooldown) {
+      return;
+    }
+
     const versionToCompare = currentVer || currentVersion;
     setCheckingUpdate(true);
+    setUpdateCheckCooldown(true);
+
     try {
       const response = await fetch('https://api.github.com/repos/projectsthataremine/narraflow/releases/latest');
       const data = await response.json();
@@ -132,14 +140,18 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
       console.error('[Settings] Failed to check for updates:', error);
     } finally {
       setCheckingUpdate(false);
+      // Reset cooldown after 2 seconds
+      setTimeout(() => {
+        setUpdateCheckCooldown(false);
+      }, 2000);
     }
   };
 
   const handleDownloadUpdate = () => {
     if (window.electron) {
-      (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: 'https://trynarraflow.com' });
+      (window.electron as any).invoke('OPEN_EXTERNAL_URL', { url: 'https://trynarraflow.com/download' });
     } else {
-      window.open('https://trynarraflow.com', '_blank');
+      window.open('https://trynarraflow.com/download', '_blank');
     }
   };
 
@@ -318,8 +330,8 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
               variant="soft"
               size="2"
               onClick={checkForUpdates}
-              disabled={checkingUpdate}
-              style={{ cursor: checkingUpdate ? 'not-allowed' : 'pointer' }}
+              disabled={checkingUpdate || updateCheckCooldown}
+              style={{ cursor: (checkingUpdate || updateCheckCooldown) ? 'not-allowed' : 'pointer' }}
             >
               Check for updates
             </Button>
