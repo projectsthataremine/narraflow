@@ -42,23 +42,6 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   );
 }
 
-function VersionFooter() {
-  return (
-    <div style={{
-      marginTop: 'auto',
-      paddingTop: '16px',
-    }}>
-      <div style={{
-        fontSize: '13px',
-        color: 'var(--text-primary)',
-        opacity: 0.5,
-      }}>
-        v0.1.0
-      </div>
-    </div>
-  );
-}
-
 interface SidebarProps {
   activeSection: string;
   setActiveSection: (section: string) => void;
@@ -111,9 +94,6 @@ export function Sidebar({ activeSection, setActiveSection }: SidebarProps) {
           onClick={() => setActiveSection('feedback')}
         />
       </Flex>
-
-      {/* Version Footer */}
-      <VersionFooter />
     </Box>
   );
 }
