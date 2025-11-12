@@ -160,21 +160,31 @@ export const App: React.FC = () => {
         window.electron.send(IPC_CHANNELS.AUDIO_DATA, { audio: audioArray });
       }
 
-      // Stop recorder (don't close stream yet)
-      recorder
-        .stop(false)
-        .then(() => {
-          // Then stop visualizer (closes stream)
-          return visualizer.stop(true);
-        })
-        .then(() => {
-          sharedStreamRef.current = null;
-        })
-        .catch((error) => {
-          console.error('[App] Error stopping audio modules:', error);
-        });
-
       isRecordingRef.current = false;
+
+      // CRITICAL: Stop microphone tracks IMMEDIATELY (synchronous)
+      if (sharedStreamRef.current) {
+        sharedStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+        });
+      }
+
+      // THEN cleanup audio contexts asynchronously (with finally block guarantee)
+      (async () => {
+        try {
+          await recorder.stop(false);
+          await visualizer.stop(false);
+          sharedStreamRef.current = null;
+        } catch (error) {
+          console.error('[App] Error during async cleanup:', error);
+        } finally {
+          // GUARANTEE: Force cleanup even if errors occurred
+          if (sharedStreamRef.current) {
+            sharedStreamRef.current.getTracks().forEach((track) => track.stop());
+            sharedStreamRef.current = null;
+          }
+        }
+      })();
 
       // Start amplitude decay animation
       if (amplitudeDecayInterval.current) {
