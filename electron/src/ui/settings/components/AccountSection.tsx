@@ -574,7 +574,7 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
   // Default view with options
   return (
     <Flex align="center" justify="center" style={{ height: '100%', width: '100%' }}>
-      <Box style={{ width: '100%', maxWidth: '400px', padding: '40px 24px' }}>
+      <Box style={{ width: '100%', maxWidth: '440px', padding: '40px 24px' }}>
         {/* Heading */}
         <Box mb="6" style={{ textAlign: 'center' }}>
           <Text size="7" weight="bold" mb="2" as="div" style={{ letterSpacing: '-0.03em', lineHeight: '1.1' }}>
@@ -586,7 +586,7 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
         </Box>
 
         {/* Sign In Buttons */}
-        <Flex direction="column" gap="3" mb="6">
+        <Flex direction="column" gap="3" mb="6" style={{ padding: '0 20px' }}>
           {/* Google Sign In - Primary branded button */}
           <Button
             size="3"
