@@ -26,6 +26,7 @@ interface AppSettings {
   pillConfig: PillConfig;
   hotkey: HotkeyConfig;
   showInDock: boolean;
+  enableLlamaFormatting: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -53,6 +54,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     keycode: 63, // Fn key keycode
   },
   showInDock: true, // Default to visible
+  enableLlamaFormatting: false, // Default to OFF to save costs
 };
 
 export class SettingsManager {
@@ -170,6 +172,21 @@ export class SettingsManager {
    */
   setShowInDock(visible: boolean): void {
     this.settings.showInDock = visible;
+    this.saveSettings();
+  }
+
+  /**
+   * Get Llama formatting setting
+   */
+  getEnableLlamaFormatting(): boolean {
+    return this.settings.enableLlamaFormatting ?? false; // Default to false to save costs
+  }
+
+  /**
+   * Update Llama formatting setting
+   */
+  setEnableLlamaFormatting(enabled: boolean): void {
+    this.settings.enableLlamaFormatting = enabled;
     this.saveSettings();
   }
 

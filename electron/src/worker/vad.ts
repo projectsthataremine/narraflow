@@ -17,14 +17,13 @@ export interface VADConfig {
 export class VAD {
   private config: VADConfig;
   private session: ort.InferenceSession | null = null;
-  private h: ort.Tensor | null = null;
-  private c: ort.Tensor | null = null;
+  private state: ort.Tensor | null = null;
   private sr: ort.Tensor | null = null;
 
   constructor(config: Partial<VADConfig> = {}) {
     this.config = {
-      speechThreshold: config.speechThreshold ?? 0.5,
-      silenceThreshold: config.silenceThreshold ?? 0.3,
+      speechThreshold: config.speechThreshold ?? 0.5, // Default Silero VAD threshold
+      silenceThreshold: config.silenceThreshold ?? 0.3, // Default
       frameSizeMs: config.frameSizeMs ?? 32, // Silero VAD uses 512 samples = 32ms at 16kHz
       sampleRate: config.sampleRate ?? 16000,
       modelPath: config.modelPath ?? path.join(process.cwd(), 'resources/models/silero_vad.onnx'),
@@ -39,10 +38,9 @@ export class VAD {
       console.log('[VAD] Loading model from:', this.config.modelPath);
       this.session = await ort.InferenceSession.create(this.config.modelPath!);
 
-      // Initialize state tensors for LSTM
-      // h and c are hidden states with shape [2, 1, 64]
-      this.h = new ort.Tensor('float32', new Float32Array(2 * 1 * 64).fill(0), [2, 1, 64]);
-      this.c = new ort.Tensor('float32', new Float32Array(2 * 1 * 64).fill(0), [2, 1, 64]);
+      // Initialize state tensor for LSTM
+      // state has shape [2, 1, 128] - combines h and c from older versions
+      this.state = new ort.Tensor('float32', new Float32Array(2 * 1 * 128).fill(0), [2, 1, 128]);
 
       // Sample rate tensor
       this.sr = new ort.Tensor('int64', BigInt64Array.from([BigInt(this.config.sampleRate)]), [1]);
@@ -60,10 +58,47 @@ export class VAD {
    * Reset VAD state (useful between recordings)
    */
   resetState(): void {
-    if (this.h && this.c) {
-      this.h = new ort.Tensor('float32', new Float32Array(2 * 1 * 64).fill(0), [2, 1, 64]);
-      this.c = new ort.Tensor('float32', new Float32Array(2 * 1 * 64).fill(0), [2, 1, 64]);
+    if (this.state) {
+      this.state = new ort.Tensor('float32', new Float32Array(2 * 1 * 128).fill(0), [2, 1, 128]);
     }
+  }
+
+  /**
+   * Apply automatic gain control (AGC) to normalize audio levels
+   * This ensures consistent VAD detection regardless of recording volume
+   */
+  private applyAGC(audioFrame: Float32Array, targetRMS: number = 0.3): Float32Array {
+    // Calculate current RMS (root mean square) level
+    let sumSquares = 0;
+    for (let i = 0; i < audioFrame.length; i++) {
+      sumSquares += audioFrame[i] * audioFrame[i];
+    }
+    const currentRMS = Math.sqrt(sumSquares / audioFrame.length);
+
+    // Avoid division by zero
+    if (currentRMS < 0.001) {
+      console.log('[VAD AGC] Audio too quiet, skipping AGC');
+      return audioFrame; // Too quiet, return as-is
+    }
+
+    // Calculate gain to reach target RMS
+    const gain = targetRMS / currentRMS;
+
+    // Limit gain to prevent excessive amplification (max 20x or 26dB)
+    const limitedGain = Math.min(gain, 20.0);
+
+    console.log(`[VAD AGC] Current RMS: ${currentRMS.toFixed(4)}, Target: ${targetRMS}, Gain: ${gain.toFixed(2)}x, Limited: ${limitedGain.toFixed(2)}x`);
+
+    // Apply gain with soft clipping
+    const result = new Float32Array(audioFrame.length);
+    for (let i = 0; i < audioFrame.length; i++) {
+      let sample = audioFrame[i] * limitedGain;
+      // Soft clip to prevent distortion
+      sample = Math.max(-1.0, Math.min(1.0, sample));
+      result[i] = sample;
+    }
+
+    return result;
   }
 
   /**
@@ -71,7 +106,7 @@ export class VAD {
    * Uses Silero VAD ONNX model
    */
   async analyze(audioFrame: Float32Array): Promise<number> {
-    if (!this.session || !this.h || !this.c || !this.sr) {
+    if (!this.session || !this.state || !this.sr) {
       console.error('[VAD] Model not initialized');
       return 0;
     }
@@ -91,11 +126,10 @@ export class VAD {
       // Create input tensor [1, 512]
       const inputTensor = new ort.Tensor('float32', processedFrame, [1, processedFrame.length]);
 
-      // Run inference
+      // Run inference with new model format
       const feeds = {
         input: inputTensor,
-        h: this.h,
-        c: this.c,
+        state: this.state,
         sr: this.sr,
       };
 
@@ -105,9 +139,10 @@ export class VAD {
       const output = results.output;
       const probability = output.data[0] as number;
 
-      // Update state tensors for next iteration
-      if (results.hn) this.h = results.hn;
-      if (results.cn) this.c = results.cn;
+      // Update state tensor for next iteration (model returns 'stateN')
+      if (results.stateN) {
+        this.state = results.stateN;
+      }
 
       return probability;
     } catch (error) {
@@ -145,6 +180,7 @@ export class VAD {
     const frameSize = this.getFrameSize();
     const probabilities: number[] = [];
 
+    // Skip AGC - test with raw audio
     for (let i = 0; i < audioBuffer.length; i += frameSize) {
       const frame = audioBuffer.slice(i, Math.min(i + frameSize, audioBuffer.length));
       const prob = await this.analyze(frame);
@@ -158,10 +194,14 @@ export class VAD {
    * Find speech segments in audio buffer
    * Returns array of [startSample, endSample] pairs
    */
-  async findSpeechSegments(audioBuffer: Float32Array): Promise<[number, number][]> {
+  async findSpeechSegments(audioBuffer: Float32Array, paddingMs: number = 500, minSpeechMs: number = 50): Promise<[number, number][]> {
     const frameSize = this.getFrameSize();
     const probabilities = await this.processBuffer(audioBuffer);
     const segments: [number, number][] = [];
+
+    // Convert padding from ms to samples
+    const paddingSamples = Math.floor((paddingMs / 1000) * this.config.sampleRate);
+    const minSpeechSamples = Math.floor((minSpeechMs / 1000) * this.config.sampleRate);
 
     let speechStart = -1;
 
@@ -169,22 +209,48 @@ export class VAD {
       const isSpeech = this.isSpeech(probabilities[i]);
 
       if (isSpeech && speechStart === -1) {
-        // Speech segment starts
-        speechStart = i * frameSize;
+        // Speech segment starts - add padding before
+        speechStart = Math.max(0, i * frameSize - paddingSamples);
       } else if (!isSpeech && speechStart !== -1) {
-        // Speech segment ends
-        const speechEnd = i * frameSize;
-        segments.push([speechStart, speechEnd]);
+        // Speech segment ends - add padding after
+        const speechEnd = Math.min(audioBuffer.length, i * frameSize + paddingSamples);
+
+        // Only add if segment is long enough
+        if (speechEnd - speechStart >= minSpeechSamples) {
+          segments.push([speechStart, speechEnd]);
+        }
         speechStart = -1;
       }
     }
 
     // Close last segment if still open
     if (speechStart !== -1) {
-      segments.push([speechStart, audioBuffer.length]);
+      const speechEnd = Math.min(audioBuffer.length, audioBuffer.length);
+      if (speechEnd - speechStart >= minSpeechSamples) {
+        segments.push([speechStart, speechEnd]);
+      }
     }
 
-    return segments;
+    // Merge overlapping or nearby segments (within 200ms)
+    const mergedSegments: [number, number][] = [];
+    for (const segment of segments) {
+      if (mergedSegments.length === 0) {
+        mergedSegments.push(segment);
+      } else {
+        const lastSegment = mergedSegments[mergedSegments.length - 1];
+        const gap = segment[0] - lastSegment[1];
+        const maxGap = Math.floor((200 / 1000) * this.config.sampleRate); // 200ms
+
+        if (gap <= maxGap) {
+          // Merge with previous segment
+          lastSegment[1] = segment[1];
+        } else {
+          mergedSegments.push(segment);
+        }
+      }
+    }
+
+    return mergedSegments;
   }
 
   /**
@@ -199,8 +265,7 @@ export class VAD {
    */
   dispose(): void {
     this.session = null;
-    this.h = null;
-    this.c = null;
+    this.state = null;
     this.sr = null;
   }
 }

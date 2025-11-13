@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NarraFlow - Internal Docs</title>
+  <style>
+    /* NarraFlow Brand Colors - Dark Theme with Blue Accent */
+    :root {
+      /* Radix UI Blue (Dark Mode) */
+      --blue-1: #0d1520;
+      --blue-2: #111927;
+      --blue-3: #0d2847;
+      --blue-4: #003362;
+      --blue-5: #004074;
+      --blue-6: #104d87;
+      --blue-7: #205d9e;
+      --blue-8: #2870bd;
+      --blue-9: #0090ff;
+      --blue-10: #3b9eff;
+      --blue-11: #70b8ff;
+      --blue-12: #c2e6ff;
+
+      /* Radix UI Slate (Dark Mode) */
+      --slate-1: #111113;
+      --slate-2: #18191b;
+      --slate-3: #212225;
+      --slate-4: #272a2d;
+      --slate-5: #2e3135;
+      --slate-6: #363a3f;
+      --slate-7: #43484e;
+      --slate-8: #5a6169;
+      --slate-9: #696e77;
+      --slate-10: #777b84;
+      --slate-11: #b0b4ba;
+      --slate-12: #edeef0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: var(--slate-12);
+      background: var(--slate-1);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--slate-2);
+      border-right: 1px solid var(--slate-4);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s ease, margin-left 0.3s ease;
+      position: relative;
+      z-index: 10;
+    }
+
+    .sidebar.collapsed {
+      width: 0;
+      margin-left: -1px;
+      overflow: hidden;
+    }
+
+    .sidebar-toggle {
+      position: fixed;
+      top: 20px;
+      left: 272px;
+      width: 32px;
+      height: 32px;
+      background: var(--slate-3);
+      border: 1px solid var(--slate-4);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--slate-11);
+      transition: all 0.3s ease;
+      z-index: 100;
+    }
+
+    .sidebar-toggle:hover {
+      background: var(--slate-4);
+      color: var(--blue-11);
+    }
+
+    .sidebar.collapsed ~ .sidebar-toggle,
+    .sidebar.collapsed .sidebar-toggle {
+      left: 20px;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--slate-4);
+    }
+
+    .sidebar-header h2 {
+      font-size: 18px;
+      margin: 0;
+      color: var(--slate-12);
+      border: none;
+      padding: 0;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+
+    .nav-item {
+      padding: 10px 20px;
+      color: var(--slate-11);
+      cursor: pointer;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+      user-select: none;
+    }
+
+    .nav-item:hover {
+      background: var(--slate-3);
+      color: var(--slate-12);
+    }
+
+    .nav-item.active {
+      background: var(--slate-3);
+      color: var(--blue-11);
+      border-left-color: var(--blue-9);
+    }
+
+    .nav-category {
+      padding: 15px 20px 5px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--slate-10);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Main content area */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: margin-left 0.3s ease;
+    }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--slate-2);
+      padding: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--slate-4);
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    h1 {
+      color: var(--slate-12);
+      margin-bottom: 10px;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    h2 {
+      color: var(--slate-12);
+      margin-top: 40px;
+      margin-bottom: 20px;
+      font-size: 24px;
+      border-bottom: 2px solid var(--blue-9);
+      padding-bottom: 10px;
+      font-weight: 600;
+    }
+
+    h3 {
+      color: var(--slate-11);
+      margin-top: 30px;
+      margin-bottom: 15px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .subtitle {
+      color: var(--slate-11);
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+
+    .highlight {
+      background: var(--blue-3);
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid var(--blue-9);
+    }
+
+    .highlight strong {
+      color: var(--blue-11);
+      font-size: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+      background: var(--slate-3);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th {
+      background: var(--slate-4);
+      color: var(--slate-12);
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid var(--blue-9);
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--slate-4);
+      color: var(--slate-11);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover {
+      background: var(--slate-4);
+    }
+
+    .positive {
+      color: #10b981;
+      font-weight: 600;
+    }
+
+    .emphasis {
+      color: var(--blue-11);
+      font-weight: 600;
+    }
+
+    .groq-highlight {
+      background: var(--blue-4);
+      font-weight: 600;
+    }
+
+    .groq-highlight td {
+      color: var(--blue-11);
+    }
+
+    .note {
+      background: var(--slate-3);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 4px solid var(--blue-9);
+      font-size: 14px;
+      color: var(--slate-11);
+    }
+
+    .note strong {
+      color: var(--slate-12);
+    }
+
+    ul {
+      margin: 15px 0;
+      padding-left: 30px;
+      color: var(--slate-11);
+    }
+
+    li {
+      margin: 8px 0;
+    }
+
+    .updated {
+      color: var(--slate-10);
+      font-size: 12px;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--slate-4);
+      text-align: center;
+    }
+
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* Selection color */
+    ::selection {
+      background-color: var(--blue-9);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>NarraFlow Docs</h2>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-category">Pricing & Costs</div>
+      <div class="nav-item active" data-page="user-costs">User Usage & Costs</div>
+      <div class="nav-item" data-page="infrastructure">Infrastructure Costs</div>
+
+      <div class="nav-category">Market Analysis</div>
+      <div class="nav-item" data-page="market">Market Overview</div>
+
+      <div class="nav-category">Technical</div>
+      <div class="nav-item" data-page="architecture">Architecture</div>
+    </nav>
+  </div>
+
+  <!-- Floating Toggle Button -->
+  <div class="sidebar-toggle" id="sidebar-toggle">
+    <span id="toggle-icon">◀</span>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+    <div class="main-content">
+      <!-- Page: User Costs -->
+      <div class="page active" id="page-user-costs">
+        <div class="container">
+    <h1>Realistic User Usage & Costs Analysis</h1>
+    <p class="subtitle">Understanding actual user behavior and infrastructure costs for NarraFlow</p>
+
+    <div class="highlight">
+      <strong>Current Configuration:</strong>
+      <div id="current-config" style="margin-top: 10px;"></div>
+    </div>
+
+    <h2>User Segment Distribution</h2>
+    <table id="user-segments-table">
+      <thead>
+        <tr>
+          <th>Segment</th>
+          <th>Hours/Month</th>
+          <th>% of Users</th>
+        </tr>
+      </thead>
+      <tbody id="user-segments-body"></tbody>
+    </table>
+    <div id="blended-average"></div>
+
+    <h2>Cost Analysis by User Segment</h2>
+    <div id="segment-costs"></div>
+
+    <h2>Blended Cost Analysis</h2>
+    <div class="note">
+      <strong>Note:</strong> Blended cost represents the weighted average across all user segments based on their distribution.
+    </div>
+    <table id="blended-costs-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Blended Cost/User</th>
+          <th>Profit @ $<span id="pricing"></span>/month</th>
+          <th>Margin</th>
+        </tr>
+      </thead>
+      <tbody id="blended-costs-body"></tbody>
+    </table>
+
+    <h2>Business Projections</h2>
+    <div id="business-summary"></div>
+
+    <h3>Revenue & Costs at Scale</h3>
+    <table id="scale-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Monthly Revenue</th>
+          <th>Monthly Costs</th>
+          <th>Monthly Profit</th>
+          <th>Annual Profit</th>
+          <th>Margin</th>
+        </tr>
+      </thead>
+      <tbody id="scale-body"></tbody>
+    </table>
+
+    <div class="updated">
+      Last updated: <span id="last-updated"></span> |
+      Pricing based on official Groq API documentation
+    </div>
+        </div>
+      </div>
+
+      <!-- Page: Infrastructure -->
+      <div class="page" id="page-infrastructure">
+        <div class="container">
+          <h1>Infrastructure Costs</h1>
+          <p class="subtitle">Coming soon...</p>
+        </div>
+      </div>
+
+      <!-- Page: Market -->
+      <div class="page" id="page-market">
+        <div class="container">
+          <h1>Market Analysis</h1>
+          <p class="subtitle">Coming soon...</p>
+        </div>
+      </div>
+
+      <!-- Page: Architecture -->
+      <div class="page" id="page-architecture">
+        <div class="container">
+          <h1>Technical Architecture</h1>
+          <p class="subtitle">Coming soon...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="pricing-config.js"></script>
+  <script>
+    // Helper functions
+    const formatCurrency = (amount) => {
+      // Show cents for amounts under $1, otherwise whole dollars
+      const decimals = amount < 1 ? 2 : 0;
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      }).format(amount);
+    };
+    const formatPercent = (decimal) => `${(decimal * 100).toFixed(0)}%`;
+
+    // Calculate blended average hours
+    function calculateBlendedAverage() {
+      return PRICING_CONFIG.app.userSegments.reduce((sum, segment) => {
+        return sum + (segment.hoursPerMonth * segment.percentage) / 100;
+      }, 0);
+    }
+
+    // Calculate provider cost
+    function calculateProviderCost(provider, hours) {
+      if (provider.pricePerHour !== undefined) {
+        // Direct pricing (Groq)
+        return hours * provider.pricePerHour;
+      } else {
+        // GPU pricing
+        const gpuHoursNeeded = hours / provider.speedMultiplier;
+        return gpuHoursNeeded * provider.pricePerGpuHour;
+      }
+    }
+
+    // Build provider list
+    function getProviders() {
+      const providers = [];
+
+      // Groq providers
+      providers.push({
+        name: PRICING_CONFIG.groq.whisperTurbo.name,
+        pricePerHour: PRICING_CONFIG.groq.whisperTurbo.pricePerHour,
+        isGroq: true
+      });
+
+      providers.push({
+        name: PRICING_CONFIG.groq.whisperLarge.name,
+        pricePerHour: PRICING_CONFIG.groq.whisperLarge.pricePerHour,
+        isGroq: true
+      });
+
+      // Competitors
+      for (const [platform, gpus] of Object.entries(PRICING_CONFIG.competitors)) {
+        for (const gpu of Object.values(gpus)) {
+          providers.push({
+            name: gpu.name,
+            pricePerGpuHour: gpu.pricePerGpuHour,
+            speedMultiplier: gpu.speedMultiplier,
+            isGroq: false
+          });
+        }
+      }
+
+      return providers;
+    }
+
+    // Initialize
+    function init() {
+      const config = PRICING_CONFIG;
+      const blendedAvg = calculateBlendedAverage();
+      const providers = getProviders();
+      const payingUsers = Math.round(config.app.market.totalUsers * config.app.conversionRate);
+      const monthlyRevenue = payingUsers * config.app.subscriptionPrice;
+
+      // Current config
+      document.getElementById('current-config').innerHTML = `
+        <strong>Model:</strong> ${config.groq.whisperTurbo.name} (${config.groq.whisperTurbo.model})<br>
+        <strong>Pricing:</strong> ${formatCurrency(config.groq.whisperTurbo.pricePerHour)}/hour of audio<br>
+        <strong>Speed:</strong> ${config.groq.whisperTurbo.speedMultiplier}x real-time<br>
+        <strong>Subscription:</strong> ${formatCurrency(config.app.subscriptionPrice)}/month
+      `;
+
+      // User segments
+      document.getElementById('pricing').textContent = config.app.subscriptionPrice;
+      const segmentsBody = document.getElementById('user-segments-body');
+      config.app.userSegments.forEach(segment => {
+        segmentsBody.innerHTML += `
+          <tr>
+            <td><strong>${segment.name}</strong></td>
+            <td>${segment.hoursPerMonth}</td>
+            <td>${segment.percentage}%</td>
+          </tr>
+        `;
+      });
+
+      // Blended average
+      document.getElementById('blended-average').innerHTML = `
+        <div class="highlight">
+          <strong>Blended Average:</strong> ${blendedAvg.toFixed(1)} hours/month
+        </div>
+      `;
+
+      // Segment costs
+      const segmentCostsDiv = document.getElementById('segment-costs');
+      config.app.userSegments.forEach(segment => {
+        let tableHTML = `
+          <h3>${segment.name} (${segment.hoursPerMonth} hours/month)</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Cost/Month</th>
+                <th>Profit @ $${config.app.subscriptionPrice}</th>
+                <th>Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        providers.forEach(provider => {
+          const cost = calculateProviderCost(provider, segment.hoursPerMonth);
+          const profit = config.app.subscriptionPrice - cost;
+          const margin = profit / config.app.subscriptionPrice;
+          const rowClass = provider.isGroq ? ' class="groq-highlight"' : '';
+
+          tableHTML += `
+            <tr${rowClass}>
+              <td><strong>${provider.name}</strong></td>
+              <td>${formatCurrency(cost)}</td>
+              <td class="positive">${formatCurrency(profit)}</td>
+              <td class="emphasis">${formatPercent(margin)}</td>
+            </tr>
+          `;
+        });
+
+        tableHTML += '</tbody></table>';
+        segmentCostsDiv.innerHTML += tableHTML;
+      });
+
+      // Blended costs
+      const blendedBody = document.getElementById('blended-costs-body');
+      const blendedCosts = {};
+
+      providers.forEach(provider => {
+        const cost = calculateProviderCost(provider, blendedAvg);
+        const profit = config.app.subscriptionPrice - cost;
+        const margin = profit / config.app.subscriptionPrice;
+        blendedCosts[provider.name] = cost;
+        const rowClass = provider.isGroq ? ' class="groq-highlight"' : '';
+
+        blendedBody.innerHTML += `
+          <tr${rowClass}>
+            <td><strong>${provider.name}</strong></td>
+            <td class="emphasis">${formatCurrency(cost)}</td>
+            <td class="positive">${formatCurrency(profit)}</td>
+            <td class="emphasis">${formatPercent(margin)}</td>
+          </tr>
+        `;
+      });
+
+      // Business summary
+      document.getElementById('business-summary').innerHTML = `
+        <div class="highlight">
+          <strong>Year 1 Target: 10% of Wispr Flow's Market</strong><br><br>
+          <ul>
+            <li>Total users: ${config.app.market.totalUsers.toLocaleString()} (${config.app.market.targetPercentage}% of ${config.app.market.wisprFlowUsers.toLocaleString()})</li>
+            <li>Paying users: ${payingUsers.toLocaleString()} (${formatPercent(config.app.conversionRate)} conversion rate)</li>
+            <li>Pricing: ${formatCurrency(config.app.subscriptionPrice)}/month</li>
+            <li>Blended usage: ${blendedAvg.toFixed(1)} hours/month</li>
+          </ul>
+        </div>
+      `;
+
+      // Scale table
+      const scaleBody = document.getElementById('scale-body');
+      providers.forEach(provider => {
+        const monthlyCosts = Math.round(payingUsers * blendedCosts[provider.name]);
+        const monthlyProfit = monthlyRevenue - monthlyCosts;
+        const annualProfit = monthlyProfit * 12;
+        const margin = monthlyProfit / monthlyRevenue;
+        const rowClass = provider.isGroq ? ' class="groq-highlight"' : '';
+
+        scaleBody.innerHTML += `
+          <tr${rowClass}>
+            <td><strong>${provider.name}</strong></td>
+            <td>${formatCurrency(monthlyRevenue)}</td>
+            <td>${formatCurrency(monthlyCosts)}</td>
+            <td class="positive">${formatCurrency(monthlyProfit)}</td>
+            <td class="positive">${formatCurrency(annualProfit)}</td>
+            <td class="emphasis">${formatPercent(margin)}</td>
+          </tr>
+        `;
+      });
+
+      // Last updated
+      document.getElementById('last-updated').textContent = new Date().toLocaleDateString();
+    }
+
+    // Run on load
+    init();
+
+    // Sidebar & Navigation
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    const toggleIcon = document.getElementById('toggle-icon');
+    const navItems = document.querySelectorAll('.nav-item');
+    const pages = document.querySelectorAll('.page');
+
+    // Toggle sidebar
+    toggleBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      // Update arrow direction
+      toggleIcon.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+    });
+
+    // Navigate between pages
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const pageId = item.getAttribute('data-page');
+
+        // Update active nav item
+        navItems.forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+
+        // Show selected page
+        pages.forEach(page => page.classList.remove('active'));
+        document.getElementById(`page-${pageId}`).classList.add('active');
+      });
+    });
+
+    // Keyboard shortcut: Ctrl/Cmd + B to toggle sidebar
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        sidebar.classList.toggle('collapsed');
+      }
+    });
+  </script>
+</body>
+</html>

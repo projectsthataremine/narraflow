@@ -6,27 +6,32 @@
 import { parentPort } from 'worker_threads';
 import type { TranscribeRequest, TranscribeResponse } from '../types/ipc-contracts';
 import { transcribe } from './pipeline';
-import { getWhisperInstance } from './whisper';
 
 if (!parentPort) {
   throw new Error('This file must be run as a Worker thread');
 }
 
-// Initialize models on worker startup
-async function initializeModels() {
+// Get Groq API key from environment
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+// Initialize worker
+async function initializeWorker() {
   try {
-    console.log('[Worker] Initializing Whisper model...');
-    const whisper = getWhisperInstance();
-    await whisper.initialize();
-    console.log('[Worker] Whisper model ready');
+    console.log('[Worker] Initializing Groq transcription worker...');
+
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY environment variable is not set');
+    }
+
+    console.log('[Worker] Groq API key found, worker ready');
 
     // Signal that worker is ready
     parentPort!.postMessage({ type: 'WorkerReady' });
   } catch (error) {
-    console.error('[Worker] Failed to initialize models:', error);
+    console.error('[Worker] Failed to initialize worker:', error);
     parentPort!.postMessage({
       type: 'TranscribeError',
-      error: 'Failed to initialize models',
+      error: error instanceof Error ? error.message : 'Failed to initialize worker',
     });
   }
 }
@@ -40,8 +45,16 @@ parentPort.on('message', async (message: any) => {
       console.log('[Worker] Starting transcription...');
       const startTime = Date.now();
 
-      // Run transcription pipeline
-      const result = await transcribe(message.audio);
+      if (!GROQ_API_KEY) {
+        throw new Error('GROQ_API_KEY is not set');
+      }
+
+      // Run transcription pipeline with Groq
+      const result = await transcribe(message.audio, {
+        groqApiKey: GROQ_API_KEY,
+        enableCleanup: message.enableLlamaFormatting ?? false,
+        trimSilence: message.trimSilence ?? false,
+      });
 
       const processingTime = Date.now() - startTime;
       console.log('[Worker] Transcription completed in', processingTime, 'ms');
@@ -68,34 +81,8 @@ parentPort.on('message', async (message: any) => {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
-  } else if (message.type === 'SetPreset') {
-    try {
-      console.log('[Worker] Setting preset to:', message.preset);
-
-      // Dispose current instance
-      const whisper = getWhisperInstance();
-      whisper.dispose();
-
-      // Note: getWhisperInstance() returns a singleton, so we need to reinitialize
-      // For now, we'll log that the preset change requires a restart
-      // In a full implementation, we'd need to refactor the singleton pattern
-      console.log('[Worker] Note: Preset change requires worker restart to take effect');
-
-      parentPort!.postMessage({
-        type: 'SetPresetResponse',
-        success: true,
-        preset: message.preset,
-      });
-    } catch (error) {
-      console.error('[Worker] Error setting preset:', error);
-      parentPort!.postMessage({
-        type: 'SetPresetResponse',
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
   }
 });
 
-// Initialize models
-initializeModels();
+// Initialize worker
+initializeWorker();

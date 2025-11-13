@@ -18,6 +18,7 @@ interface GeneralSectionProps {
 
 export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotkeyConfig }: GeneralSectionProps) {
   const [showInDock, setShowInDock] = useState(false);
+  const [enableLlamaFormatting, setEnableLlamaFormatting] = useState(false);
   const [selectedMicrophone, setSelectedMicrophone] = useState('default');
   const [availableMicrophones, setAvailableMicrophones] = useState<MediaDeviceInfo[]>([]);
   const [currentVersion, setCurrentVersion] = useState<string>('');
@@ -73,6 +74,22 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
     getDockVisibility();
   }, []);
 
+  // Load Llama formatting setting on mount
+  useEffect(() => {
+    const getLlamaFormatting = async () => {
+      if (window.electron) {
+        try {
+          const enabled = await (window.electron as any).invoke(IPC_CHANNELS.GET_LLAMA_FORMATTING);
+          setEnableLlamaFormatting(enabled);
+        } catch (error) {
+          console.error('[Settings] Failed to get Llama formatting setting:', error);
+        }
+      }
+    };
+
+    getLlamaFormatting();
+  }, []);
+
   // Handle dock visibility changes
   const handleDockVisibilityChange = async (visible: boolean) => {
     console.log('[Settings] handleDockVisibilityChange called with:', visible);
@@ -88,6 +105,21 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
       }
     } else {
       console.error('[Settings] window.electron not available!');
+    }
+  };
+
+  // Handle Llama formatting changes
+  const handleLlamaFormattingChange = async (enabled: boolean) => {
+    console.log('[Settings] handleLlamaFormattingChange called with:', enabled);
+    setEnableLlamaFormatting(enabled);
+    if (window.electron) {
+      try {
+        console.log('[Settings] Invoking SET_LLAMA_FORMATTING...');
+        const result = await (window.electron as any).invoke(IPC_CHANNELS.SET_LLAMA_FORMATTING, { enabled });
+        console.log('[Settings] SET_LLAMA_FORMATTING result:', result);
+      } catch (error) {
+        console.error('[Settings] Failed to set Llama formatting:', error);
+      }
     }
   };
 
@@ -227,6 +259,22 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
             </Select.Content>
           </Select.Root>
         </Box>
+      </Flex>
+
+      {/* Enhanced Formatting (Llama) */}
+      <Flex justify="between" align="center" mb="5">
+        <Box style={{ flex: 1, maxWidth: '70%' }}>
+          <Text size="3" weight="medium" style={{ display: 'block', marginBottom: '4px' }}>
+            Enhanced formatting
+          </Text>
+          <Text size="2" style={{ opacity: 0.6, lineHeight: '1.4' }}>
+            Uses AI to improve grammar, punctuation, and capitalization. May add ~200ms processing time.
+          </Text>
+        </Box>
+        <Switch
+          checked={enableLlamaFormatting}
+          onCheckedChange={handleLlamaFormattingChange}
+        />
       </Flex>
 
       {/* Show app in dock */}

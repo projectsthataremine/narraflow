@@ -1,0 +1,1 @@
+ Much better. Now without the AGC, so I don't know how it could possibly be the audio recording, right? We saved it to a WAV file, 16-bit. I mean, whenever we're recording through the app, it would just be doing the same thing, right? It would just be recording through my mic. Keep the answers shorter.

@@ -3,6 +3,9 @@
  * Initializes app, creates window, sets up IPC and shortcuts
  */
 
+// Load environment variables from .env file
+import 'dotenv/config';
+
 // Suppress ONNX Runtime warnings
 process.env.ORT_LOGGING_LEVEL = 'error';
 

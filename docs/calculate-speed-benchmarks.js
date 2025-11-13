@@ -87,9 +87,9 @@ const REMOTE_SPEEDS = {
 
 // Cloud APIs (no GPU needed, direct speeds)
 const CLOUD_APIS = {
-  'Groq Cloud (Distil)': 262,    // 262x real-time (benchmarked)
   'Groq Cloud (Large v3 Turbo)': 216,  // 216x real-time (benchmarked)
-  'OpenAI API': 10,              // ~10x real-time
+  'Groq Cloud (Large v3)': 180,        // ~180x real-time (estimated, slightly slower than turbo)
+  'OpenAI API': 10,                    // ~10x real-time
 };
 
 // ============================================================================
@@ -185,7 +185,7 @@ for (const [name, speed] of Object.entries(CLOUD_APIS)) {
   const t180 = calculateProcessingTime(180, speed);
 
   const [impl, model] = name.includes('Groq')
-    ? ['<span style="color: #22c55e">**Groq Cloud**</span>', name.includes('Distil') ? 'Distil-Whisper' : 'Large v3 Turbo']
+    ? ['<span style="color: #22c55e">**Groq Cloud**</span>', name.includes('Turbo') ? 'Large v3 Turbo' : 'Large v3']
     : ['**OpenAI API**', 'Large v3'];
 
   const provider = name.includes('Groq') ? 'Groq LPU' : 'OpenAI';

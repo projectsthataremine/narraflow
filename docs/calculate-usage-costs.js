@@ -19,8 +19,8 @@ const USER_SEGMENTS = [
 
 const PROVIDERS = [
   // Groq Cloud (direct pricing per audio hour)
-  { name: 'Groq Distil-Whisper', pricePerHour: 0.02, speedMultiplier: null },
   { name: 'Groq Large v3 Turbo', pricePerHour: 0.04, speedMultiplier: null },
+  { name: 'Groq Large v3', pricePerHour: 0.111, speedMultiplier: null },
 
   // Baseten (serverless GPU pricing)
   { name: 'Baseten T4', pricePerGpuHour: 0.6312, speedMultiplier: 60 },      // small.en @ 60x real-time

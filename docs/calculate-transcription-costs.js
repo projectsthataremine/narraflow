@@ -73,8 +73,8 @@ const SPEED_MULTIPLIERS = {
 // ============================================================================
 
 const CLOUD_APIS = [
-  { implementation: 'Groq Cloud', model: 'Distil-Whisper', provider: 'Groq LPU', costPerHour: 0.02 },
   { implementation: 'Groq Cloud', model: 'Large v3 Turbo', provider: 'Groq LPU', costPerHour: 0.04 },
+  { implementation: 'Groq Cloud', model: 'Large v3', provider: 'Groq LPU', costPerHour: 0.111 },
   { implementation: 'OpenAI API', model: 'Large v3', provider: 'OpenAI', costPerHour: 0.36 },
 ];
 

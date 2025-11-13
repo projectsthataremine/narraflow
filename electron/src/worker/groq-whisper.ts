@@ -1,0 +1,161 @@
+/**
+ * Groq Whisper API integration
+ * Handles audio transcription using Groq's Whisper Large V3 Turbo model
+ */
+
+import Groq from 'groq-sdk';
+import { Buffer } from 'buffer';
+
+export interface GroqWhisperConfig {
+  apiKey: string;
+  model: 'whisper-large-v3-turbo' | 'whisper-large-v3';
+  language?: string;
+  maxRetries: number;
+  retryDelayMs: number;
+}
+
+const defaultConfig: Partial<GroqWhisperConfig> = {
+  model: 'whisper-large-v3-turbo',
+  language: 'en',
+  maxRetries: 3,
+  retryDelayMs: 1000,
+};
+
+/**
+ * Convert Float32Array audio to WAV buffer
+ * Groq API expects WAV format (PCM 16-bit, 16kHz, mono)
+ */
+function float32ToWav(float32Array: Float32Array, sampleRate: number = 16000): Buffer {
+  const buffer = Buffer.alloc(44 + float32Array.length * 2);
+
+  // WAV header
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + float32Array.length * 2, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16); // PCM format
+  buffer.writeUInt16LE(1, 20); // Linear PCM
+  buffer.writeUInt16LE(1, 22); // Mono
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28); // Byte rate
+  buffer.writeUInt16LE(2, 32); // Block align
+  buffer.writeUInt16LE(16, 34); // Bits per sample
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(float32Array.length * 2, 40);
+
+  // Convert float32 [-1, 1] to int16 [-32768, 32767]
+  for (let i = 0; i < float32Array.length; i++) {
+    const sample = Math.max(-1, Math.min(1, float32Array[i]));
+    const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    buffer.writeInt16LE(int16, 44 + i * 2);
+  }
+
+  return buffer;
+}
+
+/**
+ * Retry helper with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`[Groq Whisper] Attempt ${attempt}/${maxAttempts} failed:`, error);
+
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * attempt; // Linear backoff
+        console.log(`[Groq Whisper] Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError!;
+}
+
+export class GroqWhisperTranscriber {
+  private config: GroqWhisperConfig;
+  private client: Groq;
+
+  constructor(config: Partial<GroqWhisperConfig>) {
+    if (!config.apiKey) {
+      throw new Error('[Groq Whisper] API key is required');
+    }
+
+    this.config = { ...defaultConfig, ...config } as GroqWhisperConfig;
+    this.client = new Groq({ apiKey: this.config.apiKey });
+  }
+
+  /**
+   * Transcribe audio to text using Groq Whisper API
+   */
+  async transcribe(audio: Float32Array): Promise<string> {
+    const startTime = Date.now();
+
+    try {
+      console.log(`[Groq Whisper] Starting transcription (${audio.length} samples)`);
+
+      // Convert Float32Array to WAV buffer
+      const wavBuffer = float32ToWav(audio);
+      console.log(`[Groq Whisper] Converted to WAV (${wavBuffer.length} bytes)`);
+
+      // Create File object from buffer (required by Groq API)
+      // Convert Buffer to Uint8Array to satisfy TypeScript's BlobPart type
+      const audioFile = new File([new Uint8Array(wavBuffer)], 'audio.wav', { type: 'audio/wav' });
+
+      // Call Groq API with retry logic
+      const result = await withRetry(
+        async () => {
+          const transcription = await this.client.audio.transcriptions.create({
+            file: audioFile,
+            model: this.config.model,
+            language: this.config.language,
+            response_format: 'text',
+          });
+          return transcription;
+        },
+        this.config.maxRetries,
+        this.config.retryDelayMs
+      );
+
+      const text = typeof result === 'string' ? result : result.text || '';
+      const duration = Date.now() - startTime;
+
+      console.log(`[Groq Whisper] Transcription completed in ${duration}ms`);
+      console.log(`[Groq Whisper] Result: "${text}"`);
+
+      return text.trim();
+    } catch (error) {
+      console.error('[Groq Whisper] Transcription failed after all retries:', error);
+      throw new Error(`Groq Whisper API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Check if the transcriber is ready
+   */
+  isReady(): boolean {
+    return !!this.client;
+  }
+}
+
+// Singleton instance
+let instance: GroqWhisperTranscriber | null = null;
+
+export function getGroqWhisperInstance(apiKey?: string): GroqWhisperTranscriber {
+  if (!instance) {
+    if (!apiKey) {
+      throw new Error('[Groq Whisper] API key required for initialization');
+    }
+    instance = new GroqWhisperTranscriber({ apiKey });
+  }
+  return instance;
+}

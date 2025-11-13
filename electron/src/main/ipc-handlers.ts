@@ -153,7 +153,13 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   const workerPath = path.join(__dirname, '../../worker/worker/worker.js');
   console.log('[Main] Initializing worker at:', workerPath);
 
-  transcriptionWorker = new Worker(workerPath);
+  // Pass environment variables to worker
+  transcriptionWorker = new Worker(workerPath, {
+    env: {
+      ...process.env,
+      GROQ_API_KEY: process.env.GROQ_API_KEY
+    }
+  });
 
   transcriptionWorker.on('message', (message) => {
     // Disabled audio pipeline logging for now
@@ -241,9 +247,12 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     // Send directly to worker for transcription
     if (transcriptionWorker) {
       console.log('[Main] Sending audio to worker for transcription');
+      const enableLlamaFormatting = settingsManager?.getEnableLlamaFormatting() ?? false;
+      console.log('[Main] Llama formatting enabled:', enableLlamaFormatting);
       transcriptionWorker.postMessage({
         type: 'Transcribe',
         audio: audioBuffer,
+        enableLlamaFormatting,
       });
     } else {
       console.error('[Main] No transcription worker available');
@@ -275,13 +284,8 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       // Update UI to processing
       sendUIStateUpdate(mainWindow, { mode: 'processing' });
 
-      // Send audio to worker for transcription
-      if (transcriptionWorker) {
-        transcriptionWorker.postMessage({
-          type: 'Transcribe',
-          audio: session.audioBuffer,
-        });
-      }
+      // Note: Audio transcription is handled via AUDIO_DATA IPC channel
+      // The renderer will send the complete audio buffer after this
 
       return response;
     } catch (error) {
@@ -478,6 +482,23 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       return true; // Default to visible
     }
     return false;
+  });
+
+  // Handle Llama Formatting Setting
+  ipcMain.handle(IPC_CHANNELS.SET_LLAMA_FORMATTING, async (event, data: { enabled: boolean }) => {
+    console.log('[Main] SET_LLAMA_FORMATTING called with enabled:', data.enabled);
+    if (settingsManager) {
+      settingsManager.setEnableLlamaFormatting(data.enabled);
+      return true;
+    }
+    return false;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.GET_LLAMA_FORMATTING, async () => {
+    if (settingsManager) {
+      return settingsManager.getEnableLlamaFormatting();
+    }
+    return false; // Default to disabled
   });
 
   // Handle Reset App
@@ -900,13 +921,8 @@ export async function stopRecordingDirect(): Promise<boolean> {
   // Update UI to processing
   sendUIStateUpdate(currentMainWindow, { mode: 'processing' });
 
-  // Send audio to worker for transcription
-  if (transcriptionWorker) {
-    transcriptionWorker.postMessage({
-      type: 'Transcribe',
-      audio: session.audioBuffer,
-    });
-  }
+  // Note: Audio transcription is handled via AUDIO_DATA IPC channel
+  // The renderer will send the complete audio buffer after this
 
   return true;
 }

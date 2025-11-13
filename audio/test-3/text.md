@@ -1,0 +1,1 @@
+ okay that was actually perfect what was the agc key if i'm not mistaking i think it was one two three

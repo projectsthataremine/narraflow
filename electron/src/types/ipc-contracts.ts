@@ -90,6 +90,8 @@ export interface AudioDataEvent {
 export interface TranscribeRequest {
   type: 'Transcribe';
   audio: Float32Array;
+  enableLlamaFormatting?: boolean;
+  trimSilence?: boolean;
 }
 
 export interface TranscribeResponse {
@@ -163,6 +165,8 @@ export const IPC_CHANNELS = {
   REWRITE_TEXT: 'worker:rewrite-text',
   SET_DOCK_VISIBILITY: 'ipc:set-dock-visibility',
   GET_DOCK_VISIBILITY: 'ipc:get-dock-visibility',
+  SET_LLAMA_FORMATTING: 'ipc:set-llama-formatting',
+  GET_LLAMA_FORMATTING: 'ipc:get-llama-formatting',
   RESET_APP: 'ipc:reset-app',
   // Auth & Subscription
   AUTH_SIGNIN_GOOGLE: 'ipc:auth-signin-google',

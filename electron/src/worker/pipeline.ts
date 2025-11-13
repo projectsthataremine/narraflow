@@ -1,23 +1,24 @@
 /**
  * Transcription pipeline orchestrator
- * Coordinates: Audio input → VAD → Transcribe → Cleanup → Result
+ * Coordinates: Audio input → VAD → Groq Whisper → Optional Groq Llama → Result
  */
 
 import type { TranscriptionResult } from '../types/ipc-contracts';
 import { VAD } from './vad';
-import { getWhisperInstance } from './whisper';
-import { cleanupText } from '../rewrite/llama';
+import { getGroqWhisperInstance } from './groq-whisper';
+import { getGroqLlamaInstance } from './groq-llama';
 
 export interface PipelineConfig {
   trimSilence: boolean;
   enableCleanup: boolean;
   cleanupTimeoutMs: number;
+  groqApiKey: string;
 }
 
-const defaultConfig: PipelineConfig = {
+const defaultConfig: Partial<PipelineConfig> = {
   trimSilence: false, // TEMPORARILY DISABLED - VAD model has input mismatch
-  enableCleanup: true,
-  cleanupTimeoutMs: 300,
+  enableCleanup: false, // Default OFF - user can enable in settings
+  cleanupTimeoutMs: 5000, // Increased for API calls
 };
 
 // Singleton VAD instance
@@ -39,8 +40,12 @@ export async function transcribe(
   audio: Float32Array,
   config: Partial<PipelineConfig> = {}
 ): Promise<TranscriptionResult> {
-  const cfg = { ...defaultConfig, ...config };
+  const cfg = { ...defaultConfig, ...config } as PipelineConfig;
   const startTime = Date.now();
+
+  if (!cfg.groqApiKey) {
+    throw new Error('[Pipeline] Groq API key is required');
+  }
 
   // Stage 1: VAD - extract speech segments
   let processedAudio = audio;
@@ -79,31 +84,33 @@ export async function transcribe(
     }
   }
 
-  // Stage 2: Transcribe with Whisper
-  const whisper = getWhisperInstance();
-  const rawTranscription = await whisper.transcribe(processedAudio);
+  // Stage 2: Transcribe with Groq Whisper
+  const groqWhisper = getGroqWhisperInstance(cfg.groqApiKey);
+  const rawTranscription = await groqWhisper.transcribe(processedAudio);
 
-  // Stage 3: Cleanup text (optional)
+  // Stage 3: Optional Llama formatting
   let cleaned: string | undefined;
   let fallbackUsed = false;
 
   if (cfg.enableCleanup && rawTranscription.trim().length > 0) {
     try {
-      const cleanupResult = await Promise.race([
-        cleanupText(rawTranscription),
+      const groqLlama = getGroqLlamaInstance(cfg.groqApiKey);
+      const formattedText = await Promise.race([
+        groqLlama.format(rawTranscription),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), cfg.cleanupTimeoutMs)),
       ]);
 
-      if (cleanupResult) {
-        cleaned = cleanupResult.cleaned;
-        fallbackUsed = cleanupResult.usedFallback;
+      if (formattedText) {
+        cleaned = formattedText;
+        fallbackUsed = false;
       } else {
-        // Timeout occurred
+        // Timeout occurred - use raw transcription
+        console.warn('[Pipeline] Llama formatting timed out');
         fallbackUsed = true;
       }
     } catch (error) {
-      // Cleanup failed, use fallback
-      console.warn('Text cleanup failed:', error);
+      // Cleanup failed - use raw transcription
+      console.warn('[Pipeline] Llama formatting failed:', error);
       fallbackUsed = true;
     }
   } else {
