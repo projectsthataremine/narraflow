@@ -8,7 +8,6 @@ import { supabase } from './supabase-client';
 import { getMachineInfo } from './machine-info';
 import { machineIdSync } from 'node-machine-id';
 import { SUPABASE_URL } from './constants';
-import * as http from 'http';
 import { getAccessManager } from './access-manager';
 import { broadcastAccessStatusChanged } from './ipc-handlers';
 
@@ -129,51 +128,62 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
     }
   });
 
-  // Start OAuth flow - using system browser
+  // Start OAuth flow - using system browser with marketing site redirect
   ipcMain.handle('START_OAUTH', async (event, { provider }) => {
     try {
       console.log('[Auth] Starting OAuth flow for provider:', provider);
 
-      // Create a local server to handle the callback
+      // Determine redirect URL based on environment
+      const isDev = process.env.APP_ENV === 'dev';
+      const redirectUrl = isDev
+        ? 'http://localhost:3000/auth-success'
+        : 'https://trynarraflow.com/auth-success';
+
+      console.log('[Auth] Using redirect URL:', redirectUrl);
+
+      // Get OAuth URL from Supabase with marketing site redirect
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: provider as any,
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        console.error('[Auth] Failed to get OAuth URL:', error);
+        throw error;
+      }
+
+      if (!data.url) {
+        throw new Error('No OAuth URL returned');
+      }
+
+      // Open the URL in the system's default browser
+      console.log('[Auth] Opening browser for OAuth...');
+      await shell.openExternal(data.url);
+
+      // Poll for session in the background
       return new Promise((resolve, reject) => {
-        const server = http.createServer(async (req, res) => {
-          if (!req.url) return;
+        let pollCount = 0;
+        const maxPolls = 100; // 5 minutes (100 * 3 seconds)
 
-          console.log('[Auth] Callback received:', req.url);
+        const pollInterval = setInterval(async () => {
+          pollCount++;
 
-          // Check if this is a callback with tokens in query params (from our HTML redirect)
-          if (req.url.startsWith('/?access_token=')) {
-            try {
-              const fullUrl = `http://localhost:54321${req.url}`;
-              const urlObj = new URL(fullUrl);
+          try {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-              const accessToken = urlObj.searchParams.get('access_token');
-              const refreshToken = urlObj.searchParams.get('refresh_token');
+            if (session?.user) {
+              clearInterval(pollInterval);
+              currentSession = session;
+              console.log('[Auth] OAuth successful, user:', session.user.email);
 
-              if (!accessToken) {
-                throw new Error('No access token in redirect');
-              }
-
-              // Set session with tokens
-              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken || '',
-              });
-
-              if (sessionError) {
-                console.error('[Auth] Failed to set session:', sessionError);
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end('<html><body><h1>Authentication failed</h1><p>You can close this window.</p></body></html>');
-                server.close();
-                reject(sessionError);
-                return;
-              }
-
-              currentSession = sessionData.session;
-              console.log('[Auth] OAuth successful, user:', sessionData.user?.email);
+              // Update access manager with current user ID
+              getAccessManager().setUserId(session.user.id);
 
               // Check if user has a trial - if not, create one
-              await ensureUserHasTrial(sessionData.user?.id);
+              await ensureUserHasTrial(session.user.id);
 
               // Notify settings window to refresh auth state
               if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
@@ -181,88 +191,15 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
                 settingsWindowRef.webContents.send('AUTH_STATE_CHANGED');
               }
 
-              // Send success page
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end('<html><body><h1>Sign in successful!</h1><p>You can close this window and return to NarraFlow.</p></body></html>');
-
-              server.close();
-              resolve({ success: true, user: sessionData.user });
-            } catch (error) {
-              console.error('[Auth] Callback error:', error);
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end('<html><body><h1>Authentication error</h1><p>You can close this window.</p></body></html>');
-              server.close();
-              reject(error);
+              resolve({ success: true, user: session.user });
+            } else if (pollCount >= maxPolls) {
+              clearInterval(pollInterval);
+              reject(new Error('OAuth timeout - no session detected after 5 minutes'));
             }
-          } else {
-            // Initial callback with tokens in URL fragment - serve HTML to extract them
-            console.log('[Auth] Serving token extraction page for:', req.url);
-            res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end(`
-              <html>
-              <head>
-                <title>Completing sign in...</title>
-              </head>
-              <body>
-                <h1>Completing sign in...</h1>
-                <p>Please wait while we log you in...</p>
-                <script>
-                  // Extract tokens from URL fragment
-                  const hash = window.location.hash.substring(1);
-                  const params = new URLSearchParams(hash);
-                  const accessToken = params.get('access_token');
-                  const refreshToken = params.get('refresh_token');
-
-                  if (accessToken) {
-                    // Redirect to server with tokens in query params
-                    window.location.href = '/?access_token=' + encodeURIComponent(accessToken) +
-                      (refreshToken ? '&refresh_token=' + encodeURIComponent(refreshToken) : '');
-                  } else {
-                    document.body.innerHTML = '<h1>Authentication failed</h1><p>No tokens found in callback. Please close this window and try again.</p>';
-                  }
-                </script>
-              </body>
-              </html>
-            `);
+          } catch (error) {
+            console.error('[Auth] Error polling for session:', error);
           }
-        });
-
-        // Start the server on a random available port
-        server.listen(54321, async () => {
-          console.log('[Auth] Callback server listening on http://localhost:54321');
-
-          // Get OAuth URL from Supabase with our callback URL
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: provider as any,
-            options: {
-              redirectTo: 'http://localhost:54321',
-              skipBrowserRedirect: true,
-            },
-          });
-
-          if (error) {
-            console.error('[Auth] Failed to get OAuth URL:', error);
-            server.close();
-            reject(error);
-            return;
-          }
-
-          if (!data.url) {
-            server.close();
-            reject(new Error('No OAuth URL returned'));
-            return;
-          }
-
-          // Open the URL in the system's default browser
-          console.log('[Auth] Opening browser for OAuth...');
-          await shell.openExternal(data.url);
-        });
-
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          server.close();
-          reject(new Error('OAuth timeout - no callback received'));
-        }, 5 * 60 * 1000);
+        }, 3000); // Poll every 3 seconds
       });
     } catch (error) {
       console.error('[Auth] START_OAUTH error:', error);

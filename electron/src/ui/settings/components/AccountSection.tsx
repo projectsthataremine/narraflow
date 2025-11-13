@@ -587,7 +587,7 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
 
         {/* Sign In Buttons */}
         <Flex direction="column" gap="3" mb="6">
-          {/* Google Sign In */}
+          {/* Google Sign In - Primary branded button */}
           <Button
             size="3"
             onClick={onSignIn}
@@ -595,26 +595,29 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
             onMouseLeave={() => setGoogleHover(false)}
             style={{
               width: '100%',
-              background: 'white',
-              color: '#1f1f1f',
-              border: '1px solid var(--gray-a6)',
+              background: googleHover
+                ? 'linear-gradient(135deg, #0080e6 0%, #006bbf 100%)'
+                : 'linear-gradient(135deg, #0090ff 0%, #0070cc 100%)',
+              color: '#ffffff',
+              border: 'none',
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               cursor: 'pointer',
               fontSize: '15px',
-              fontWeight: '500',
+              fontWeight: '600',
               padding: '12px 20px',
               height: '48px',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: googleHover ? '0 4px 12px rgba(0, 0, 0, 0.08)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
-              transform: googleHover ? 'translateY(-1px)' : 'translateY(0)',
-              borderColor: googleHover ? 'var(--gray-a7)' : 'var(--gray-a6)',
+              boxShadow: googleHover
+                ? '0 8px 16px rgba(0, 144, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1)'
+                : '0 4px 12px rgba(0, 144, 255, 0.2)',
+              transform: googleHover ? 'translateY(-2px)' : 'translateY(0)',
             }}
           >
             <GoogleIcon />
             Continue with Google
           </Button>
 
-          {/* Email Sign In */}
+          {/* Email Sign In - Secondary outline button */}
           <Button
             size="3"
             onClick={handleEmailSignIn}
@@ -622,9 +625,9 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
             onMouseLeave={() => setEmailHover(false)}
             style={{
               width: '100%',
-              background: 'white',
-              color: '#1f1f1f',
-              border: '1px solid var(--gray-a6)',
+              background: emailHover ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+              color: emailHover ? '#ffffff' : 'var(--gray-11)',
+              border: '1.5px solid var(--gray-a7)',
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
               cursor: 'pointer',
               fontSize: '15px',
@@ -632,9 +635,7 @@ function NotLoggedInView({ onSignIn }: NotLoggedInViewProps) {
               padding: '12px 20px',
               height: '48px',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: emailHover ? '0 4px 12px rgba(0, 0, 0, 0.08)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
-              transform: emailHover ? 'translateY(-1px)' : 'translateY(0)',
-              borderColor: emailHover ? 'var(--gray-a7)' : 'var(--gray-a6)',
+              borderColor: emailHover ? 'var(--gray-a8)' : 'var(--gray-a7)',
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
