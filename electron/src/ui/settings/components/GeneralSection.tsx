@@ -14,9 +14,11 @@ interface GeneralSectionProps {
   setAiEnabled: (enabled: boolean) => void;
   hotkeyConfig: HotkeyConfig;
   setHotkeyConfig: (config: HotkeyConfig) => void;
+  accessStatus: any;
 }
 
-export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotkeyConfig }: GeneralSectionProps) {
+export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotkeyConfig, accessStatus }: GeneralSectionProps) {
+  const hasAccess = accessStatus?.hasValidAccess ?? true;
   const [showInDock, setShowInDock] = useState(false);
   const [enableLlamaFormatting, setEnableLlamaFormatting] = useState(false);
   const [selectedMicrophone, setSelectedMicrophone] = useState('default');
@@ -191,12 +193,13 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
     <div>
       {/* Keyboard Shortcuts */}
       <Flex justify="between" align="center" mb="5">
-        <Text size="3" weight="medium">
+        <Text size="3" weight="medium" style={{ opacity: hasAccess ? 1 : 0.4 }}>
           Keyboard shortcuts
         </Text>
-        <Box style={{ width: '200px' }}>
+        <Box style={{ width: '200px', opacity: hasAccess ? 1 : 0.4, pointerEvents: hasAccess ? 'auto' : 'none' }}>
           <Select.Root
             value={currentHotkeyLabel}
+            disabled={!hasAccess}
             onValueChange={(value) => {
               const option = HOTKEY_OPTIONS.find(opt => opt.label === value);
               if (option) {
@@ -232,12 +235,13 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
 
       {/* Microphone */}
       <Flex justify="between" align="center" mb="5">
-        <Text size="3" weight="medium">
+        <Text size="3" weight="medium" style={{ opacity: hasAccess ? 1 : 0.4 }}>
           Microphone
         </Text>
-        <Box style={{ width: '200px' }}>
+        <Box style={{ width: '200px', opacity: hasAccess ? 1 : 0.4, pointerEvents: hasAccess ? 'auto' : 'none' }}>
           <Select.Root
             value={selectedMicrophone}
+            disabled={!hasAccess}
             onValueChange={(value) => {
               setSelectedMicrophone(value);
               // TODO: Save to settings and update audio capture
@@ -261,8 +265,8 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
         </Box>
       </Flex>
 
-      {/* Enhanced Formatting (Llama) */}
-      <Flex justify="between" align="center" mb="5">
+      {/* Enhanced Formatting (Llama) - TEMPORARILY DISABLED - Coming Soon */}
+      {/* <Flex justify="between" align="center" mb="5" style={{ opacity: hasAccess ? 1 : 0.4 }}>
         <Box style={{ flex: 1, maxWidth: '70%' }}>
           <Text size="3" weight="medium" style={{ display: 'block', marginBottom: '4px' }}>
             Enhanced formatting
@@ -274,8 +278,9 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
         <Switch
           checked={enableLlamaFormatting}
           onCheckedChange={handleLlamaFormattingChange}
+          disabled={!hasAccess}
         />
-      </Flex>
+      </Flex> */}
 
       {/* Show app in dock */}
       <Flex justify="between" align="center" mb="5">
