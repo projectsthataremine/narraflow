@@ -233,7 +233,7 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Handle complete audio data from renderer (sent when recording stops)
-  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (event, data: { audio: number[] }) => {
+  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, async (event, data: { audio: number[] }) => {
     console.log(`[Main] Received ${data.audio.length} audio samples for transcription`);
 
     // Update UI to processing
@@ -241,10 +241,22 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       sendUIStateUpdate(currentMainWindow, { mode: 'processing' });
     }
 
+    // Get auth session for edge function authentication
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      console.error('[Main] Not authenticated - cannot transcribe');
+      if (currentMainWindow) {
+        sendErrorNotification(currentMainWindow, 'Please sign in to use transcription');
+        sendUIStateUpdate(currentMainWindow, { mode: 'hidden' });
+      }
+      return;
+    }
+
     // Convert from array to Float32Array
     const audioBuffer = new Float32Array(data.audio);
 
-    // Send directly to worker for transcription
+    // Send directly to worker for transcription with auth token
     if (transcriptionWorker) {
       console.log('[Main] Sending audio to worker for transcription');
       const enableLlamaFormatting = settingsManager?.getEnableLlamaFormatting() ?? false;
@@ -253,6 +265,7 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
         type: 'Transcribe',
         audio: audioBuffer,
         enableLlamaFormatting,
+        accessToken: session.access_token, // Pass auth token to worker
       });
     } else {
       console.error('[Main] No transcription worker available');

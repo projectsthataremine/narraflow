@@ -12,7 +12,8 @@ export interface PipelineConfig {
   trimSilence: boolean;
   enableCleanup: boolean;
   cleanupTimeoutMs: number;
-  groqApiKey: string;
+  supabaseUrl: string;
+  accessToken: string;
 }
 
 const defaultConfig: Partial<PipelineConfig> = {
@@ -43,8 +44,8 @@ export async function transcribe(
   const cfg = { ...defaultConfig, ...config } as PipelineConfig;
   const startTime = Date.now();
 
-  if (!cfg.groqApiKey) {
-    throw new Error('[Pipeline] Groq API key is required');
+  if (!cfg.supabaseUrl || !cfg.accessToken) {
+    throw new Error('[Pipeline] Supabase URL and access token are required');
   }
 
   // Stage 1: VAD - extract speech segments
@@ -84,9 +85,9 @@ export async function transcribe(
     }
   }
 
-  // Stage 2: Transcribe with Groq Whisper
-  const groqWhisper = getGroqWhisperInstance(cfg.groqApiKey);
-  const rawTranscription = await groqWhisper.transcribe(processedAudio);
+  // Stage 2: Transcribe with Groq Whisper via edge function
+  const groqWhisper = getGroqWhisperInstance(cfg.supabaseUrl);
+  const rawTranscription = await groqWhisper.transcribe(processedAudio, cfg.accessToken);
 
   // Stage 3: Optional Llama formatting
   let cleaned: string | undefined;
@@ -94,7 +95,7 @@ export async function transcribe(
 
   if (cfg.enableCleanup && rawTranscription.trim().length > 0) {
     try {
-      const groqLlama = getGroqLlamaInstance(cfg.groqApiKey);
+      const groqLlama = getGroqLlamaInstance(cfg.supabaseUrl, cfg.supabaseAnonKey);
       const formattedText = await Promise.race([
         groqLlama.format(rawTranscription),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), cfg.cleanupTimeoutMs)),

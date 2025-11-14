@@ -11,19 +11,19 @@ if (!parentPort) {
   throw new Error('This file must be run as a Worker thread');
 }
 
-// Get Groq API key from environment
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+// Get Supabase URL from environment
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://buqkvxtxjwyohzsogfbz.supabase.co';
 
 // Initialize worker
 async function initializeWorker() {
   try {
-    console.log('[Worker] Initializing Groq transcription worker...');
+    console.log('[Worker] Initializing Groq transcription worker via edge function...');
 
-    if (!GROQ_API_KEY) {
-      throw new Error('GROQ_API_KEY environment variable is not set');
+    if (!SUPABASE_URL) {
+      throw new Error('Supabase URL not configured');
     }
 
-    console.log('[Worker] Groq API key found, worker ready');
+    console.log('[Worker] Supabase configured, worker ready');
 
     // Signal that worker is ready
     parentPort!.postMessage({ type: 'WorkerReady' });
@@ -45,13 +45,18 @@ parentPort.on('message', async (message: any) => {
       console.log('[Worker] Starting transcription...');
       const startTime = Date.now();
 
-      if (!GROQ_API_KEY) {
-        throw new Error('GROQ_API_KEY is not set');
+      if (!SUPABASE_URL) {
+        throw new Error('Supabase URL not configured');
       }
 
-      // Run transcription pipeline with Groq
+      if (!message.accessToken) {
+        throw new Error('Access token required for transcription');
+      }
+
+      // Run transcription pipeline via edge function
       const result = await transcribe(message.audio, {
-        groqApiKey: GROQ_API_KEY,
+        supabaseUrl: SUPABASE_URL,
+        accessToken: message.accessToken,
         enableCleanup: message.enableLlamaFormatting ?? false,
         trimSilence: message.trimSilence ?? false,
       });

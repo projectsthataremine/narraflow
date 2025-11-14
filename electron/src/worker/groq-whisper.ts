@@ -1,13 +1,13 @@
 /**
- * Groq Whisper API integration
+ * Groq Whisper API integration via Supabase Edge Function
  * Handles audio transcription using Groq's Whisper Large V3 Turbo model
+ * API key is securely stored in edge function, not exposed to client
  */
 
-import Groq from 'groq-sdk';
 import { Buffer } from 'buffer';
 
 export interface GroqWhisperConfig {
-  apiKey: string;
+  supabaseUrl: string;
   model: 'whisper-large-v3-turbo' | 'whisper-large-v3';
   language?: string;
   maxRetries: number;
@@ -23,7 +23,7 @@ const defaultConfig: Partial<GroqWhisperConfig> = {
 
 /**
  * Convert Float32Array audio to WAV buffer
- * Groq API expects WAV format (PCM 16-bit, 16kHz, mono)
+ * Edge function expects WAV format (PCM 16-bit, 16kHz, mono)
  */
 function float32ToWav(float32Array: Float32Array, sampleRate: number = 16000): Buffer {
   const buffer = Buffer.alloc(44 + float32Array.length * 2);
@@ -83,44 +83,68 @@ async function withRetry<T>(
 
 export class GroqWhisperTranscriber {
   private config: GroqWhisperConfig;
-  private client: Groq;
 
   constructor(config: Partial<GroqWhisperConfig>) {
-    if (!config.apiKey) {
-      throw new Error('[Groq Whisper] API key is required');
+    if (!config.supabaseUrl) {
+      throw new Error('[Groq Whisper] Supabase URL is required');
     }
 
     this.config = { ...defaultConfig, ...config } as GroqWhisperConfig;
-    this.client = new Groq({ apiKey: this.config.apiKey });
   }
 
   /**
-   * Transcribe audio to text using Groq Whisper API
+   * Transcribe audio to text using Groq Whisper API via Edge Function
    */
-  async transcribe(audio: Float32Array): Promise<string> {
+  async transcribe(audio: Float32Array, accessToken: string): Promise<string> {
     const startTime = Date.now();
 
     try {
       console.log(`[Groq Whisper] Starting transcription (${audio.length} samples)`);
 
+      if (!accessToken) {
+        throw new Error('Access token required for transcription');
+      }
+
       // Convert Float32Array to WAV buffer
       const wavBuffer = float32ToWav(audio);
       console.log(`[Groq Whisper] Converted to WAV (${wavBuffer.length} bytes)`);
 
-      // Create File object from buffer (required by Groq API)
-      // Convert Buffer to Uint8Array to satisfy TypeScript's BlobPart type
-      const audioFile = new File([new Uint8Array(wavBuffer)], 'audio.wav', { type: 'audio/wav' });
 
-      // Call Groq API with retry logic
+      // Create FormData with the audio file
+      const formData = new FormData();
+      const audioFile = new File([new Uint8Array(wavBuffer)], 'audio.wav', { type: 'audio/wav' });
+      formData.append('file', audioFile);
+      formData.append('model', this.config.model);
+      formData.append('response_format', 'text');
+
+      if (this.config.language) {
+        formData.append('language', this.config.language);
+      }
+
+      // Determine edge function URL based on environment
+      const isDev = process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'dev';
+      const functionName = isDev ? 'transcribe-dev' : 'transcribe';
+      const edgeFunctionUrl = `${this.config.supabaseUrl}/functions/v1/${functionName}`;
+
+      console.log(`[Groq Whisper] Calling edge function: ${functionName}`);
+
+      // Call edge function with retry logic
       const result = await withRetry(
         async () => {
-          const transcription = await this.client.audio.transcriptions.create({
-            file: audioFile,
-            model: this.config.model,
-            language: this.config.language,
-            response_format: 'text',
+          const response = await fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: formData,
           });
-          return transcription;
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Edge function error (${response.status}): ${errorText}`);
+          }
+
+          return await response.json();
         },
         this.config.maxRetries,
         this.config.retryDelayMs
@@ -143,19 +167,19 @@ export class GroqWhisperTranscriber {
    * Check if the transcriber is ready
    */
   isReady(): boolean {
-    return !!this.client;
+    return !!this.config;
   }
 }
 
 // Singleton instance
 let instance: GroqWhisperTranscriber | null = null;
 
-export function getGroqWhisperInstance(apiKey?: string): GroqWhisperTranscriber {
+export function getGroqWhisperInstance(supabaseUrl?: string): GroqWhisperTranscriber {
   if (!instance) {
-    if (!apiKey) {
-      throw new Error('[Groq Whisper] API key required for initialization');
+    if (!supabaseUrl) {
+      throw new Error('[Groq Whisper] Supabase URL required for initialization');
     }
-    instance = new GroqWhisperTranscriber({ apiKey });
+    instance = new GroqWhisperTranscriber({ supabaseUrl });
   }
   return instance;
 }
