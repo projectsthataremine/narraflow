@@ -28,15 +28,42 @@ const PRICING_CONFIG = {
         audioSecondsPerHour: 200000,
       }
     },
-    llama: {
+    // Llama Models for Text Formatting
+    llama8b: {
       name: 'Llama 3.1 8B Instant',
       model: 'llama-3.1-8b-instant',
-      pricePerMInputTokens: 0.05,
-      pricePerMOutputTokens: 0.08,
+      pricePerMInputTokens: 0.05,  // $0.05 per 1M input tokens
+      pricePerMOutputTokens: 0.08, // $0.08 per 1M output tokens
+      tokensPerSecond: 840,
       rateLimits: {
         rpm: 30,
         rpd: 1000,
         tokensPerMinute: 6000,
+      }
+    },
+    llama70b: {
+      name: 'Llama 3.3 70B Versatile',
+      model: 'llama-3.3-70b-versatile',
+      pricePerMInputTokens: 0.59,  // $0.59 per 1M input tokens
+      pricePerMOutputTokens: 0.79, // $0.79 per 1M output tokens
+      tokensPerSecond: 394,
+      rateLimits: {
+        rpm: 30,
+        rpd: 14400,
+        tokensPerMinute: 6000,
+      }
+    },
+    // GPT Models (for comparison)
+    gpt4oMini: {
+      name: 'GPT-4o-mini',
+      model: 'gpt-4o-mini',
+      pricePerMInputTokens: 0.15,  // $0.15 per 1M input tokens
+      pricePerMOutputTokens: 0.60, // $0.60 per 1M output tokens
+      tokensPerSecond: 200, // estimated
+      rateLimits: {
+        rpm: 500,
+        rpd: 10000,
+        tokensPerMinute: 200000,
       }
     }
   },

@@ -12,6 +12,7 @@ import { IPC_CHANNELS } from '../../../types/ipc-contracts';
 interface HistorySectionProps {
   history: HistoryItem[];
   setHistory: (history: HistoryItem[]) => void;
+  accessStatus: any;
 }
 
 // Toast Notification Component
@@ -58,7 +59,8 @@ function Toast({ message, visible }: ToastProps) {
   );
 }
 
-export function HistorySection({ history, setHistory }: HistorySectionProps) {
+export function HistorySection({ history, setHistory, accessStatus }: HistorySectionProps) {
+  const hasAccess = accessStatus?.hasValidAccess ?? true;
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({ visible: false, message: '' });
 
@@ -168,7 +170,7 @@ export function HistorySection({ history, setHistory }: HistorySectionProps) {
   return (
     <>
       <Toast message={toast.message} visible={toast.visible} />
-      <div>
+      <div style={{ opacity: hasAccess ? 1 : 0.4, pointerEvents: hasAccess ? 'auto' : 'none' }}>
       {history.length === 0 ? (
         <Box style={{
           padding: '64px 32px',

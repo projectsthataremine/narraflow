@@ -117,7 +117,7 @@ export class SettingsManager {
       }
 
       fs.writeFileSync(this.settingsPath, JSON.stringify(this.settings, null, 2), 'utf-8');
-      console.log('[SettingsManager] Settings saved to:', this.settingsPath);
+      // console.log('[SettingsManager] Settings saved to:', this.settingsPath);
     } catch (error) {
       console.error('[SettingsManager] Error saving settings:', error);
     }

@@ -1,9 +1,10 @@
 /**
  * Groq Llama API integration
  * Handles text cleanup and formatting using Groq's Llama 3.1 8B model
+ * NOTE: Currently disabled - using edge functions instead
  */
 
-import Groq from 'groq-sdk';
+// import Groq from 'groq-sdk';
 import { CLEANUP_SYSTEM_PROMPT } from '../rewrite/prompts';
 
 export interface GroqLlamaConfig {
@@ -53,7 +54,7 @@ async function withRetry<T>(
 
 export class GroqLlamaFormatter {
   private config: GroqLlamaConfig;
-  private client: Groq;
+  // private client: Groq; // Commented out - not using direct SDK anymore
 
   constructor(config: Partial<GroqLlamaConfig>) {
     if (!config.apiKey) {
@@ -61,7 +62,7 @@ export class GroqLlamaFormatter {
     }
 
     this.config = { ...defaultConfig, ...config } as GroqLlamaConfig;
-    this.client = new Groq({ apiKey: this.config.apiKey });
+    // this.client = new Groq({ apiKey: this.config.apiKey }); // Commented out - not using direct SDK anymore
   }
 
   /**
@@ -77,30 +78,33 @@ export class GroqLlamaFormatter {
     try {
       console.log(`[Groq Llama] Starting text formatting (${text.length} chars)`);
 
-      // Call Groq Llama API with retry logic
-      const result = await withRetry(
-        async () => {
-          const completion = await this.client.chat.completions.create({
-            model: this.config.model,
-            messages: [
-              {
-                role: 'system',
-                content: CLEANUP_SYSTEM_PROMPT,
-              },
-              {
-                role: 'user',
-                content: text,
-              },
-            ],
-            max_tokens: this.config.maxTokens,
-            temperature: this.config.temperature,
-          });
+      // TODO: Call Groq Llama API via edge function instead of direct SDK
+      // For now, just return the original text
+      const result = text;
 
-          return completion.choices[0]?.message?.content || '';
-        },
-        this.config.maxRetries,
-        this.config.retryDelayMs
-      );
+      // OLD CODE (commented out - not using direct SDK anymore):
+      // const result = await withRetry(
+      //   async () => {
+      //     const completion = await this.client.chat.completions.create({
+      //       model: this.config.model,
+      //       messages: [
+      //         {
+      //           role: 'system',
+      //           content: CLEANUP_SYSTEM_PROMPT,
+      //         },
+      //         {
+      //           role: 'user',
+      //           content: text,
+      //         },
+      //       ],
+      //       max_tokens: this.config.maxTokens,
+      //       temperature: this.config.temperature,
+      //     });
+      //     return completion.choices[0]?.message?.content || '';
+      //   },
+      //   this.config.maxRetries,
+      //   this.config.retryDelayMs
+      // );
 
       const duration = Date.now() - startTime;
       console.log(`[Groq Llama] Formatting completed in ${duration}ms`);
@@ -161,7 +165,7 @@ export class GroqLlamaFormatter {
    * Check if the formatter is ready
    */
   isReady(): boolean {
-    return !!this.client;
+    return !!this.config; // Changed from this.client since we're not using the SDK
   }
 }
 

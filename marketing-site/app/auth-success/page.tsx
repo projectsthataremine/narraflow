@@ -26,6 +26,19 @@ export default function AuthSuccessPage() {
 
         setEmail(session.user.email);
         setLoading(false);
+
+        // Automatically send session to Electron app via deep link after 1.5 seconds
+        // This allows the user to see the success message briefly before redirecting
+        setTimeout(() => {
+          const accessToken = session.access_token;
+          const refreshToken = session.refresh_token;
+
+          // Construct deep link with tokens as URL hash (like Supabase does)
+          const deepLink = `narraflow://auth-callback#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=recovery`;
+
+          console.log('Sending session to Electron app...');
+          window.location.href = deepLink;
+        }, 1500);
       } catch (err) {
         console.error('Error loading session:', err);
         setError(true);

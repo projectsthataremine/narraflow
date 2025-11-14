@@ -143,11 +143,49 @@ export class AccessManager {
   }
 
   /**
+   * Check trial status based on user's account creation date
+   */
+  private async checkTrialStatusFromCreatedDate(): Promise<{ expired: boolean; daysRemaining: number }> {
+    if (!this.currentUserId) {
+      console.log('[AccessManager] No user ID, cannot check trial');
+      return { expired: true, daysRemaining: 0 };
+    }
+
+    try {
+      // Get user's created_at from auth.users
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        console.error('[AccessManager] Error getting user:', error);
+        return { expired: true, daysRemaining: 0 };
+      }
+
+      const createdAt = new Date(user.created_at);
+      const now = new Date();
+      const daysSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      const daysRemaining = Math.max(0, Math.ceil(TRIAL_DURATION_DAYS - daysSinceCreation));
+
+      console.log('[AccessManager] User created:', createdAt.toISOString());
+      console.log('[AccessManager] Days since creation:', daysSinceCreation.toFixed(2));
+      console.log('[AccessManager] Days remaining:', daysRemaining);
+
+      return {
+        expired: daysSinceCreation >= TRIAL_DURATION_DAYS,
+        daysRemaining,
+      };
+    } catch (error) {
+      console.error('[AccessManager] Error checking trial:', error);
+      return { expired: true, daysRemaining: 0 };
+    }
+  }
+
+  /**
    * Get the current access status for the user
    * Returns whether they can use the app (trial or license)
    */
   async getAccessStatus(): Promise<AccessStatus> {
-    const trial = this.checkTrialStatus();
+    // Check trial status based on user's created_at date
+    const trial = await this.checkTrialStatusFromCreatedDate();
     const hasLicense = await this.checkLicenseStatus();
 
     // User has access if:

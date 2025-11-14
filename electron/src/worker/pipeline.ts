@@ -1,12 +1,12 @@
 /**
  * Transcription pipeline orchestrator
- * Coordinates: Audio input → VAD → Groq Whisper → Optional Groq Llama → Result
+ * Coordinates: Audio input → VAD → Groq Whisper (+ optional Llama formatting) → Result
+ * Note: Llama formatting happens server-side in the edge function if enabled
  */
 
 import type { TranscriptionResult } from '../types/ipc-contracts';
 import { VAD } from './vad';
 import { getGroqWhisperInstance } from './groq-whisper';
-import { getGroqLlamaInstance } from './groq-llama';
 
 export interface PipelineConfig {
   trimSilence: boolean;
@@ -85,37 +85,17 @@ export async function transcribe(
     }
   }
 
-  // Stage 2: Transcribe with Groq Whisper via edge function
+  // Stage 2: Transcribe with Groq Whisper via edge function (includes optional Llama formatting)
   const groqWhisper = getGroqWhisperInstance(cfg.supabaseUrl);
-  const rawTranscription = await groqWhisper.transcribe(processedAudio, cfg.accessToken);
+  const rawTranscription = await groqWhisper.transcribe(processedAudio, cfg.accessToken, cfg.enableCleanup);
 
-  // Stage 3: Optional Llama formatting
+  // The edge function handles Llama formatting if enableCleanup is true
+  // So rawTranscription already contains the formatted text if requested
   let cleaned: string | undefined;
-  let fallbackUsed = false;
+  let fallbackUsed = !cfg.enableCleanup; // If cleanup was enabled, formatted text is in rawTranscription
 
   if (cfg.enableCleanup && rawTranscription.trim().length > 0) {
-    try {
-      const groqLlama = getGroqLlamaInstance(cfg.supabaseUrl, cfg.supabaseAnonKey);
-      const formattedText = await Promise.race([
-        groqLlama.format(rawTranscription),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), cfg.cleanupTimeoutMs)),
-      ]);
-
-      if (formattedText) {
-        cleaned = formattedText;
-        fallbackUsed = false;
-      } else {
-        // Timeout occurred - use raw transcription
-        console.warn('[Pipeline] Llama formatting timed out');
-        fallbackUsed = true;
-      }
-    } catch (error) {
-      // Cleanup failed - use raw transcription
-      console.warn('[Pipeline] Llama formatting failed:', error);
-      fallbackUsed = true;
-    }
-  } else {
-    fallbackUsed = true; // No cleanup attempted
+    cleaned = rawTranscription; // Edge function already formatted it
   }
 
   const processingTime = Date.now() - startTime;

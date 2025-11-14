@@ -25,6 +25,7 @@ import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { getAppEnv, SUPABASE_URL } from './constants';
 import { getCurrentSession } from './auth-handler';
 import { getAccessManager } from './access-manager';
+import { supabase } from './supabase-client';
 
 let audioSessionManager: AudioSessionManager | null = null;
 let transcriptionWorker: Worker | null = null;
@@ -236,6 +237,15 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   ipcMain.on(IPC_CHANNELS.AUDIO_DATA, async (event, data: { audio: number[] }) => {
     console.log(`[Main] Received ${data.audio.length} audio samples for transcription`);
 
+    // Check for empty audio
+    if (data.audio.length === 0) {
+      console.log('[Main] No audio captured, hiding UI');
+      if (currentMainWindow) {
+        sendUIStateUpdate(currentMainWindow, { mode: 'hidden' });
+      }
+      return;
+    }
+
     // Update UI to processing
     if (currentMainWindow) {
       sendUIStateUpdate(currentMainWindow, { mode: 'processing' });
@@ -329,7 +339,7 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
 
   // Handle Pill Config Update (forward from settings to overlay)
   ipcMain.on(IPC_CHANNELS.PILL_CONFIG_UPDATE, (event, data: { config: PillConfig }) => {
-    console.log('[Main] Saving and forwarding pill config to overlay:', data.config);
+    // console.log('[Main] Saving and forwarding pill config to overlay:', data.config);
 
     // Save config to disk
     if (settingsManager) {

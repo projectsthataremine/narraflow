@@ -19,9 +19,11 @@ interface PillPreset {
 interface RecordingPillSectionProps {
   pillConfig: PillConfig;
   setPillConfig: (config: PillConfig) => void;
+  accessStatus: any;
 }
 
-export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPillSectionProps) {
+export function RecordingPillSection({ pillConfig, setPillConfig, accessStatus }: RecordingPillSectionProps) {
+  const hasAccess = accessStatus?.hasValidAccess ?? true;
   const [previewDarkMode, setPreviewDarkMode] = useState(true);
   const [openSection, setOpenSection] = useState<'bars' | 'background' | null>(null);
   const [paddingLinked, setPaddingLinked] = useState(true);
@@ -237,7 +239,7 @@ export function RecordingPillSection({ pillConfig, setPillConfig }: RecordingPil
   };
 
   return (
-    <div>
+    <div style={{ opacity: hasAccess ? 1 : 0.4, pointerEvents: hasAccess ? 'auto' : 'none' }}>
       {/* Header with Preset dropdown, Randomize, and Save buttons */}
       <Flex justify="between" align="center" mb="5">
         <Text size="5" weight="bold">Customize Recording Pill</Text>

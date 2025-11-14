@@ -18,6 +18,7 @@ import { RecordingPillSection } from './components/RecordingPillSection';
 import { HistorySection } from './components/HistorySection';
 import { AccountSection } from './components/AccountSection';
 import { FeedbackSection } from './components/FeedbackSection';
+import { SignInScreen } from './components/SignInScreen';
 
 // Import types and styles
 import { PillConfig, HistoryItem, HotkeyConfig } from './components/types';
@@ -29,6 +30,9 @@ function SettingsApp() {
   const [activeSection, setActiveSection] = useState('general');
   const [aiEnabled, setAiEnabled] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [accessStatus, setAccessStatus] = useState<any>(null);
   const [pillConfig, setPillConfig] = useState<PillConfig>({
     numBars: 11,
     barWidth: 3,
@@ -56,6 +60,46 @@ function SettingsApp() {
   // Always use dark theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
+  }, []);
+
+  // Check authentication on mount and listen for changes
+  const checkAuth = async () => {
+    try {
+      if (window.electron) {
+        const authData = await (window.electron as any).getAuthStatus();
+        console.log('[Settings] Auth check result:', authData);
+        console.log('[Settings] Has user?', !!authData?.user);
+        console.log('[Settings] User object:', authData?.user);
+        setIsAuthenticated(!!authData?.user);
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to check auth:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+
+    // Listen for auth state changes
+    if (window.electron) {
+      const handleAuthStateChanged = () => {
+        console.log('[Settings] ===== AUTH_STATE_CHANGED EVENT RECEIVED =====');
+        checkAuth();
+      };
+
+      const handleAccessStatusChanged = (event: any) => {
+        console.log('[Settings] ===== ACCESS_STATUS_CHANGED EVENT RECEIVED =====', event);
+        setAccessStatus(event);
+      };
+
+      (window.electron as any).on('AUTH_STATE_CHANGED', handleAuthStateChanged);
+      (window.electron as any).on('ACCESS_STATUS_CHANGED', handleAccessStatusChanged);
+      console.log('[Settings] AUTH_STATE_CHANGED listener registered');
+      console.log('[Settings] ACCESS_STATUS_CHANGED listener registered');
+    }
   }, []);
 
   // Load saved config from main process on mount
@@ -101,6 +145,36 @@ function SettingsApp() {
     loadHistory();
   }, []);
 
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
+        <style>{CSS_VARS}</style>
+        <div style={{
+          width: '100vw',
+          height: '100vh',
+          background: '#000000',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ color: 'var(--gray-11)' }}>Loading...</div>
+        </div>
+      </Theme>
+    );
+  }
+
+  // Show sign-in screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
+        <style>{CSS_VARS}</style>
+        <SignInScreen onSignInSuccess={checkAuth} />
+      </Theme>
+    );
+  }
+
+  // Show normal settings UI if authenticated
   return (
     <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
       <style>{CSS_VARS}</style>
@@ -129,7 +203,11 @@ function SettingsApp() {
         {/* Main Content */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* Sidebar */}
-          <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
+          <Sidebar
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            accessStatus={accessStatus}
+          />
 
           {/* Content Area */}
           <div style={{
@@ -150,13 +228,22 @@ function SettingsApp() {
                   setAiEnabled={setAiEnabled}
                   hotkeyConfig={hotkeyConfig}
                   setHotkeyConfig={setHotkeyConfig}
+                  accessStatus={accessStatus}
                 />
               )}
               {activeSection === 'recording' && (
-                <RecordingPillSection pillConfig={pillConfig} setPillConfig={setPillConfig} />
+                <RecordingPillSection
+                  pillConfig={pillConfig}
+                  setPillConfig={setPillConfig}
+                  accessStatus={accessStatus}
+                />
               )}
               {activeSection === 'history' && (
-                <HistorySection history={history} setHistory={setHistory} />
+                <HistorySection
+                  history={history}
+                  setHistory={setHistory}
+                  accessStatus={accessStatus}
+                />
               )}
               {activeSection === 'account' && <AccountSection />}
               {activeSection === 'feedback' && <FeedbackSection />}

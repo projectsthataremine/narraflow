@@ -359,6 +359,55 @@
       <div id="current-config" style="margin-top: 10px;"></div>
     </div>
 
+    <div style="margin: 30px 0; padding: 20px; background: var(--slate-3); border-radius: 8px; border: 1px solid var(--slate-4);">
+      <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px;">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+          <input type="checkbox" id="include-formatting" style="width: 18px; height: 18px; cursor: pointer;">
+          <strong style="color: var(--slate-12);">Include Post-Processing Costs</strong>
+        </label>
+      </div>
+
+      <div id="formatting-options" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--slate-4);">
+        <div style="margin-bottom: 10px;">
+          <label style="color: var(--slate-11); display: block; margin-bottom: 8px;"><strong>Formatting Model:</strong></label>
+          <select id="formatting-model" style="padding: 8px 12px; background: var(--slate-2); border: 1px solid var(--slate-4); border-radius: 6px; color: var(--slate-12); font-size: 14px; width: 300px;">
+            <option value="llama8b">Llama 3.1 8B Instant (Current)</option>
+            <option value="llama70b">Llama 3.3 70B Versatile</option>
+            <option value="gpt4oMini">GPT-4o-mini</option>
+          </select>
+        </div>
+
+        <div style="margin-top: 15px; font-size: 13px; color: var(--slate-10);">
+          <strong>Assumptions:</strong> Avg recording length: <span id="avg-recording-length">30</span>s | Avg tokens: <span id="avg-tokens">150</span> input, <span id="avg-output-tokens">200</span> output
+        </div>
+      </div>
+    </div>
+
+    <h2>Text Formatting Model Comparison</h2>
+    <p class="subtitle">Cost and performance analysis for Llama post-processing models</p>
+
+    <div class="note">
+      <strong>Context:</strong> After Whisper transcription, we optionally run text through Llama for cleanup (punctuation, capitalization, filler word removal). Typical formatting request: ~150 input tokens (raw text), ~200 output tokens (formatted text).
+    </div>
+
+    <table id="llama-comparison-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Input Price</th>
+          <th>Output Price</th>
+          <th>Cost per Format</th>
+          <th>Speed</th>
+          <th>Quality</th>
+        </tr>
+      </thead>
+      <tbody id="llama-comparison-body"></tbody>
+    </table>
+
+    <div class="note">
+      <strong>Cost Impact:</strong> Even with 100% formatting enabled for all transcriptions, formatting costs are negligible compared to transcription costs. Quality and instruction-following are the key differentiators.
+    </div>
+
     <h2>User Segment Distribution</h2>
     <table id="user-segments-table">
       <thead>
@@ -382,10 +431,7 @@
     <table id="blended-costs-table">
       <thead>
         <tr>
-          <th>Provider</th>
-          <th>Blended Cost/User</th>
-          <th>Profit @ $<span id="pricing"></span>/month</th>
-          <th>Margin</th>
+          <!-- Dynamically populated by JavaScript -->
         </tr>
       </thead>
       <tbody id="blended-costs-body"></tbody>
@@ -464,7 +510,22 @@
       }, 0);
     }
 
-    // Calculate provider cost
+    // Calculate formatting cost per hour of audio
+    function calculateFormattingCost(hours, modelKey) {
+      const avgRecordingLengthSeconds = 30;
+      const recordingsPerHour = (hours * 3600) / avgRecordingLengthSeconds;
+      const avgInputTokens = 150;
+      const avgOutputTokens = 200;
+
+      const model = PRICING_CONFIG.groq[modelKey];
+      const costPerFormatting =
+        (avgInputTokens / 1000000) * model.pricePerMInputTokens +
+        (avgOutputTokens / 1000000) * model.pricePerMOutputTokens;
+
+      return recordingsPerHour * costPerFormatting;
+    }
+
+    // Calculate provider cost (whisper only)
     function calculateProviderCost(provider, hours) {
       if (provider.pricePerHour !== undefined) {
         // Direct pricing (Groq)
@@ -474,6 +535,15 @@
         const gpuHoursNeeded = hours / provider.speedMultiplier;
         return gpuHoursNeeded * provider.pricePerGpuHour;
       }
+    }
+
+    // Calculate total cost including optional formatting
+    function calculateTotalCost(provider, hours, includeFormatting, formattingModel) {
+      const whisperCost = calculateProviderCost(provider, hours);
+      if (!includeFormatting) return whisperCost;
+
+      const formattingCost = calculateFormattingCost(hours, formattingModel);
+      return whisperCost + formattingCost;
     }
 
     // Build provider list
@@ -516,17 +586,68 @@
       const payingUsers = Math.round(config.app.market.totalUsers * config.app.conversionRate);
       const monthlyRevenue = payingUsers * config.app.subscriptionPrice;
 
+      // Get formatting settings
+      const includeFormatting = document.getElementById('include-formatting').checked;
+      const formattingModel = document.getElementById('formatting-model').value;
+
       // Current config
       document.getElementById('current-config').innerHTML = `
         <strong>Model:</strong> ${config.groq.whisperTurbo.name} (${config.groq.whisperTurbo.model})<br>
         <strong>Pricing:</strong> ${formatCurrency(config.groq.whisperTurbo.pricePerHour)}/hour of audio<br>
         <strong>Speed:</strong> ${config.groq.whisperTurbo.speedMultiplier}x real-time<br>
+        <strong>Formatting:</strong> ${config.groq.llama8b.name} (current)<br>
         <strong>Subscription:</strong> ${formatCurrency(config.app.subscriptionPrice)}/month
       `;
 
+      // Llama comparison table
+      const llamaBody = document.getElementById('llama-comparison-body');
+      llamaBody.innerHTML = ''; // Clear previous content
+      const avgInputTokens = 150;  // Typical raw transcription text
+      const avgOutputTokens = 200; // Formatted text (slightly longer with punctuation)
+
+      const llamaModels = [
+        {
+          model: config.groq.llama8b,
+          quality: 'Good',
+          notes: 'Current - Fast but requires careful prompting'
+        },
+        {
+          model: config.groq.llama70b,
+          quality: 'Excellent',
+          notes: 'Better instruction following, less hallucination'
+        },
+        {
+          model: config.groq.gpt4oMini,
+          quality: 'Excellent',
+          notes: 'Best instruction following (requires OpenAI API)'
+        }
+      ];
+
+      llamaModels.forEach(({ model, quality, notes }) => {
+        const inputCost = (avgInputTokens / 1000000) * model.pricePerMInputTokens;
+        const outputCost = (avgOutputTokens / 1000000) * model.pricePerMOutputTokens;
+        const totalCost = inputCost + outputCost;
+        const latency = Math.round((avgOutputTokens / model.tokensPerSecond) * 1000); // ms
+        const isCurrentModel = model.model === config.groq.llama8b.model;
+
+        llamaBody.innerHTML += `
+          <tr${isCurrentModel ? ' class="groq-highlight"' : ''}>
+            <td>
+              <strong>${model.name}</strong><br>
+              <span style="font-size: 12px; color: var(--slate-10);">${notes}</span>
+            </td>
+            <td>${formatCurrency(model.pricePerMInputTokens)}/M</td>
+            <td>${formatCurrency(model.pricePerMOutputTokens)}/M</td>
+            <td class="emphasis">${formatCurrency(totalCost)}</td>
+            <td>~${latency}ms</td>
+            <td class="${quality === 'Excellent' ? 'positive' : ''}">${quality}</td>
+          </tr>
+        `;
+      });
+
       // User segments
-      document.getElementById('pricing').textContent = config.app.subscriptionPrice;
       const segmentsBody = document.getElementById('user-segments-body');
+      segmentsBody.innerHTML = ''; // Clear previous content
       config.app.userSegments.forEach(segment => {
         segmentsBody.innerHTML += `
           <tr>
@@ -546,6 +667,8 @@
 
       // Segment costs
       const segmentCostsDiv = document.getElementById('segment-costs');
+      segmentCostsDiv.innerHTML = ''; // Clear previous content
+
       config.app.userSegments.forEach(segment => {
         let tableHTML = `
           <h3>${segment.name} (${segment.hoursPerMonth} hours/month)</h3>
@@ -553,7 +676,9 @@
             <thead>
               <tr>
                 <th>Provider</th>
-                <th>Cost/Month</th>
+                <th>Whisper Cost</th>
+                ${includeFormatting ? '<th>Formatting Cost</th>' : ''}
+                <th>Total Cost</th>
                 <th>Profit @ $${config.app.subscriptionPrice}</th>
                 <th>Margin</th>
               </tr>
@@ -562,15 +687,19 @@
         `;
 
         providers.forEach(provider => {
-          const cost = calculateProviderCost(provider, segment.hoursPerMonth);
-          const profit = config.app.subscriptionPrice - cost;
+          const whisperCost = calculateProviderCost(provider, segment.hoursPerMonth);
+          const formattingCost = includeFormatting ? calculateFormattingCost(segment.hoursPerMonth, formattingModel) : 0;
+          const totalCost = whisperCost + formattingCost;
+          const profit = config.app.subscriptionPrice - totalCost;
           const margin = profit / config.app.subscriptionPrice;
           const rowClass = provider.isGroq ? ' class="groq-highlight"' : '';
 
           tableHTML += `
             <tr${rowClass}>
               <td><strong>${provider.name}</strong></td>
-              <td>${formatCurrency(cost)}</td>
+              <td>${formatCurrency(whisperCost)}</td>
+              ${includeFormatting ? `<td>${formatCurrency(formattingCost)}</td>` : ''}
+              <td class="emphasis">${formatCurrency(totalCost)}</td>
               <td class="positive">${formatCurrency(profit)}</td>
               <td class="emphasis">${formatPercent(margin)}</td>
             </tr>
@@ -583,19 +712,35 @@
 
       // Blended costs
       const blendedBody = document.getElementById('blended-costs-body');
+      blendedBody.innerHTML = ''; // Clear previous content
       const blendedCosts = {};
 
+      // Update table header
+      const blendedTable = document.getElementById('blended-costs-table');
+      blendedTable.querySelector('thead tr').innerHTML = `
+        <th>Provider</th>
+        <th>Whisper Cost</th>
+        ${includeFormatting ? '<th>Formatting Cost</th>' : ''}
+        <th>Total Cost/User</th>
+        <th>Profit @ $<span id="pricing2">${config.app.subscriptionPrice}</span>/month</th>
+        <th>Margin</th>
+      `;
+
       providers.forEach(provider => {
-        const cost = calculateProviderCost(provider, blendedAvg);
-        const profit = config.app.subscriptionPrice - cost;
+        const whisperCost = calculateProviderCost(provider, blendedAvg);
+        const formattingCost = includeFormatting ? calculateFormattingCost(blendedAvg, formattingModel) : 0;
+        const totalCost = whisperCost + formattingCost;
+        const profit = config.app.subscriptionPrice - totalCost;
         const margin = profit / config.app.subscriptionPrice;
-        blendedCosts[provider.name] = cost;
+        blendedCosts[provider.name] = totalCost;
         const rowClass = provider.isGroq ? ' class="groq-highlight"' : '';
 
         blendedBody.innerHTML += `
           <tr${rowClass}>
             <td><strong>${provider.name}</strong></td>
-            <td class="emphasis">${formatCurrency(cost)}</td>
+            <td>${formatCurrency(whisperCost)}</td>
+            ${includeFormatting ? `<td>${formatCurrency(formattingCost)}</td>` : ''}
+            <td class="emphasis">${formatCurrency(totalCost)}</td>
             <td class="positive">${formatCurrency(profit)}</td>
             <td class="emphasis">${formatPercent(margin)}</td>
           </tr>
@@ -617,6 +762,8 @@
 
       // Scale table
       const scaleBody = document.getElementById('scale-body');
+      scaleBody.innerHTML = ''; // Clear previous content
+
       providers.forEach(provider => {
         const monthlyCosts = Math.round(payingUsers * blendedCosts[provider.name]);
         const monthlyProfit = monthlyRevenue - monthlyCosts;
@@ -642,6 +789,23 @@
 
     // Run on load
     init();
+
+    // Event listeners for formatting toggle and model selector
+    const includeFormattingCheckbox = document.getElementById('include-formatting');
+    const formattingOptions = document.getElementById('formatting-options');
+    const formattingModelSelector = document.getElementById('formatting-model');
+
+    includeFormattingCheckbox.addEventListener('change', () => {
+      // Show/hide formatting options
+      formattingOptions.style.display = includeFormattingCheckbox.checked ? 'block' : 'none';
+      // Recalculate
+      init();
+    });
+
+    formattingModelSelector.addEventListener('change', () => {
+      // Recalculate when model changes
+      init();
+    });
 
     // Sidebar & Navigation
     const sidebar = document.getElementById('sidebar');

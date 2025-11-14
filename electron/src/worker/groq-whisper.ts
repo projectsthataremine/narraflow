@@ -1,7 +1,8 @@
 /**
  * Groq Whisper API integration via Supabase Edge Function
  * Handles audio transcription using Groq's Whisper Large V3 Turbo model
- * API key is securely stored in edge function, not exposed to client
+ * Optional Llama 3.1 8B formatting for grammar/punctuation cleanup
+ * API keys are securely stored in edge function, not exposed to client
  */
 
 import { Buffer } from 'buffer';
@@ -95,11 +96,11 @@ export class GroqWhisperTranscriber {
   /**
    * Transcribe audio to text using Groq Whisper API via Edge Function
    */
-  async transcribe(audio: Float32Array, accessToken: string): Promise<string> {
+  async transcribe(audio: Float32Array, accessToken: string, enableFormatting: boolean = false): Promise<string> {
     const startTime = Date.now();
 
     try {
-      console.log(`[Groq Whisper] Starting transcription (${audio.length} samples)`);
+      console.log(`[Groq Whisper] Starting transcription (${audio.length} samples, formatting: ${enableFormatting})`);
 
       if (!accessToken) {
         throw new Error('Access token required for transcription');
@@ -115,7 +116,8 @@ export class GroqWhisperTranscriber {
       const audioFile = new File([new Uint8Array(wavBuffer)], 'audio.wav', { type: 'audio/wav' });
       formData.append('file', audioFile);
       formData.append('model', this.config.model);
-      formData.append('response_format', 'text');
+      formData.append('response_format', 'json');
+      formData.append('format', enableFormatting.toString());
 
       if (this.config.language) {
         formData.append('language', this.config.language);
@@ -150,11 +152,23 @@ export class GroqWhisperTranscriber {
         this.config.retryDelayMs
       );
 
-      const text = typeof result === 'string' ? result : result.text || '';
       const duration = Date.now() - startTime;
 
+      // Log full response from edge function
+      console.log(`[Groq Whisper] Edge function response:`, result);
+
+      // Extract response fields
+      const raw = (result as any).raw || '';
+      const formatted = (result as any).formatted || null;
+      const text = (result as any).text || '';
+
       console.log(`[Groq Whisper] Transcription completed in ${duration}ms`);
-      console.log(`[Groq Whisper] Result: "${text}"`);
+      console.log(`[Groq Whisper] Formatting was ${enableFormatting ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`[Groq Whisper] Raw (Whisper): "${raw}"`);
+      if (formatted) {
+        console.log(`[Groq Whisper] Formatted (Llama): "${formatted}"`);
+      }
+      console.log(`[Groq Whisper] Final text to paste: "${text}"`);
 
       return text.trim();
     } catch (error) {

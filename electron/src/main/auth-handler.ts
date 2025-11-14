@@ -10,6 +10,7 @@ import { machineIdSync } from 'node-machine-id';
 import { SUPABASE_URL } from './constants';
 import { getAccessManager } from './access-manager';
 import { broadcastAccessStatusChanged } from './ipc-handlers';
+import * as http from 'http';
 
 // Store auth session in memory
 let currentSession: any = null;
@@ -39,6 +40,8 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
       // Update access manager with current user ID
       if (session?.user) {
         getAccessManager().setUserId(session.user.id);
+        // Broadcast access status to all windows
+        await broadcastAccessStatusChanged();
       } else {
         getAccessManager().setUserId(null);
       }
@@ -73,10 +76,10 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
       // Update access manager with current user ID
       if (data.user) {
         getAccessManager().setUserId(data.user.id);
-
-        // Check if user has a trial - if not, create one
-        await ensureUserHasTrial(data.user.id);
       }
+
+      // Broadcast access status to all windows
+      await broadcastAccessStatusChanged();
 
       // Notify settings window to refresh auth state
       if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
@@ -115,6 +118,9 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
         getAccessManager().setUserId(data.user.id);
       }
 
+      // Broadcast access status to all windows
+      await broadcastAccessStatusChanged();
+
       // Notify settings window to refresh auth state
       if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
         console.log('[Auth] Notifying settings window of auth success');
@@ -128,79 +134,180 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
     }
   });
 
-  // Start OAuth flow - using system browser with marketing site redirect
+  // Start OAuth flow - different approach for dev vs production
   ipcMain.handle('START_OAUTH', async (event, { provider }) => {
     try {
       console.log('[Auth] Starting OAuth flow for provider:', provider);
 
-      // Determine redirect URL based on environment
       const isDev = process.env.APP_ENV === 'dev';
-      const redirectUrl = isDev
-        ? 'http://localhost:3000/auth-success'
-        : 'https://trynarraflow.com/auth-success';
 
-      console.log('[Auth] Using redirect URL:', redirectUrl);
+      if (isDev) {
+        // DEV MODE: Use local server (localhost:54321)
+        console.log('[Auth] Using dev mode: local server on localhost:54321');
 
-      // Get OAuth URL from Supabase with marketing site redirect
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: provider as any,
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-        },
-      });
+        return new Promise((resolve, reject) => {
+          const server = http.createServer(async (req, res) => {
+            if (!req.url) return;
 
-      if (error) {
-        console.error('[Auth] Failed to get OAuth URL:', error);
-        throw error;
-      }
+            console.log('[Auth] Callback received:', req.url);
 
-      if (!data.url) {
-        throw new Error('No OAuth URL returned');
-      }
-
-      // Open the URL in the system's default browser
-      console.log('[Auth] Opening browser for OAuth...');
-      await shell.openExternal(data.url);
-
-      // Poll for session in the background
-      return new Promise((resolve, reject) => {
-        let pollCount = 0;
-        const maxPolls = 100; // 5 minutes (100 * 3 seconds)
-
-        const pollInterval = setInterval(async () => {
-          pollCount++;
-
-          try {
-            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-            if (session?.user) {
-              clearInterval(pollInterval);
-              currentSession = session;
-              console.log('[Auth] OAuth successful, user:', session.user.email);
-
-              // Update access manager with current user ID
-              getAccessManager().setUserId(session.user.id);
-
-              // Check if user has a trial - if not, create one
-              await ensureUserHasTrial(session.user.id);
-
-              // Notify settings window to refresh auth state
-              if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
-                console.log('[Auth] Notifying settings window of auth success');
-                settingsWindowRef.webContents.send('AUTH_STATE_CHANGED');
-              }
-
-              resolve({ success: true, user: session.user });
-            } else if (pollCount >= maxPolls) {
-              clearInterval(pollInterval);
-              reject(new Error('OAuth timeout - no session detected after 5 minutes'));
+            // First request: Serve HTML that extracts hash and redirects
+            if (req.url === '/') {
+              const html = `
+                <html>
+                  <head><title>Signing in...</title></head>
+                  <body>
+                    <h1>Completing sign in...</h1>
+                    <script>
+                      // Extract tokens from hash fragment
+                      const hash = window.location.hash.substring(1);
+                      if (hash) {
+                        // Redirect to same server with tokens as query params
+                        window.location.href = '/?' + hash;
+                      } else {
+                        document.body.innerHTML = '<h1>Error: No authentication data received</h1>';
+                      }
+                    </script>
+                  </body>
+                </html>
+              `;
+              res.writeHead(200, { 'Content-Type': 'text/html' });
+              res.end(html);
+              return;
             }
-          } catch (error) {
-            console.error('[Auth] Error polling for session:', error);
-          }
-        }, 3000); // Poll every 3 seconds
-      });
+
+            // Second request: Process tokens from query params
+            if (req.url.startsWith('/?access_token=')) {
+              try {
+                const fullUrl = `http://localhost:54321${req.url}`;
+                const urlObj = new URL(fullUrl);
+
+                const accessToken = urlObj.searchParams.get('access_token');
+                const refreshToken = urlObj.searchParams.get('refresh_token');
+
+                if (!accessToken) {
+                  throw new Error('No access token in redirect');
+                }
+
+                // Set session with tokens
+                const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken || '',
+                });
+
+                if (sessionError) {
+                  console.error('[Auth] Failed to set session:', sessionError);
+                  res.writeHead(200, { 'Content-Type': 'text/html' });
+                  res.end('<html><body><h1>Authentication failed</h1><p>You can close this window.</p></body></html>');
+                  server.close();
+                  reject(sessionError);
+                  return;
+                }
+
+                currentSession = sessionData.session;
+                console.log('[Auth] OAuth successful, user:', sessionData.user?.email);
+
+                // Update access manager
+                if (sessionData.user?.id) {
+                  getAccessManager().setUserId(sessionData.user.id);
+                }
+
+                // Broadcast access status to check trial/license
+                await broadcastAccessStatusChanged();
+
+                // Notify settings window
+                if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
+                  console.log('[Auth] Notifying settings window of auth success');
+                  settingsWindowRef.webContents.send('AUTH_STATE_CHANGED');
+                }
+
+                // Send success page
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end('<html><body><h1>Sign in successful!</h1><p>You can close this window and return to NarraFlow.</p></body></html>');
+
+                server.close();
+                resolve({ success: true, user: sessionData.user });
+              } catch (error) {
+                console.error('[Auth] Callback error:', error);
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end('<html><body><h1>Authentication error</h1><p>You can close this window.</p></body></html>');
+                server.close();
+                reject(error);
+              }
+            }
+          });
+
+          // Start server on port 54321
+          server.listen(54321, () => {
+            console.log('[Auth] Local callback server listening on port 54321');
+          });
+
+          // Get OAuth URL with local redirect
+          supabase.auth.signInWithOAuth({
+            provider: provider as any,
+            options: {
+              redirectTo: 'http://localhost:54321',
+              skipBrowserRedirect: true,
+            },
+          }).then(({ data, error }) => {
+            if (error) {
+              console.error('[Auth] Failed to get OAuth URL:', error);
+              server.close();
+              reject(error);
+              return;
+            }
+
+            if (!data.url) {
+              server.close();
+              reject(new Error('No OAuth URL returned'));
+              return;
+            }
+
+            // Open OAuth URL in browser
+            console.log('[Auth] Opening browser for OAuth...');
+            shell.openExternal(data.url);
+          });
+
+          // Timeout after 5 minutes
+          setTimeout(() => {
+            server.close();
+            reject(new Error('OAuth timeout'));
+          }, 300000);
+        });
+
+      } else {
+        // PRODUCTION MODE: Use marketing site redirect
+        console.log('[Auth] Using production mode: marketing site redirect');
+
+        const redirectUrl = 'https://trynarraflow.com/auth-success';
+        console.log('[Auth] Using redirect URL:', redirectUrl);
+
+        // Get OAuth URL from Supabase with marketing site redirect
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: provider as any,
+          options: {
+            redirectTo: redirectUrl,
+            skipBrowserRedirect: true,
+          },
+        });
+
+        if (error) {
+          console.error('[Auth] Failed to get OAuth URL:', error);
+          throw error;
+        }
+
+        if (!data.url) {
+          throw new Error('No OAuth URL returned');
+        }
+
+        // Open the URL in the system's default browser
+        console.log('[Auth] Opening browser for OAuth...');
+        await shell.openExternal(data.url);
+
+        // In production, the deep link handler in index.ts will handle the callback
+        // Just return immediately - the session will be set via deep link
+        return { success: true };
+      }
     } catch (error) {
       console.error('[Auth] START_OAUTH error:', error);
       throw error;
@@ -312,6 +419,12 @@ export function initAuthHandlers(settingsWindow?: BrowserWindow | null) {
 
       // Broadcast access status change
       await broadcastAccessStatusChanged();
+
+      // Notify settings window to refresh auth state
+      if (settingsWindowRef && !settingsWindowRef.isDestroyed()) {
+        console.log('[Auth] Notifying settings window of sign out');
+        settingsWindowRef.webContents.send('AUTH_STATE_CHANGED');
+      }
 
       return { success: true };
     } catch (error) {

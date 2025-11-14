@@ -10,6 +10,15 @@ import 'dotenv/config';
 process.env.ORT_LOGGING_LEVEL = 'error';
 
 import { app, BrowserWindow, ipcMain } from 'electron';
+
+/**
+ * Register custom protocol EARLY (before app ready) for deep linking in dev
+ */
+const { Deeplink } = require('electron-deeplink');
+let deepLinkProtocol: any = null;
+let deepLinkUrl: string | null = null;
+
+const isDev = process.env.NODE_ENV === 'development' || process.env.APP_ENV === 'dev';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import path from 'path';
@@ -90,6 +99,8 @@ function createOverlayWindow(): void {
   // Load renderer
   if (process.env.NODE_ENV === 'development') {
     overlayWindow.loadURL('http://localhost:5173/ui/overlay/index.html');
+    // Open DevTools in development mode
+    overlayWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     overlayWindow.loadFile(path.join(__dirname, '../../renderer/ui/overlay/index.html'));
   }
@@ -100,7 +111,7 @@ function createOverlayWindow(): void {
     // Send saved pill config to overlay window
     const savedConfig = getSavedPillConfig();
     if (savedConfig && overlayWindow) {
-      console.log('[Main] Sending saved config to overlay window:', savedConfig);
+      // console.log('[Main] Sending saved config to overlay window:', savedConfig);
       overlayWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, { config: savedConfig });
     }
   });
@@ -157,7 +168,7 @@ function createSettingsWindow(): void {
     // Send saved pill config to settings window
     const savedConfig = getSavedPillConfig();
     if (savedConfig && mainWindow) {
-      console.log('[Main] Sending saved config to settings window:', savedConfig);
+      // console.log('[Main] Sending saved config to settings window:', savedConfig);
       mainWindow.webContents.send(IPC_CHANNELS.PILL_CONFIG_UPDATE, { config: savedConfig });
     }
   });
@@ -259,6 +270,9 @@ async function initialize(): Promise<void> {
   // Initialize auth handlers (pass settings window reference)
   initAuthHandlers(mainWindow);
 
+  // Initialize deep link protocol handler
+  initializeDeepLink();
+
   // Migration: Remove legacy license.json file if it exists
   try {
     const fs = await import('fs');
@@ -334,6 +348,99 @@ ipcMain.handle('install-update', async () => {
 });
 
 /**
+ * Initialize deep link protocol (after app is ready and window exists)
+ */
+function initializeDeepLink() {
+  if (!deepLinkProtocol) {
+    deepLinkProtocol = new Deeplink({
+      app,
+      mainWindow: () => mainWindow,
+      protocol: 'narraflow',
+      mode: process.env.NODE_ENV === 'development' ? 'development' : 'production',
+      debugLogging: false, // Disable noisy logs
+    });
+
+    deepLinkProtocol.on('received', (url: string) => {
+      console.log('[Deep Link] electron-deeplink received:', url);
+      handleDeepLink(url);
+    });
+
+    // Handle any URL that was received before initialization
+    if (deepLinkUrl) {
+      console.log('[Deep Link] Processing queued URL:', deepLinkUrl);
+      handleDeepLink(deepLinkUrl);
+      deepLinkUrl = null;
+    }
+  }
+}
+
+/**
+ * Handle deep link URLs (OAuth callback)
+ */
+async function handleDeepLink(url: string) {
+  console.log('[Deep Link] Received URL:', url);
+
+  if (!url.startsWith('narraflow://auth-callback')) {
+    console.log('[Deep Link] Not an auth callback, ignoring');
+    return;
+  }
+
+  // Extract tokens from URL hash
+  const urlObj = new URL(url);
+  const hash = urlObj.hash.substring(1); // Remove the #
+  const params = new URLSearchParams(hash);
+
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (!accessToken || !refreshToken) {
+    console.error('[Deep Link] Missing tokens in URL');
+    return;
+  }
+
+  console.log('[Deep Link] Received auth tokens, setting session...');
+
+  try {
+    const { supabase } = await import('./supabase-client');
+    const { broadcastAccessStatusChanged } = await import('./ipc-handlers');
+
+    // Set the session in Supabase client
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    if (error) {
+      console.error('[Deep Link] Failed to set session:', error);
+      return;
+    }
+
+    if (data.session) {
+      console.log('[Deep Link] Session set successfully for user:', data.session.user.email);
+
+      // Broadcast auth state change to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('AUTH_STATE_CHANGED');
+      }
+
+      // Update access status
+      await broadcastAccessStatusChanged();
+
+      // Focus the app
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    }
+  } catch (error) {
+    console.error('[Deep Link] Error handling auth callback:', error);
+  }
+}
+
+/**
  * App lifecycle events
  */
 app.whenReady().then(initialize);
@@ -361,14 +468,22 @@ app.on('will-quit', () => {
   cleanupIPC();
 });
 
+
 /**
- * Handle second instance (prevent multiple instances)
+ * Handle second instance (prevent multiple instances + deep linking on Windows/Linux)
  */
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (event, commandLine) => {
+    // Handle deep link URL from command line (Windows/Linux)
+    const url = commandLine.find(arg => arg.startsWith('narraflow://'));
+    if (url) {
+      handleDeepLink(url);
+    }
+
+    // Focus the window
     if (mainWindow) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
