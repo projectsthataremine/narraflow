@@ -328,15 +328,10 @@
       <h2>NarraFlow Docs</h2>
     </div>
     <nav class="sidebar-nav">
-      <div class="nav-category">Pricing & Costs</div>
-      <div class="nav-item active" data-page="user-costs">User Usage & Costs</div>
-      <div class="nav-item" data-page="infrastructure">Infrastructure Costs</div>
-
-      <div class="nav-category">Market Analysis</div>
-      <div class="nav-item" data-page="market">Market Overview</div>
-
-      <div class="nav-category">Technical</div>
-      <div class="nav-item" data-page="architecture">Architecture</div>
+      <div class="nav-item active" data-page="user-costs">Usage & Costs</div>
+      <div class="nav-item" data-page="whisper-models">Whisper Models & Infrastructure</div>
+      <div class="nav-item" data-page="implementation-plan">Implementation Plan</div>
+      <div class="nav-item" data-page="post-processing">Post-Processing</div>
     </nav>
   </div>
 
@@ -462,27 +457,454 @@
         </div>
       </div>
 
-      <!-- Page: Infrastructure -->
-      <div class="page" id="page-infrastructure">
+      <!-- Page: Whisper Models & Infrastructure -->
+      <div class="page" id="page-whisper-models">
         <div class="container">
-          <h1>Infrastructure Costs</h1>
-          <p class="subtitle">Coming soon...</p>
+          <h1>Whisper Models & Infrastructure</h1>
+          <p class="subtitle">Comparison of Whisper implementations and deployment options</p>
+
+          <h2>Cloud Providers (Current)</h2>
+          <table id="cloud-providers-table">
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Cost/Hour Audio</th>
+                <th>Speed</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="cloud-providers-body"></tbody>
+          </table>
+
+          <h2>Local Processing Options (Privacy Mode)</h2>
+          <p class="subtitle">Based on November 2025 benchmarks - For users who want 100% local transcription</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Implementation</th>
+                <th>Model</th>
+                <th>Hardware</th>
+                <th>30s Audio</th>
+                <th>60s Audio</th>
+                <th>2min Audio</th>
+                <th><span title="Word Error Rate - Lower is better. Human transcription: ~4%. Automated systems: 5-15%. Varies by audio quality, accent, background noise, and domain." style="cursor: help; border-bottom: 1px dotted var(--slate-11);">Quality (WER)</span></th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="groq-highlight">
+                <td><strong>Apple Native APIs (SpeechAnalyzer)</strong></td>
+                <td>Proprietary (iOS 26/macOS Tahoe)</td>
+                <td>ANE + GPU (All Apple Silicon)</td>
+                <td>~0.7s</td>
+                <td>~1.3s</td>
+                <td>~2.7s</td>
+                <td>Excellent (~5%)</td>
+                <td>55% faster than Whisper V3 Turbo - Requires macOS 26+ (Sept 2025)</td>
+              </tr>
+              <tr class="groq-highlight">
+                <td><strong>WhisperKit</strong></td>
+                <td>large-v3</td>
+                <td>ANE + GPU (M1-M4)</td>
+                <td>~1.5s</td>
+                <td>~3s</td>
+                <td>~6s</td>
+                <td>Excellent (~5%)</td>
+                <td>Production-proven (ModMed), 0.45s streaming latency</td>
+              </tr>
+              <tr>
+                <td><strong>Lightning Whisper MLX</strong></td>
+                <td>distil-large-v3</td>
+                <td>GPU (M1-M4)</td>
+                <td>~2s</td>
+                <td>~4s</td>
+                <td>~8s</td>
+                <td>Very Good (~6-7%)</td>
+                <td>10x faster than whisper.cpp, Python-based</td>
+              </tr>
+              <tr>
+                <td><strong>MLX Whisper</strong></td>
+                <td>large-v3</td>
+                <td>GPU (M1-M4)</td>
+                <td>~3s</td>
+                <td>~6s</td>
+                <td>~12s</td>
+                <td>Excellent (~5%)</td>
+                <td>30-40% faster than alternatives, Python-based</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Model Sizes & Download Requirements</h2>
+          <p class="subtitle">Applies to WhisperKit, Lightning Whisper MLX, and MLX Whisper (not Apple Native APIs)</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Parameters</th>
+                <th>Disk Size</th>
+                <th>RAM Usage</th>
+                <th>Quality (WER)</th>
+                <th>Use Case</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>tiny.en</strong></td>
+                <td>39M</td>
+                <td>~75MB</td>
+                <td>~150MB</td>
+                <td>Poor (~12-15%)</td>
+                <td>Testing only - hallucination issues</td>
+              </tr>
+              <tr>
+                <td><strong>base.en</strong></td>
+                <td>74M</td>
+                <td>~140MB</td>
+                <td>~300MB</td>
+                <td>Good (~8-10%)</td>
+                <td>Fast download, decent quality</td>
+              </tr>
+              <tr>
+                <td><strong>small.en</strong></td>
+                <td>244M</td>
+                <td>~460MB</td>
+                <td>~1GB</td>
+                <td>Very Good (~6-7%)</td>
+                <td>Quality/speed balance</td>
+              </tr>
+              <tr>
+                <td><strong>medium.en</strong></td>
+                <td>769M</td>
+                <td>~1.5GB</td>
+                <td>~3GB</td>
+                <td>Excellent (~5-6%)</td>
+                <td>High quality local</td>
+              </tr>
+              <tr>
+                <td><strong>large-v3</strong></td>
+                <td>1550M</td>
+                <td>~3GB</td>
+                <td>~6GB</td>
+                <td>Best (~4-5%)</td>
+                <td>Maximum quality (cloud or local)</td>
+              </tr>
+              <tr>
+                <td><strong>distil-large-v3</strong></td>
+                <td>756M</td>
+                <td>~1.5GB</td>
+                <td>~3GB</td>
+                <td>Excellent (~5-6%)</td>
+                <td>Faster than large-v3, similar quality</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Implementation Details</h2>
+
+          <h3>Apple Native APIs (SpeechAnalyzer)</h3>
+          <p><strong>What it is:</strong> Apple's new SpeechAnalyzer API introduced in iOS 26/macOS Tahoe (released September 15, 2025). Replaces legacy SFSpeechRecognizer with major improvements.</p>
+          <p><strong>Availability:</strong> ✅ CONFIRMED available to third-party apps. No Siri enablement required (unlike legacy SFSpeechRecognizer).</p>
+          <p><strong>Performance:</strong> 2.2x faster than competitors. 55% faster than Whisper Large V3 Turbo. Processes 34-minute video in 45 seconds. 100% on-device processing.</p>
+          <p><strong>Pros:</strong> Fastest option, no model downloads, built into OS, excellent quality, auto-updating models, smallest app size, instant first launch.</p>
+          <p><strong>Cons:</strong> Requires macOS 26+ (limits user base to 2-month-old OS), proprietary (no model control), users may wait 3-6 months before updating.</p>
+          <p><strong>Integration:</strong> Available via Swift native module in Electron using Objective-C++ bridge. Official Electron docs support this pattern. Uses modern async/await with AsyncStream.</p>
+
+          <h3>WhisperKit</h3>
+          <p><strong>What it is:</strong> Production-grade Whisper implementation by Argmax, optimized for Apple Neural Engine.</p>
+          <p><strong>Performance:</strong> 0.45s mean latency for streaming transcription. Real-time capable with near-peak hardware utilization. 2x slower than SpeechAnalyzer but still very fast.</p>
+          <p><strong>Pros:</strong> Battle-tested in production (ModMed medical app), works on macOS 11+ (M1+), energy efficient, excellent quality, open source (model control).</p>
+          <p><strong>Cons:</strong> Requires ~3GB model download, requires Swift native module for Electron (same as SpeechAnalyzer), larger app bundle.</p>
+          <p><strong>Integration:</strong> Swift Package via Objective-C++ bridge in Electron. Same integration pattern as SpeechAnalyzer. Open-sourced January 2024 under MIT license.</p>
+
+          <h3>Lightning Whisper MLX</h3>
+          <p><strong>What it is:</strong> Highly optimized Whisper implementation using Apple's MLX framework with batched decoding and quantization.</p>
+          <p><strong>Performance:</strong> 10x faster than whisper.cpp, 4x faster than standard MLX Whisper. Uses distilled models for speed.</p>
+          <p><strong>Pros:</strong> Very fast, Python-based (easy integration), optimized for Apple Silicon, open-source.</p>
+          <p><strong>Cons:</strong> Requires M1 or later, Python dependency.</p>
+          <p><strong>Integration:</strong> Python package, can be called from Electron via subprocess or Python bridge.</p>
+
+          <h3>MLX Whisper</h3>
+          <p><strong>What it is:</strong> Standard Whisper implementation using Apple's MLX framework for Metal GPU acceleration.</p>
+          <p><strong>Performance:</strong> 30-40% faster than CPU-only implementations. 1.78x faster than whisper.cpp on M1 Max.</p>
+          <p><strong>Pros:</strong> Good performance, Python-based (easy integration), works well with longer audio (32-40min), mature.</p>
+          <p><strong>Cons:</strong> Slower than Lightning Whisper MLX and WhisperKit, requires M1 or later.</p>
+          <p><strong>Integration:</strong> Python package (`mlx-whisper`), can be called from Electron via subprocess or Python bridge.</p>
+
+          <h2>Recommended Approach for NarraFlow</h2>
+          <div class="highlight">
+            <strong>Hybrid Strategy: Best of All Worlds</strong><br><br>
+            Automatically select the best transcription method based on user's system:
+            <ul style="margin-top: 10px;">
+              <li><strong>macOS 26+:</strong> Use SpeechAnalyzer (fastest, no downloads, 0.7s for 30s audio)</li>
+              <li><strong>macOS 11+ (M1+):</strong> Use WhisperKit (fast, proven, 1.5s for 30s audio)</li>
+              <li><strong>Fallback:</strong> Use Groq API (cloud, works on all systems)</li>
+            </ul>
+          </div>
+          <p><strong>Detection:</strong> Electron can easily detect macOS version via <code>process.getSystemVersion()</code>. Check if version >= 26 for SpeechAnalyzer, else check for M1+ for WhisperKit.</p>
+          <p><strong>User Experience:</strong> macOS 26 users get instant, ultra-fast transcription with zero setup. Older Mac users still get excellent local performance. Everyone can fall back to cloud if needed.</p>
+          <p><strong>Market Coverage:</strong> WhisperKit supports Macs from 2020+ (M1 launch), covering vast majority of potential users while giving cutting-edge performance to latest OS adopters.</p>
         </div>
       </div>
 
-      <!-- Page: Market -->
-      <div class="page" id="page-market">
+      <!-- Page: Implementation Plan -->
+      <div class="page" id="page-implementation-plan">
         <div class="container">
-          <h1>Market Analysis</h1>
-          <p class="subtitle">Coming soon...</p>
+          <h1>NarraFlow Transcription: Implementation Plan</h1>
+          <p class="subtitle">Official strategy for local-first transcription with intelligent fallbacks</p>
+
+          <div class="highlight">
+            <strong>Core Philosophy:</strong> Local-first for privacy and zero marginal costs, with intelligent cloud fallback only when absolutely necessary.
+          </div>
+
+          <h2>Architecture Overview</h2>
+
+          <h3>Transcription Backbone: WhisperKit</h3>
+          <p><strong>Primary Engine:</strong> WhisperKit serves as the foundation for all local transcription.</p>
+          <ul>
+            <li><strong>Coverage:</strong> Works on ALL Macs (Apple Silicon + Intel)</li>
+            <li><strong>Apple Silicon:</strong> Fast (~1.5s for 30s audio) via Apple Neural Engine</li>
+            <li><strong>Intel Macs:</strong> Acceptable (~3-4s for 30s audio) via GPU acceleration</li>
+            <li><strong>Integration:</strong> Swift native module via Objective-C++ bridge in Electron</li>
+            <li><strong>Models:</strong> Ships with large-v3 (~3GB download on first launch)</li>
+          </ul>
+
+          <h3>Performance Boost: SpeechAnalyzer (macOS 26+)</h3>
+          <p><strong>Optional Enhancement:</strong> When available, SpeechAnalyzer provides cutting-edge performance.</p>
+          <ul>
+            <li><strong>Speed:</strong> 2x faster than WhisperKit (~0.7s for 30s audio)</li>
+            <li><strong>Zero Setup:</strong> Built into OS, no model downloads</li>
+            <li><strong>Requirement:</strong> macOS 26+ (released Sept 2025)</li>
+            <li><strong>Detection:</strong> Check <code>process.getSystemVersion() >= 26</code></li>
+          </ul>
+
+          <h2>Intelligent Fallback Strategy</h2>
+
+          <h3>Decision Flow</h3>
+          <div class="highlight">
+            <strong>Step 1: OS Version Check</strong><br>
+            If macOS 26+ detected → Use SpeechAnalyzer (fastest)<br>
+            Else → Use WhisperKit (backbone)
+          </div>
+
+          <div class="highlight" style="margin-top: 15px;">
+            <strong>Step 2: Performance Monitoring</strong><br>
+            Measure WhisperKit transcription time on first use<br>
+            If duration > 3s for 30s audio → Flag as "slow hardware"
+          </div>
+
+          <div class="highlight" style="margin-top: 15px;">
+            <strong>Step 3: Adaptive Cloud Fallback</strong><br>
+            For "slow hardware" users → Automatically switch to Groq API<br>
+            Store preference locally, notify user of the switch
+          </div>
+
+          <h3>Performance Thresholds</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Audio Length</th>
+                <th>Acceptable (Local)</th>
+                <th>Too Slow (Switch to Cloud)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>30 seconds</td>
+                <td>≤ 3s</td>
+                <td>> 3s</td>
+              </tr>
+              <tr>
+                <td>60 seconds</td>
+                <td>≤ 6s</td>
+                <td>> 6s</td>
+              </tr>
+              <tr>
+                <td>120 seconds</td>
+                <td>≤ 12s</td>
+                <td>> 12s</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>First Launch Experience</h2>
+          <div class="note">
+            <strong>SpeechAnalyzer (macOS 26+):</strong> Instant - no downloads, built into OS<br>
+            <strong>WhisperKit (other):</strong> One-time ~3GB model download (5-10 min on good connection)<br>
+            <strong>Groq fallback:</strong> Works immediately, no setup required
+          </div>
+
+          <h2>Projected User Distribution</h2>
+
+          <table>
+            <thead>
+              <tr>
+                <th>User Segment</th>
+                <th>Engine</th>
+                <th>% of Users</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="groq-highlight">
+                <td>macOS 26+ (early adopters)</td>
+                <td>SpeechAnalyzer</td>
+                <td>15-20%</td>
+              </tr>
+              <tr class="groq-highlight">
+                <td>Apple Silicon (M1-M4)</td>
+                <td>WhisperKit</td>
+                <td>65-70%</td>
+              </tr>
+              <tr>
+                <td>Intel (fast enough)</td>
+                <td>WhisperKit</td>
+                <td>5-10%</td>
+              </tr>
+              <tr>
+                <td>Intel (too slow)</td>
+                <td>Groq (cloud)</td>
+                <td>5-10%</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="note">
+            <strong>Bottom Line:</strong> 90-95% of users will use local processing (zero infrastructure costs, complete privacy)
+          </div>
+
+          <div class="updated">
+            Last updated: <span id="plan-last-updated"></span> |
+            This is the official implementation plan for NarraFlow transcription
+          </div>
         </div>
       </div>
 
-      <!-- Page: Architecture -->
-      <div class="page" id="page-architecture">
+      <!-- Page: Post-Processing -->
+      <div class="page" id="page-post-processing">
         <div class="container">
-          <h1>Technical Architecture</h1>
-          <p class="subtitle">Coming soon...</p>
+          <h1>Post-Processing: Text Formatting</h1>
+          <p class="subtitle">Cleaning up transcription output with punctuation, capitalization, and formatting</p>
+
+          <div class="highlight">
+            <strong>Current Status:</strong> No post-processing implemented. Whisper output is used directly.<br>
+            <strong>Future Plan:</strong> Add intelligent text formatting to improve transcription quality.
+          </div>
+
+          <h2>The Challenge</h2>
+
+          <p>Whisper transcription is excellent but produces raw text without proper formatting:</p>
+          <ul>
+            <li>Missing capitalization at sentence starts</li>
+            <li>Inconsistent punctuation (periods, commas, question marks)</li>
+            <li>No paragraph breaks or structure</li>
+            <li>Filler words (um, uh, like) not removed</li>
+          </ul>
+
+          <p><strong>Goal:</strong> Transform raw transcription into polished, properly formatted text.</p>
+
+          <h2>Option 1: Apple Foundation Models (macOS 26+)</h2>
+
+          <h3>What It Is</h3>
+          <p>Apple's new Foundation Models framework (WWDC 2025) provides access to the on-device ~3B parameter LLM that powers Apple Intelligence.</p>
+
+          <h3>Key Features</h3>
+          <ul>
+            <li><strong>Built into OS:</strong> No model downloads, zero setup</li>
+            <li><strong>Optimized for text tasks:</strong> Summarization, extraction, classification</li>
+            <li><strong>Swift API:</strong> Same integration pattern as SpeechAnalyzer</li>
+            <li><strong>100% On-Device:</strong> Complete privacy, works offline</li>
+            <li><strong>Zero Cost:</strong> Free to use, no inference fees</li>
+          </ul>
+
+          <h3>Integration</h3>
+          <p>Since NarraFlow already uses Swift native modules for SpeechAnalyzer (macOS 26+), adding Foundation Models is straightforward - same Objective-C++ bridge pattern.</p>
+
+          <h3>Unknown Performance</h3>
+          <div class="note">
+            <strong>To Be Tested:</strong> Apple Foundation Models are optimized for general text tasks, but we don't know yet if they can do <em>pure formatting</em> without trying to be "helpful" or answering prompts. This needs hands-on testing.
+          </div>
+
+          <h3>Availability</h3>
+          <p><strong>Requirement:</strong> macOS 26+ only (same as SpeechAnalyzer)</p>
+          <p>Users on older macOS versions would need a different solution.</p>
+
+          <h2>Option 2: Fine-Tune Llama Locally</h2>
+
+          <h3>Why Llama Failed Initially</h3>
+          <p>Previous attempts with base Llama 3.1 8B (via Groq) failed because instruction-tuned models are trained to be "helpful assistants" - they want to answer questions and engage in conversation, not just format text. Even with explicit prompts saying "do not answer," the model would still try to respond to content instead of just cleaning formatting.</p>
+
+          <div class="note">
+            <strong>The Problem:</strong> General-purpose LLMs are optimized for chat/Q&A, not task-specific formatting. They need fine-tuning to learn this specific behavior.
+          </div>
+
+          <h3>The Solution: Local Fine-Tuning with MLX</h3>
+
+          <p>Apple's MLX framework enables efficient fine-tuning of Llama models directly on Mac hardware using LoRA (Low-Rank Adaptation).</p>
+
+          <h3>Time Requirements (M1 Max 64GB)</h3>
+          <p><strong>Hardware:</strong> M1 Max (64GB unified memory)<br>
+          <strong>Model:</strong> Llama 3.1 8B (same model as Groq uses)<br>
+          <strong>Method:</strong> LoRA fine-tuning with MLX</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Dataset Size</th>
+                <th>Estimated Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="groq-highlight">
+                <td>1-2k samples</td>
+                <td><strong>20-30 minutes</strong></td>
+              </tr>
+              <tr class="groq-highlight">
+                <td>2-4k samples</td>
+                <td><strong>40-60 minutes</strong></td>
+              </tr>
+              <tr class="groq-highlight">
+                <td>4-5k samples</td>
+                <td><strong>60-90 minutes</strong></td>
+              </tr>
+              <tr class="groq-highlight">
+                <td>5-6k samples</td>
+                <td><strong>90-120 minutes</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="note">
+            <strong>Note:</strong> Training time scales roughly linearly with dataset size. The M1 Max's 64GB unified memory allows for large batch sizes and efficient parallel processing, making it ideal for fine-tuning without needing cloud services.
+          </div>
+
+          <h3>Process Overview</h3>
+          <div class="highlight">
+            <strong>Step 1:</strong> Collect Training Data (1-2k examples)<br>
+            → Raw transcription text → Properly formatted output<br><br>
+
+            <strong>Step 2:</strong> Fine-tune Locally with MLX<br>
+            → Use <code>mlx-lm</code> library with LoRA method<br>
+            → Run on M1 Max (20-120 minutes depending on dataset size)<br><br>
+
+            <strong>Step 3:</strong> Deploy Fine-Tuned Model<br>
+            → Load via MLX in Electron app<br>
+            → Works on all M1+ Macs, fully local
+          </div>
+
+          <h3>Resources</h3>
+          <p>Extensive tutorials available (January-June 2025):</p>
+          <ul>
+            <li>MLX fine-tuning guides for Llama 3</li>
+            <li>LoRA training on Mac with 16GB RAM</li>
+            <li>Deployment with Ollama and MLX</li>
+            <li>Community support via MLX GitHub and forums</li>
+          </ul>
+
+          <div class="updated">
+            Last updated: <span id="postprocessing-last-updated"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -645,6 +1067,52 @@
         `;
       });
 
+      // Cloud Providers table
+      const cloudProvidersBody = document.getElementById('cloud-providers-body');
+      if (cloudProvidersBody) {
+        cloudProvidersBody.innerHTML = ''; // Clear previous content
+
+        const cloudProviders = [
+          {
+            provider: 'Groq',
+            model: config.groq.whisperTurbo.name,
+            costPerHour: config.groq.whisperTurbo.pricePerHour,
+            speed: `${config.groq.whisperTurbo.speedMultiplier}x real-time`,
+            notes: 'Current - Ultra-fast LPU inference',
+            isCurrentProvider: true
+          },
+          {
+            provider: 'Groq',
+            model: config.groq.whisperLarge.name,
+            costPerHour: config.groq.whisperLarge.pricePerHour,
+            speed: `${config.groq.whisperLarge.speedMultiplier}x real-time`,
+            notes: 'Higher quality, slightly slower',
+            isCurrentProvider: false
+          },
+          {
+            provider: 'OpenAI',
+            model: config.competitors.openai.whisper.name,
+            costPerHour: config.competitors.openai.whisper.pricePerHour,
+            speed: `${config.competitors.openai.whisper.speedMultiplier}x real-time`,
+            notes: 'Official API - slower & more expensive',
+            isCurrentProvider: false
+          }
+        ];
+
+        cloudProviders.forEach(({ provider, model, costPerHour, speed, notes, isCurrentProvider }) => {
+          const rowClass = isCurrentProvider ? ' class="groq-highlight"' : '';
+          cloudProvidersBody.innerHTML += `
+            <tr${rowClass}>
+              <td><strong>${provider}</strong></td>
+              <td>${model}</td>
+              <td class="emphasis">${formatCurrency(costPerHour)}</td>
+              <td>${speed}</td>
+              <td>${notes}</td>
+            </tr>
+          `;
+        });
+      }
+
       // User segments
       const segmentsBody = document.getElementById('user-segments-body');
       segmentsBody.innerHTML = ''; // Clear previous content
@@ -785,6 +1253,18 @@
 
       // Last updated
       document.getElementById('last-updated').textContent = new Date().toLocaleDateString();
+
+      // Set implementation plan date
+      const planDateElement = document.getElementById('plan-last-updated');
+      if (planDateElement) {
+        planDateElement.textContent = new Date().toLocaleDateString();
+      }
+
+      // Set post-processing date
+      const postProcessingDateElement = document.getElementById('postprocessing-last-updated');
+      if (postProcessingDateElement) {
+        postProcessingDateElement.textContent = new Date().toLocaleDateString();
+      }
     }
 
     // Run on load
