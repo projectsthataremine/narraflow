@@ -26,6 +26,8 @@ import { getAppEnv, SUPABASE_URL } from './constants';
 import { getCurrentSession } from './auth-handler';
 import { getAccessManager } from './access-manager';
 import { supabase } from './supabase-client';
+import { getSystemInfo } from './index';
+import { isWhisperKitReady } from './whisperkit-server';
 
 let audioSessionManager: AudioSessionManager | null = null;
 let transcriptionWorker: Worker | null = null;
@@ -271,11 +273,22 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       console.log('[Main] Sending audio to worker for transcription');
       const enableLlamaFormatting = settingsManager?.getEnableLlamaFormatting() ?? false;
       console.log('[Main] Llama formatting enabled:', enableLlamaFormatting);
+
+      // Determine if we should use WhisperKit (local) or Groq (cloud)
+      const systemInfo = getSystemInfo();
+      const useWhisperKit = !!(
+        systemInfo?.isAppleSilicon &&
+        isWhisperKitReady()
+      );
+
+      console.log(`[Main] Transcription engine: ${useWhisperKit ? 'WhisperKit (local)' : 'Groq (cloud)'}`);
+
       transcriptionWorker.postMessage({
         type: 'Transcribe',
         audio: audioBuffer,
         enableLlamaFormatting,
         accessToken: session.access_token, // Pass auth token to worker
+        useWhisperKit, // Use local WhisperKit if available
       });
     } else {
       console.error('[Main] No transcription worker available');

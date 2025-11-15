@@ -53,12 +53,13 @@ parentPort.on('message', async (message: any) => {
         throw new Error('Access token required for transcription');
       }
 
-      // Run transcription pipeline via edge function
+      // Run transcription pipeline (WhisperKit or Groq based on flag)
       const result = await transcribe(message.audio, {
         supabaseUrl: SUPABASE_URL,
         accessToken: message.accessToken,
         enableCleanup: message.enableLlamaFormatting ?? false,
         trimSilence: message.trimSilence ?? false,
+        useWhisperKit: message.useWhisperKit ?? false,
       });
 
       const processingTime = Date.now() - startTime;

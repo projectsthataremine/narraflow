@@ -212,7 +212,7 @@ function SettingsApp() {
           {/* Content Area */}
           <div style={{
             flex: 1,
-            padding: '10px 24px 24px 24px',
+            padding: '10px 24px 24px 0px',
             overflowY: 'auto',
             background: '#000000',
           }}>

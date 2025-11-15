@@ -92,6 +92,7 @@ export interface TranscribeRequest {
   audio: Float32Array;
   enableLlamaFormatting?: boolean;
   trimSilence?: boolean;
+  useWhisperKit?: boolean; // Use local WhisperKit instead of Groq
 }
 
 export interface TranscribeResponse {

@@ -1,12 +1,14 @@
 /**
  * Transcription pipeline orchestrator
- * Coordinates: Audio input → VAD → Groq Whisper (+ optional Llama formatting) → Result
- * Note: Llama formatting happens server-side in the edge function if enabled
+ * Coordinates: Audio input → VAD → Transcription (WhisperKit or Groq) → Result
+ * Supports both local (WhisperKit) and cloud (Groq) transcription
+ * Note: Llama formatting happens server-side in the edge function if enabled (Groq only)
  */
 
 import type { TranscriptionResult } from '../types/ipc-contracts';
 import { VAD } from './vad';
 import { getGroqWhisperInstance } from './groq-whisper';
+import { getWhisperKitInstance } from './whisperkit-transcriber';
 
 export interface PipelineConfig {
   trimSilence: boolean;
@@ -14,6 +16,7 @@ export interface PipelineConfig {
   cleanupTimeoutMs: number;
   supabaseUrl: string;
   accessToken: string;
+  useWhisperKit?: boolean; // Use local WhisperKit instead of Groq
 }
 
 const defaultConfig: Partial<PipelineConfig> = {
@@ -85,17 +88,34 @@ export async function transcribe(
     }
   }
 
-  // Stage 2: Transcribe with Groq Whisper via edge function (includes optional Llama formatting)
-  const groqWhisper = getGroqWhisperInstance(cfg.supabaseUrl);
-  const rawTranscription = await groqWhisper.transcribe(processedAudio, cfg.accessToken, cfg.enableCleanup);
-
-  // The edge function handles Llama formatting if enableCleanup is true
-  // So rawTranscription already contains the formatted text if requested
+  // Stage 2: Transcribe with WhisperKit (local) or Groq (cloud)
+  let rawTranscription: string;
   let cleaned: string | undefined;
-  let fallbackUsed = !cfg.enableCleanup; // If cleanup was enabled, formatted text is in rawTranscription
+  let fallbackUsed = false;
 
-  if (cfg.enableCleanup && rawTranscription.trim().length > 0) {
-    cleaned = rawTranscription; // Edge function already formatted it
+  if (cfg.useWhisperKit) {
+    // Use local WhisperKit server
+    console.log('[Pipeline] Using WhisperKit for local transcription');
+    const whisperKit = getWhisperKitInstance();
+    rawTranscription = await whisperKit.transcribe(processedAudio);
+
+    // TODO: Add local Llama formatting support later
+    // For now, WhisperKit provides raw transcription only
+    cleaned = undefined;
+    fallbackUsed = true; // No cleanup available yet for local
+  } else {
+    // Use Groq cloud via edge function (includes optional Llama formatting)
+    console.log('[Pipeline] Using Groq cloud for transcription');
+    const groqWhisper = getGroqWhisperInstance(cfg.supabaseUrl);
+    rawTranscription = await groqWhisper.transcribe(processedAudio, cfg.accessToken, cfg.enableCleanup);
+
+    // The edge function handles Llama formatting if enableCleanup is true
+    // So rawTranscription already contains the formatted text if requested
+    fallbackUsed = !cfg.enableCleanup;
+
+    if (cfg.enableCleanup && rawTranscription.trim().length > 0) {
+      cleaned = rawTranscription; // Edge function already formatted it
+    }
   }
 
   const processingTime = Date.now() - startTime;

@@ -27,6 +27,12 @@ module.exports = {
     "dist/fn-key-helper/**/*",
     "package.json"
   ],
+  extraResources: [
+    {
+      from: "resources/whisperkit-cli",
+      to: "whisperkit-cli"
+    }
+  ],
   extraFiles: [
     {
       from: `dist/fn-key-helper/build/NarraFlowFnHelper.app`,

@@ -35,6 +35,20 @@ import { registerShortcuts, unregisterShortcuts } from './shortcuts';
 import { ensurePermissions } from './permissions';
 import { IPC_CHANNELS } from '../types/ipc-contracts';
 import { initAuthHandlers } from './auth-handler';
+import { getSystemCapabilities, SystemCapabilities } from './machine-info';
+import {
+  startWhisperKitServer,
+  stopWhisperKitServer,
+  isWhisperKitReady,
+  setSettingsWindowForProgress,
+} from './whisperkit-server';
+
+// Global system capabilities
+let systemCapabilities: SystemCapabilities | null = null;
+
+export function getSystemInfo(): SystemCapabilities | null {
+  return systemCapabilities;
+}
 
 // Configure auto-updater logging
 autoUpdater.logger = log;
@@ -237,6 +251,17 @@ function setupAutoUpdater(): void {
  * Initialize app
  */
 async function initialize(): Promise<void> {
+  // Detect system capabilities
+  console.log('[System] Detecting system capabilities...');
+  systemCapabilities = await getSystemCapabilities();
+  console.log('[System] System capabilities:', {
+    chip: systemCapabilities.isAppleSilicon ? 'Apple Silicon' : 'Intel',
+    macOS: systemCapabilities.macOSVersionString,
+    version: systemCapabilities.macOSVersion,
+    canUseSpeechAnalyzer: systemCapabilities.canUseSpeechAnalyzer,
+    canUseWhisperKit: systemCapabilities.canUseWhisperKit,
+  });
+
   // Check permissions
   const hasPermissions = await ensurePermissions();
   if (!hasPermissions) {
@@ -262,6 +287,7 @@ async function initialize(): Promise<void> {
   setOverlayWindow(overlayWindow);
   if (mainWindow) {
     setSettingsWindow(mainWindow);
+    setSettingsWindowForProgress(mainWindow); // For WhisperKit download progress
   }
 
   // Apply saved dock visibility setting
@@ -293,6 +319,19 @@ async function initialize(): Promise<void> {
   const shortcutSuccess = await registerShortcuts(overlayWindow, savedHotkey);
   if (!shortcutSuccess) {
     console.error('Failed to register shortcuts');
+  }
+
+  // Start WhisperKit server if system supports it
+  if (systemCapabilities && systemCapabilities.isAppleSilicon) {
+    console.log('[System] Starting WhisperKit server for local transcription...');
+    const serverStarted = await startWhisperKitServer();
+    if (serverStarted) {
+      console.log('[System] WhisperKit server ready for local transcription');
+    } else {
+      console.warn('[System] WhisperKit server failed to start, will fall back to Groq');
+    }
+  } else {
+    console.log('[System] Intel chip detected, using Groq for transcription');
   }
 
   // Setup auto-updater
@@ -464,6 +503,8 @@ app.on('activate', () => {
 
 app.on('will-quit', () => {
   // Cleanup
+  console.log('[System] Shutting down...');
+  stopWhisperKitServer();
   unregisterShortcuts();
   cleanupIPC();
 });

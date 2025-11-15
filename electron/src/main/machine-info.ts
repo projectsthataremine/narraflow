@@ -1,12 +1,23 @@
 /**
  * Machine info detection for macOS
- * Detects machine model name and macOS version
+ * Detects machine model name, macOS version, and chip architecture
  */
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import os from 'os';
 
 const execAsync = promisify(exec);
+
+export interface SystemCapabilities {
+  isAppleSilicon: boolean;
+  isIntel: boolean;
+  macOSVersion: number;
+  macOSVersionString: string;
+  isTahoe: boolean;
+  canUseSpeechAnalyzer: boolean;
+  canUseWhisperKit: boolean;
+}
 
 /**
  * Get machine name (e.g., "MacBook Pro 2024")
@@ -84,10 +95,53 @@ export async function getMacOSVersion(): Promise<string> {
  * Get both machine name and OS version
  */
 export async function getMachineInfo(): Promise<{ name: string; os: string }> {
-  const [name, os] = await Promise.all([
-    getMachineName(),
-    getMacOSVersion()
-  ]);
+  const [name, os] = await Promise.all([getMachineName(), getMacOSVersion()]);
 
   return { name, os };
+}
+
+/**
+ * Detect if running on Apple Silicon or Intel
+ */
+export function isAppleSilicon(): boolean {
+  const cpuModel = os.cpus()[0]?.model || '';
+  return cpuModel.includes('Apple');
+}
+
+/**
+ * Get numeric macOS version (e.g., 26 for macOS Tahoe)
+ */
+export async function getMacOSVersionNumber(): Promise<number> {
+  try {
+    const { stdout } = await execAsync('sw_vers -productVersion');
+    const versionString = stdout.trim();
+    const majorVersion = parseInt(versionString.split('.')[0]);
+    return majorVersion;
+  } catch (error) {
+    console.error('Failed to get macOS version number:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get system capabilities for transcription engine selection
+ */
+export async function getSystemCapabilities(): Promise<SystemCapabilities> {
+  const appleSilicon = isAppleSilicon();
+  const macOSVersionNumber = await getMacOSVersionNumber();
+  const macOSVersionString = await getMacOSVersion();
+
+  const isTahoe = macOSVersionNumber >= 26;
+  const canUseSpeechAnalyzer = isTahoe && appleSilicon;
+  const canUseWhisperKit = appleSilicon || true; // WhisperKit works on both, slower on Intel
+
+  return {
+    isAppleSilicon: appleSilicon,
+    isIntel: !appleSilicon,
+    macOSVersion: macOSVersionNumber,
+    macOSVersionString,
+    isTahoe,
+    canUseSpeechAnalyzer,
+    canUseWhisperKit,
+  };
 }
