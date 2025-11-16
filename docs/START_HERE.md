@@ -5,6 +5,8 @@
 
 This document provides a comprehensive introduction to NarraFlow (formerly Mic2Text) for AI assistants and developers joining the project. Read this FIRST to understand the project's unique aspects before diving into implementation details.
 
+**💰 IMPORTANT**: Before making any pricing or cost-related decisions, read the **[Realistic User Costs Analysis](./realistic-user-costs.html)** for detailed information about actual user costs, pricing strategies, and cost breakdowns.
+
 ---
 
 ## Table of Contents

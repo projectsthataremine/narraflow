@@ -27,6 +27,7 @@ interface AppSettings {
   hotkey: HotkeyConfig;
   showInDock: boolean;
   enableLlamaFormatting: boolean;
+  whisperKitModel?: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -55,6 +56,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   showInDock: true, // Default to visible
   enableLlamaFormatting: false, // Default to OFF to save costs
+  whisperKitModel: 'small', // Default to small model for faster downloads
 };
 
 export class SettingsManager {
@@ -187,6 +189,21 @@ export class SettingsManager {
    */
   setEnableLlamaFormatting(enabled: boolean): void {
     this.settings.enableLlamaFormatting = enabled;
+    this.saveSettings();
+  }
+
+  /**
+   * Get WhisperKit model setting
+   */
+  getWhisperKitModel(): string {
+    return this.settings.whisperKitModel ?? 'small'; // Default to small model
+  }
+
+  /**
+   * Update WhisperKit model setting
+   */
+  setWhisperKitModel(model: string): void {
+    this.settings.whisperKitModel = model;
     this.saveSettings();
   }
 

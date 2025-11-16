@@ -53,34 +53,27 @@ interface SidebarProps {
 export function Sidebar({ activeSection, setActiveSection, accessStatus }: SidebarProps) {
   const hasAccess = accessStatus?.hasValidAccess ?? true;
 
-  // Simulated download progress (5 minutes for testing)
+  // Real download progress from WhisperKit server
   const [downloadProgress, setDownloadProgress] = useState<{
     progress: number;
+    downloaded: number;
+    total: number;
     isDownloading: boolean;
-    timeRemaining: number;
-  }>({ progress: 0, isDownloading: true, timeRemaining: 300 });
+  }>({ progress: 0, downloaded: 0, total: 3000, isDownloading: false });
 
   useEffect(() => {
-    // Simulate 5-minute download
-    const totalDuration = 300000; // 5 minutes (300 seconds)
-    const updateInterval = 500; // Update every 500ms
-    const increment = 100 / (totalDuration / updateInterval);
-
-    const interval = setInterval(() => {
-      setDownloadProgress(prev => {
-        const newProgress = Math.min(prev.progress + increment, 100);
-        const timeRemaining = Math.ceil((100 - newProgress) * totalDuration / 100 / 1000);
-
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          return { progress: 100, isDownloading: false, timeRemaining: 0 };
-        }
-
-        return { progress: newProgress, isDownloading: true, timeRemaining };
+    // Listen for real download progress from main process
+    if (window.electron?.on) {
+      window.electron.on('whisperkit-download-progress', (data: any) => {
+        console.log('[Sidebar] WhisperKit download progress:', data);
+        setDownloadProgress({
+          progress: data.progress,
+          downloaded: data.downloaded,
+          total: data.total,
+          isDownloading: data.isDownloading,
+        });
       });
-    }, updateInterval);
-
-    return () => clearInterval(interval);
+    }
   }, []);
 
   return (
@@ -156,14 +149,9 @@ export function Sidebar({ activeSection, setActiveSection, accessStatus }: Sideb
           <Flex direction="column" gap="3">
             {/* Header */}
             <Flex justify="between" align="center">
-              <Flex direction="column" gap="1">
-                <Text size="2" weight="medium" style={{ color: '#fff', letterSpacing: '-0.01em' }}>
-                  Downloading model
-                </Text>
-                <Text size="1" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
-                  {Math.floor(downloadProgress.timeRemaining / 60)}m {downloadProgress.timeRemaining % 60}s until ready
-                </Text>
-              </Flex>
+              <Text size="2" weight="medium" style={{ color: '#fff', letterSpacing: '-0.01em' }}>
+                Downloading model
+              </Text>
               <Text
                 size="2"
                 weight="bold"
@@ -232,7 +220,7 @@ export function Sidebar({ activeSection, setActiveSection, accessStatus }: Sideb
 
             {/* Size Info */}
             <Text size="1" style={{ color: 'rgba(255, 255, 255, 0.4)', textAlign: 'center' }}>
-              {(downloadProgress.progress * 30 / 100).toFixed(1)} GB / 3.0 GB
+              {(downloadProgress.downloaded / 1024).toFixed(1)} GB / {(downloadProgress.total / 1024).toFixed(1)} GB
             </Text>
           </Flex>
         </Box>

@@ -608,6 +608,7 @@
           <p><strong>What it is:</strong> Apple's new SpeechAnalyzer API introduced in iOS 26/macOS Tahoe (released September 15, 2025). Replaces legacy SFSpeechRecognizer with major improvements.</p>
           <p><strong>Availability:</strong> ✅ CONFIRMED available to third-party apps. No Siri enablement required (unlike legacy SFSpeechRecognizer).</p>
           <p><strong>Performance:</strong> 2.2x faster than competitors. 55% faster than Whisper Large V3 Turbo. Processes 34-minute video in 45 seconds. 100% on-device processing.</p>
+          <p><strong>Permissions:</strong> Requires NSSpeechRecognitionUsageDescription in Info.plist (new permission, not currently in NarraFlow). System will show permission dialog on first use. NSMicrophoneUsageDescription already configured.</p>
           <p><strong>Pros:</strong> Fastest option, no model downloads, built into OS, excellent quality, auto-updating models, smallest app size, instant first launch.</p>
           <p><strong>Cons:</strong> Requires macOS 26+ (limits user base to 2-month-old OS), proprietary (no model control), users may wait 3-6 months before updating.</p>
           <p><strong>Integration:</strong> Available via Swift native module in Electron using Objective-C++ bridge. Official Electron docs support this pattern. Uses modern async/await with AsyncStream.</p>
@@ -731,7 +732,7 @@
 
           <h2>First Launch Experience</h2>
           <div class="note">
-            <strong>SpeechAnalyzer (macOS 26+):</strong> Instant - no downloads, built into OS<br>
+            <strong>SpeechAnalyzer (macOS 26+):</strong> Instant - no downloads, built into OS. User will see one-time system permission dialog for speech recognition (NarraFlow already has microphone permission).<br>
             <strong>WhisperKit (other):</strong> One-time ~3GB model download (5-10 min on good connection)<br>
             <strong>Groq fallback:</strong> Works immediately, no setup required
           </div>

@@ -25,12 +25,18 @@ module.exports = {
     "dist/main/**/*",
     "dist/renderer/**/*",
     "dist/fn-key-helper/**/*",
+    "dist/speechanalyzer-helper/**/*",
     "package.json"
   ],
   extraResources: [
     {
       from: "resources/whisperkit-cli",
       to: "whisperkit-cli"
+    },
+    {
+      from: "speechanalyzer-helper/build/NarraFlowSpeechAnalyzer.app",
+      to: "NarraFlowSpeechAnalyzer.app",
+      filter: ["**/*"]
     }
   ],
   extraFiles: [

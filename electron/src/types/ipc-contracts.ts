@@ -169,6 +169,13 @@ export const IPC_CHANNELS = {
   SET_LLAMA_FORMATTING: 'ipc:set-llama-formatting',
   GET_LLAMA_FORMATTING: 'ipc:get-llama-formatting',
   RESET_APP: 'ipc:reset-app',
+  DELETE_WHISPERKIT_MODEL: 'ipc:delete-whisperkit-model',
+  CHECK_WHISPERKIT_MODEL: 'ipc:check-whisperkit-model',
+  // Permissions
+  CHECK_MICROPHONE_PERMISSION: 'ipc:check-microphone-permission',
+  REQUEST_MICROPHONE_PERMISSION: 'ipc:request-microphone-permission',
+  CHECK_ACCESSIBILITY_PERMISSION: 'ipc:check-accessibility-permission',
+  REQUEST_ACCESSIBILITY_PERMISSION: 'ipc:request-accessibility-permission',
   // Auth & Subscription
   AUTH_SIGNIN_GOOGLE: 'ipc:auth-signin-google',
   AUTH_SIGNOUT: 'ipc:auth-signout',

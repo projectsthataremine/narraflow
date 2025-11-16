@@ -27,7 +27,8 @@ import { getCurrentSession } from './auth-handler';
 import { getAccessManager } from './access-manager';
 import { supabase } from './supabase-client';
 import { getSystemInfo } from './index';
-import { isWhisperKitReady } from './whisperkit-server';
+import { isWhisperKitReady, deleteWhisperKitModel, stopWhisperKitServer, checkWhisperKitModelExists } from './whisperkit-server';
+import { isSpeechAnalyzerReady } from './speechanalyzer-server';
 
 let audioSessionManager: AudioSessionManager | null = null;
 let transcriptionWorker: Worker | null = null;
@@ -152,6 +153,12 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
   audioSessionManager = new AudioSessionManager();
   settingsManager = new SettingsManager();
 
+  // Load model preference and set it for WhisperKit
+  const selectedModel = settingsManager.getWhisperKitModel();
+  const { setInitialModel } = require('./whisperkit-server');
+  setInitialModel(selectedModel);
+  console.log(`[Main] WhisperKit model set to: ${selectedModel}`);
+
   // Initialize worker thread
   const workerPath = path.join(__dirname, '../../worker/worker/worker.js');
   console.log('[Main] Initializing worker at:', workerPath);
@@ -253,42 +260,74 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
       sendUIStateUpdate(currentMainWindow, { mode: 'processing' });
     }
 
-    // Get auth session for edge function authentication
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError || !session?.access_token) {
-      console.error('[Main] Not authenticated - cannot transcribe');
-      if (currentMainWindow) {
-        sendErrorNotification(currentMainWindow, 'Please sign in to use transcription');
-        sendUIStateUpdate(currentMainWindow, { mode: 'hidden' });
-      }
-      return;
-    }
-
     // Convert from array to Float32Array
     const audioBuffer = new Float32Array(data.audio);
 
-    // Send directly to worker for transcription with auth token
+    // Send directly to worker for transcription
     if (transcriptionWorker) {
       console.log('[Main] Sending audio to worker for transcription');
       const enableLlamaFormatting = settingsManager?.getEnableLlamaFormatting() ?? false;
       console.log('[Main] Llama formatting enabled:', enableLlamaFormatting);
 
-      // Determine if we should use WhisperKit (local) or Groq (cloud)
+      // Determine transcription engine priority:
+      // 1. SpeechAnalyzer (macOS 26+ Apple Silicon) - fastest, built-in
+      // 2. WhisperKit (local) - fast, works on all Macs
+      // 3. Groq (cloud) - fallback
       const systemInfo = getSystemInfo();
-      const useWhisperKit = !!(
-        systemInfo?.isAppleSilicon &&
+
+      // TEMP: Disable SpeechAnalyzer for testing WhisperKit
+      // Check for SpeechAnalyzer first (macOS 26+ only)
+      const useSpeechAnalyzer = false; /* !!(
+        systemInfo?.canUseSpeechAnalyzer &&
+        isSpeechAnalyzerReady()
+      ); */
+
+      // Determine provider based on USER SELECTION, not auto-detection
+      const selectedModel = settingsManager?.getWhisperKitModel() || 'small';
+      const userSelectedGroq = selectedModel === 'groq';
+
+      // Use WhisperKit if user selected small/large (and it's available)
+      const useWhisperKit = !useSpeechAnalyzer && !userSelectedGroq && !!(
+        systemInfo?.canUseWhisperKit &&
         isWhisperKitReady()
       );
 
-      console.log(`[Main] Transcription engine: ${useWhisperKit ? 'WhisperKit (local)' : 'Groq (cloud)'}`);
+      // Check if we need authentication (only for Groq cloud)
+      const needsAuth = !useSpeechAnalyzer && !useWhisperKit;
+      let accessToken: string | undefined;
+
+      if (needsAuth) {
+        // Get auth session for Groq edge function
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !session?.access_token) {
+          console.error('[Main] Not authenticated - cannot use Groq transcription');
+          if (currentMainWindow) {
+            sendErrorNotification(currentMainWindow, 'Please sign in to use cloud transcription');
+            sendUIStateUpdate(currentMainWindow, { mode: 'hidden' });
+          }
+          return;
+        }
+
+        accessToken = session.access_token;
+      }
+
+      const chipType = systemInfo?.isAppleSilicon ? 'Apple Silicon' : 'Intel';
+      let engineName = 'Groq (cloud)';
+      if (useSpeechAnalyzer) {
+        engineName = `SpeechAnalyzer (macOS ${systemInfo?.macOSVersion}, ${chipType})`;
+      } else if (useWhisperKit) {
+        engineName = `WhisperKit (local, ${chipType})`;
+      }
+      console.log(`[Main] Transcription engine: ${engineName}`);
 
       transcriptionWorker.postMessage({
         type: 'Transcribe',
         audio: audioBuffer,
         enableLlamaFormatting,
-        accessToken: session.access_token, // Pass auth token to worker
-        useWhisperKit, // Use local WhisperKit if available
+        accessToken, // Pass auth token to worker (undefined for local transcription)
+        useSpeechAnalyzer, // Use SpeechAnalyzer if available (macOS 26+)
+        useWhisperKit, // Fallback to WhisperKit if SpeechAnalyzer not available
       });
     } else {
       console.error('[Main] No transcription worker available');
@@ -537,6 +576,41 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     return false; // Default to disabled
   });
 
+  // Handle WhisperKit Model Selection
+  ipcMain.handle('SET_WHISPERKIT_MODEL', async (event, data: { model: string }) => {
+    console.log('[Main] SET_WHISPERKIT_MODEL called with model:', data.model);
+    if (settingsManager) {
+      settingsManager.setWhisperKitModel(data.model);
+
+      // Only switch WhisperKit server if selecting a local model (small/large)
+      // Don't call switchModel for 'groq' since it's cloud-based
+      if (data.model !== 'groq') {
+        console.log('[Main] Switching WhisperKit to local model:', data.model);
+        // Import and call whisperkit-server to handle model switch
+        const { switchModel } = await import('./whisperkit-server');
+        await switchModel(data.model);
+      } else {
+        console.log('[Main] User selected Groq cloud - no WhisperKit switch needed');
+      }
+
+      // Notify all renderer processes that the model changed
+      const { BrowserWindow } = require('electron');
+      BrowserWindow.getAllWindows().forEach((win: any) => {
+        win.webContents.send('WHISPERKIT_MODEL_CHANGED', { model: data.model });
+      });
+
+      return true;
+    }
+    return false;
+  });
+
+  ipcMain.handle('GET_WHISPERKIT_MODEL', async () => {
+    if (settingsManager) {
+      return settingsManager.getWhisperKitModel();
+    }
+    return 'small'; // Default to small model
+  });
+
   // Handle Reset App
   ipcMain.handle(IPC_CHANNELS.RESET_APP, async () => {
     console.log('[Main] RESET_APP called');
@@ -559,6 +633,124 @@ export function setupIPCHandlers(mainWindow: BrowserWindow): void {
     } catch (error) {
       console.error('[Main] Failed to reset app:', error);
       return false;
+    }
+  });
+
+  // Handle Delete WhisperKit Model
+  ipcMain.handle(IPC_CHANNELS.DELETE_WHISPERKIT_MODEL, async () => {
+    console.log('[Main] DELETE_WHISPERKIT_MODEL called');
+    try {
+      // Stop the server first - EVENT-BASED, waits for actual exit
+      console.log('[Main] Stopping WhisperKit server...');
+      await stopWhisperKitServer();
+      console.log('[Main] Server stopped, proceeding with model deletion');
+
+      // Delete the model
+      console.log('[Main] Deleting WhisperKit model...');
+      const deleted = deleteWhisperKitModel();
+
+      if (deleted) {
+        console.log('[Main] Model deleted successfully. Restart app to re-download.');
+        return { success: true, message: 'Model deleted. Restart the app to re-download.' };
+      } else {
+        console.log('[Main] Model was not found or already deleted.');
+        return { success: true, message: 'Model not found (may already be deleted).' };
+      }
+    } catch (error) {
+      console.error('[Main] Failed to delete WhisperKit model:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Handle Check WhisperKit Model Exists
+  ipcMain.handle(IPC_CHANNELS.CHECK_WHISPERKIT_MODEL, async (_event, args?: { model?: string }) => {
+    try {
+      const exists = checkWhisperKitModelExists(args?.model);
+      return { exists };
+    } catch (error) {
+      console.error('[Main] Failed to check WhisperKit model:', error);
+      return { exists: false };
+    }
+  });
+
+  // Handle Check Microphone Permission
+  ipcMain.handle(IPC_CHANNELS.CHECK_MICROPHONE_PERMISSION, async () => {
+    try {
+      // On macOS, we can check microphone permission using systemPreferences
+      const { systemPreferences } = require('electron');
+      if (process.platform === 'darwin') {
+        const status = systemPreferences.getMediaAccessStatus('microphone');
+        return { granted: status === 'granted' };
+      }
+      // On other platforms, assume granted (or implement platform-specific checks)
+      return { granted: true };
+    } catch (error) {
+      console.error('[Main] Failed to check microphone permission:', error);
+      return { granted: false };
+    }
+  });
+
+  // Handle Request Microphone Permission
+  ipcMain.handle(IPC_CHANNELS.REQUEST_MICROPHONE_PERMISSION, async () => {
+    try {
+      const { systemPreferences, shell } = require('electron');
+      if (process.platform === 'darwin') {
+        // On macOS, we can request microphone access
+        const status = systemPreferences.getMediaAccessStatus('microphone');
+
+        if (status === 'not-determined') {
+          // Request permission - this will trigger the system dialog
+          // We need to actually try to access the microphone to trigger the prompt
+          // The user will need to grant permission in their first recording attempt
+          return { granted: false, message: 'Please grant microphone access when prompted during first use' };
+        } else if (status === 'denied') {
+          // Open System Preferences to Privacy settings
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+          return { granted: false, message: 'Please enable microphone access in System Preferences' };
+        } else if (status === 'granted') {
+          return { granted: true };
+        }
+      }
+      return { granted: true };
+    } catch (error) {
+      console.error('[Main] Failed to request microphone permission:', error);
+      return { granted: false, error: String(error) };
+    }
+  });
+
+  // Handle Check Accessibility Permission (for Speech Analyzer)
+  ipcMain.handle(IPC_CHANNELS.CHECK_ACCESSIBILITY_PERMISSION, async () => {
+    try {
+      const { systemPreferences } = require('electron');
+      if (process.platform === 'darwin') {
+        const trusted = systemPreferences.isTrustedAccessibilityClient(false);
+        return { granted: trusted };
+      }
+      return { granted: true };
+    } catch (error) {
+      console.error('[Main] Failed to check accessibility permission:', error);
+      return { granted: false };
+    }
+  });
+
+  // Handle Request Accessibility Permission
+  ipcMain.handle(IPC_CHANNELS.REQUEST_ACCESSIBILITY_PERMISSION, async () => {
+    try {
+      const { systemPreferences, shell } = require('electron');
+      if (process.platform === 'darwin') {
+        // Request accessibility permission
+        const trusted = systemPreferences.isTrustedAccessibilityClient(true);
+        if (!trusted) {
+          // Open System Preferences to Accessibility settings
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+          return { granted: false, message: 'Please enable accessibility access in System Preferences' };
+        }
+        return { granted: trusted };
+      }
+      return { granted: true };
+    } catch (error) {
+      console.error('[Main] Failed to request accessibility permission:', error);
+      return { granted: false, error: String(error) };
     }
   });
 

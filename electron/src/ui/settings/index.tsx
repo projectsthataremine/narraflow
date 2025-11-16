@@ -19,6 +19,8 @@ import { HistorySection } from './components/HistorySection';
 import { AccountSection } from './components/AccountSection';
 import { FeedbackSection } from './components/FeedbackSection';
 import { SignInScreen } from './components/SignInScreen';
+import { ModelDownloadScreen } from './components/ModelDownloadScreen';
+import { PermissionsScreen } from './components/PermissionsScreen';
 
 // Import types and styles
 import { PillConfig, HistoryItem, HotkeyConfig } from './components/types';
@@ -57,10 +59,185 @@ function SettingsApp() {
     keycode: 17,
   });
 
+  // Setup flow state
+  const [setupState, setSetupState] = useState<'checking' | 'permissions' | 'downloading' | 'complete'>('checking');
+  const [downloadProgress, setDownloadProgress] = useState({
+    progress: 0,
+    downloaded: 0,
+    total: 0,
+    isDownloading: false,
+  });
+  const [downloadingModel, setDownloadingModel] = useState<'large-v3_turbo' | 'small' | null>(null);
+  const [installingModel, setInstallingModel] = useState<'large-v3_turbo' | 'small' | null>(null);
+
+  // SINGLE SOURCE OF TRUTH: Model download status for all models
+  const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({
+    'small': false,
+    'large-v3_turbo': false,
+  });
+  const [permissions, setPermissions] = useState([
+    {
+      id: 'microphone',
+      name: 'Microphone Access',
+      description: 'Required to record and transcribe your voice',
+      icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>,
+      granted: false,
+      required: true,
+    },
+  ]);
+
   // Always use dark theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
   }, []);
+
+  // Check setup requirements (model, permissions) on mount
+  useEffect(() => {
+    const checkSetupRequirements = async () => {
+      if (!window.electron || !isAuthenticated) return;
+
+      try {
+        // Check all models - SINGLE SOURCE OF TRUTH
+        const smallCheck = await (window.electron as any).invoke(IPC_CHANNELS.CHECK_WHISPERKIT_MODEL, { model: 'small' });
+        const largeCheck = await (window.electron as any).invoke(IPC_CHANNELS.CHECK_WHISPERKIT_MODEL, { model: 'large-v3_turbo' });
+
+        setModelStatus({
+          'small': smallCheck.exists,
+          'large-v3_turbo': largeCheck.exists,
+        });
+        console.log('[Setup] Model status:', { small: smallCheck.exists, large: largeCheck.exists });
+
+        const anyModelExists = smallCheck.exists || largeCheck.exists;
+
+        // Check microphone permission
+        const micPermission = await (window.electron as any).invoke(IPC_CHANNELS.CHECK_MICROPHONE_PERMISSION);
+        setPermissions(prev => prev.map(p =>
+          p.id === 'microphone' ? { ...p, granted: micPermission.granted } : p
+        ));
+        console.log('[Setup] Mic permission granted:', micPermission.granted);
+
+        // Determine setup state
+        if (!micPermission.granted) {
+          setSetupState('permissions');
+        } else if (!anyModelExists) {
+          setSetupState('downloading');
+        } else {
+          setSetupState('complete');
+        }
+      } catch (error) {
+        console.error('[Setup] Failed to check setup requirements:', error);
+        setSetupState('complete'); // Fallback to complete to avoid blocking
+      }
+    };
+
+    if (isAuthenticated) {
+      checkSetupRequirements();
+    }
+  }, [isAuthenticated]);
+
+  // Listen for WhisperKit download progress - SINGLE SOURCE OF TRUTH for model status
+  useEffect(() => {
+    if (window.electron?.on) {
+      window.electron.on('whisperkit-download-progress', async (data: any) => {
+        console.log('[Setup] WhisperKit download progress:', data);
+        setDownloadProgress({
+          progress: data.progress,
+          downloaded: data.downloaded,
+          total: data.total,
+          isDownloading: data.isDownloading,
+        });
+
+        // If download completes, transition to installing state
+        if (data.progress >= 100 && !data.isDownloading) {
+          // Transition from downloading to installing - use model from event data
+          const modelToInstall = data.model || downloadingModel;
+          if (modelToInstall) {
+            setInstallingModel(modelToInstall as 'large-v3_turbo' | 'small');
+            setDownloadingModel(null);
+          }
+
+          // Re-check all models to get fresh status
+          try {
+            const smallCheck = await (window.electron as any).invoke(IPC_CHANNELS.CHECK_WHISPERKIT_MODEL, { model: 'small' });
+            const largeCheck = await (window.electron as any).invoke(IPC_CHANNELS.CHECK_WHISPERKIT_MODEL, { model: 'large-v3_turbo' });
+
+            setModelStatus({
+              'small': smallCheck.exists,
+              'large-v3_turbo': largeCheck.exists,
+            });
+
+            // Clear installing state now that model is confirmed to exist
+            if (modelToInstall && (
+              (modelToInstall === 'small' && smallCheck.exists) ||
+              (modelToInstall === 'large-v3_turbo' && largeCheck.exists)
+            )) {
+              setInstallingModel(null);
+            }
+
+            setSetupState('complete');
+          } catch (error) {
+            console.error('[Setup] Failed to update model status:', error);
+          }
+        }
+      });
+    }
+  }, [downloadingModel]);
+
+  // Listen for WhisperKit model change (installation complete)
+  useEffect(() => {
+    if (window.electron?.on) {
+      const handleModelChanged = (data: any) => {
+        // Clear installing state - model is now fully ready
+        setInstallingModel(null);
+      };
+
+      (window.electron as any).on('WHISPERKIT_MODEL_CHANGED', handleModelChanged);
+
+      // Cleanup function to remove listener
+      return () => {
+        if (window.electron?.removeListener) {
+          (window.electron as any).removeListener('WHISPERKIT_MODEL_CHANGED', handleModelChanged);
+        }
+      };
+    }
+  }, []); // Empty dependency array - only register once
+
+  // Permission handlers
+  const handleRequestPermissions = async () => {
+    if (!window.electron) return;
+
+    try {
+      // Request microphone permission
+      const micResult = await (window.electron as any).invoke(IPC_CHANNELS.REQUEST_MICROPHONE_PERMISSION);
+      setPermissions(prev => prev.map(p =>
+        p.id === 'microphone' ? { ...p, granted: micResult.granted } : p
+      ));
+
+      // Check if all required permissions are granted
+      const allGranted = permissions.every(p => p.granted || !p.required);
+      if (allGranted) {
+        // Move to next setup step
+        const anyModelExists = modelStatus['small'] || modelStatus['large-v3_turbo'];
+        if (!anyModelExists) {
+          setSetupState('downloading');
+        } else {
+          setSetupState('complete');
+        }
+      }
+    } catch (error) {
+      console.error('[Setup] Failed to request permissions:', error);
+    }
+  };
+
+  const handlePermissionsContinue = () => {
+    // Check if model needs to be downloaded
+    const anyModelExists = modelStatus['small'] || modelStatus['large-v3_turbo'];
+    if (!anyModelExists) {
+      setSetupState('downloading');
+    } else {
+      setSetupState('complete');
+    }
+  };
 
   // Check authentication on mount and listen for changes
   const checkAuth = async () => {
@@ -174,7 +351,37 @@ function SettingsApp() {
     );
   }
 
-  // Show normal settings UI if authenticated
+  // Show permissions screen if permissions not granted
+  if (isAuthenticated && setupState === 'permissions') {
+    return (
+      <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
+        <style>{CSS_VARS}</style>
+        <PermissionsScreen
+          permissions={permissions}
+          onRequestPermissions={handleRequestPermissions}
+          onContinue={handlePermissionsContinue}
+        />
+      </Theme>
+    );
+  }
+
+  // Show model download screen if model doesn't exist or is downloading
+  const anyModelExists = modelStatus['small'] || modelStatus['large-v3_turbo'];
+  if (isAuthenticated && (setupState === 'downloading' || (setupState === 'checking' && !anyModelExists))) {
+    return (
+      <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
+        <style>{CSS_VARS}</style>
+        <ModelDownloadScreen
+          progress={downloadProgress.progress}
+          downloaded={downloadProgress.downloaded}
+          total={downloadProgress.total}
+          isDownloading={downloadProgress.isDownloading || !anyModelExists}
+        />
+      </Theme>
+    );
+  }
+
+  // Show normal settings UI if authenticated and setup complete
   return (
     <Theme appearance="dark" accentColor="blue" grayColor="slate" radius="medium" scaling="100%">
       <style>{CSS_VARS}</style>
@@ -229,6 +436,11 @@ function SettingsApp() {
                   hotkeyConfig={hotkeyConfig}
                   setHotkeyConfig={setHotkeyConfig}
                   accessStatus={accessStatus}
+                  downloadingModel={downloadingModel}
+                  setDownloadingModel={setDownloadingModel}
+                  installingModel={installingModel}
+                  setInstallingModel={setInstallingModel}
+                  modelStatus={modelStatus}
                 />
               )}
               {activeSection === 'recording' && (

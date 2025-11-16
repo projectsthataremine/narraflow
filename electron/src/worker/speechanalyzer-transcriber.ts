@@ -1,29 +1,25 @@
 /**
- * WhisperKit local transcription via local server
- * Handles audio transcription using WhisperKit local server (OpenAI-compatible API)
+ * SpeechAnalyzer local transcription via local server
+ * Handles audio transcription using SpeechAnalyzer helper (macOS 26+ only)
  */
 
 import { Buffer } from 'buffer';
 
-export interface WhisperKitConfig {
+export interface SpeechAnalyzerConfig {
   serverUrl: string;
-  model?: string;
-  language?: string;
   maxRetries: number;
   retryDelayMs: number;
 }
 
-const defaultConfig: Partial<WhisperKitConfig> = {
-  serverUrl: 'http://localhost:50060',
-  model: 'large-v3_turbo',
-  language: 'en',
+const defaultConfig: Partial<SpeechAnalyzerConfig> = {
+  serverUrl: 'http://localhost:50061',
   maxRetries: 2,
   retryDelayMs: 1000,
 };
 
 /**
  * Convert Float32Array audio to WAV buffer
- * WhisperKit expects WAV format (PCM 16-bit, 16kHz, mono)
+ * SpeechAnalyzer expects WAV format (PCM 16-bit, 16kHz, mono)
  */
 function float32ToWav(float32Array: Float32Array, sampleRate: number = 16000): Buffer {
   const buffer = Buffer.alloc(44 + float32Array.length * 2);
@@ -68,11 +64,11 @@ async function withRetry<T>(
       return await fn();
     } catch (error) {
       lastError = error as Error;
-      console.warn(`[WhisperKit] Attempt ${attempt}/${maxAttempts} failed:`, error);
+      console.warn(`[SpeechAnalyzer] Attempt ${attempt}/${maxAttempts} failed:`, error);
 
       if (attempt < maxAttempts) {
         const delay = baseDelayMs * attempt;
-        console.log(`[WhisperKit] Retrying in ${delay}ms...`);
+        console.log(`[SpeechAnalyzer] Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -81,55 +77,43 @@ async function withRetry<T>(
   throw lastError!;
 }
 
-export class WhisperKitTranscriber {
-  private config: WhisperKitConfig;
+export class SpeechAnalyzerTranscriber {
+  private config: SpeechAnalyzerConfig;
 
-  constructor(config: Partial<WhisperKitConfig> = {}) {
-    this.config = { ...defaultConfig, ...config } as WhisperKitConfig;
+  constructor(config: Partial<SpeechAnalyzerConfig> = {}) {
+    this.config = { ...defaultConfig, ...config } as SpeechAnalyzerConfig;
   }
 
   /**
-   * Transcribe audio to text using WhisperKit local server
+   * Transcribe audio to text using SpeechAnalyzer local server
    */
   async transcribe(audio: Float32Array): Promise<string> {
     const startTime = Date.now();
 
     try {
-      console.log(`[WhisperKit] Starting local transcription (${audio.length} samples)`);
+      console.log(`[SpeechAnalyzer] Starting local transcription (${audio.length} samples)`);
 
       // Convert Float32Array to WAV buffer
       const wavBuffer = float32ToWav(audio);
-      console.log(`[WhisperKit] Converted to WAV (${wavBuffer.length} bytes)`);
+      console.log(`[SpeechAnalyzer] Converted to WAV (${wavBuffer.length} bytes)`);
 
-      // Create FormData with the audio file (OpenAI API format)
-      const formData = new FormData();
-      const audioFile = new File([new Uint8Array(wavBuffer)], 'audio.wav', {
-        type: 'audio/wav',
-      });
-      formData.append('file', audioFile);
-      formData.append('response_format', 'json');
+      const transcriptionUrl = `${this.config.serverUrl}/transcribe`;
 
-      if (this.config.model) {
-        formData.append('model', this.config.model);
-      }
-
-      if (this.config.language) {
-        formData.append('language', this.config.language);
-      }
-
-      const transcriptionUrl = `${this.config.serverUrl}/v1/audio/transcriptions`;
-
-      // Call WhisperKit server with retry logic
+      // Call SpeechAnalyzer server with retry logic
       const result = await withRetry(
         async () => {
           const response = await fetch(transcriptionUrl, {
             method: 'POST',
-            body: formData,
+            body: wavBuffer,
+            headers: {
+              'Content-Type': 'audio/wav',
+              'Content-Length': wavBuffer.length.toString(),
+            },
           });
 
           if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`WhisperKit server error (${response.status}): ${errorText}`);
+            throw new Error(`SpeechAnalyzer server error (${response.status}): ${errorText}`);
           }
 
           return await response.json();
@@ -143,14 +127,14 @@ export class WhisperKitTranscriber {
       // Extract text from response (OpenAI format)
       const text = (result as any).text || '';
 
-      console.log(`[WhisperKit] Local transcription completed in ${duration}ms`);
-      console.log(`[WhisperKit] Text: "${text}"`);
+      console.log(`[SpeechAnalyzer] Local transcription completed in ${duration}ms`);
+      console.log(`[SpeechAnalyzer] Text: "${text}"`);
 
       return text.trim();
     } catch (error) {
-      console.error('[WhisperKit] Local transcription failed after all retries:', error);
+      console.error('[SpeechAnalyzer] Local transcription failed after all retries:', error);
       throw new Error(
-        `WhisperKit transcription error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `SpeechAnalyzer transcription error: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -164,11 +148,11 @@ export class WhisperKitTranscriber {
 }
 
 // Singleton instance
-let instance: WhisperKitTranscriber | null = null;
+let instance: SpeechAnalyzerTranscriber | null = null;
 
-export function getWhisperKitInstance(): WhisperKitTranscriber {
+export function getSpeechAnalyzerInstance(): SpeechAnalyzerTranscriber {
   if (!instance) {
-    instance = new WhisperKitTranscriber();
+    instance = new SpeechAnalyzerTranscriber();
   }
   return instance;
 }

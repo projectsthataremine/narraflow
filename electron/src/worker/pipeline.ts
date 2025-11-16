@@ -1,7 +1,7 @@
 /**
  * Transcription pipeline orchestrator
- * Coordinates: Audio input → VAD → Transcription (WhisperKit or Groq) → Result
- * Supports both local (WhisperKit) and cloud (Groq) transcription
+ * Coordinates: Audio input → VAD → Transcription (SpeechAnalyzer/WhisperKit/Groq) → Result
+ * Supports local (SpeechAnalyzer on macOS 26+, WhisperKit on older Macs) and cloud (Groq) transcription
  * Note: Llama formatting happens server-side in the edge function if enabled (Groq only)
  */
 
@@ -9,6 +9,7 @@ import type { TranscriptionResult } from '../types/ipc-contracts';
 import { VAD } from './vad';
 import { getGroqWhisperInstance } from './groq-whisper';
 import { getWhisperKitInstance } from './whisperkit-transcriber';
+import { getSpeechAnalyzerInstance } from './speechanalyzer-transcriber';
 
 export interface PipelineConfig {
   trimSilence: boolean;
@@ -16,6 +17,7 @@ export interface PipelineConfig {
   cleanupTimeoutMs: number;
   supabaseUrl: string;
   accessToken: string;
+  useSpeechAnalyzer?: boolean; // Use Apple SpeechAnalyzer (macOS 26+ only)
   useWhisperKit?: boolean; // Use local WhisperKit instead of Groq
 }
 
@@ -47,8 +49,10 @@ export async function transcribe(
   const cfg = { ...defaultConfig, ...config } as PipelineConfig;
   const startTime = Date.now();
 
-  if (!cfg.supabaseUrl || !cfg.accessToken) {
-    throw new Error('[Pipeline] Supabase URL and access token are required');
+  // Only validate Supabase/auth if using cloud transcription
+  const usingLocalTranscription = cfg.useSpeechAnalyzer || cfg.useWhisperKit;
+  if (!usingLocalTranscription && (!cfg.supabaseUrl || !cfg.accessToken)) {
+    throw new Error('[Pipeline] Supabase URL and access token are required for cloud transcription');
   }
 
   // Stage 1: VAD - extract speech segments
@@ -88,13 +92,23 @@ export async function transcribe(
     }
   }
 
-  // Stage 2: Transcribe with WhisperKit (local) or Groq (cloud)
+  // Stage 2: Transcribe with priority: SpeechAnalyzer > WhisperKit > Groq
   let rawTranscription: string;
   let cleaned: string | undefined;
   let fallbackUsed = false;
 
-  if (cfg.useWhisperKit) {
-    // Use local WhisperKit server
+  if (cfg.useSpeechAnalyzer) {
+    // Use Apple SpeechAnalyzer (macOS 26+ only) - fastest option
+    console.log('[Pipeline] Using SpeechAnalyzer for local transcription (macOS 26+)');
+    const speechAnalyzer = getSpeechAnalyzerInstance();
+    rawTranscription = await speechAnalyzer.transcribe(processedAudio);
+
+    // TODO: Add local Llama formatting support later
+    // For now, SpeechAnalyzer provides raw transcription only
+    cleaned = undefined;
+    fallbackUsed = true; // No cleanup available yet for local
+  } else if (cfg.useWhisperKit) {
+    // Use local WhisperKit server - works on all Macs
     console.log('[Pipeline] Using WhisperKit for local transcription');
     const whisperKit = getWhisperKitInstance();
     rawTranscription = await whisperKit.transcribe(processedAudio);

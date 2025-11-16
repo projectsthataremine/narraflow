@@ -45,20 +45,27 @@ parentPort.on('message', async (message: any) => {
       console.log('[Worker] Starting transcription...');
       const startTime = Date.now();
 
-      if (!SUPABASE_URL) {
-        throw new Error('Supabase URL not configured');
+      // Check if using local or cloud transcription
+      const usingLocalTranscription = message.useSpeechAnalyzer || message.useWhisperKit;
+
+      // Only require Supabase/auth for cloud transcription (Groq)
+      if (!usingLocalTranscription) {
+        if (!SUPABASE_URL) {
+          throw new Error('Supabase URL not configured');
+        }
+
+        if (!message.accessToken) {
+          throw new Error('Access token required for cloud transcription');
+        }
       }
 
-      if (!message.accessToken) {
-        throw new Error('Access token required for transcription');
-      }
-
-      // Run transcription pipeline (WhisperKit or Groq based on flag)
+      // Run transcription pipeline (SpeechAnalyzer > WhisperKit > Groq based on flags)
       const result = await transcribe(message.audio, {
-        supabaseUrl: SUPABASE_URL,
-        accessToken: message.accessToken,
+        supabaseUrl: SUPABASE_URL || '',
+        accessToken: message.accessToken || '',
         enableCleanup: message.enableLlamaFormatting ?? false,
         trimSilence: message.trimSilence ?? false,
+        useSpeechAnalyzer: message.useSpeechAnalyzer ?? false,
         useWhisperKit: message.useWhisperKit ?? false,
       });
 

@@ -42,6 +42,11 @@ import {
   isWhisperKitReady,
   setSettingsWindowForProgress,
 } from './whisperkit-server';
+import {
+  startSpeechAnalyzerServer,
+  stopSpeechAnalyzerServer,
+  isSpeechAnalyzerReady,
+} from './speechanalyzer-server';
 
 // Global system capabilities
 let systemCapabilities: SystemCapabilities | null = null;
@@ -321,9 +326,28 @@ async function initialize(): Promise<void> {
     console.error('Failed to register shortcuts');
   }
 
-  // Start WhisperKit server if system supports it
-  if (systemCapabilities && systemCapabilities.isAppleSilicon) {
-    console.log('[System] Starting WhisperKit server for local transcription...');
+  // Start local transcription server (priority: SpeechAnalyzer > WhisperKit)
+  // TEMP: Disable SpeechAnalyzer for testing WhisperKit
+  /* if (systemCapabilities && systemCapabilities.canUseSpeechAnalyzer) {
+    // macOS 26+ Apple Silicon: Use SpeechAnalyzer (fastest, no model download)
+    console.log(`[System] Starting SpeechAnalyzer server (macOS ${systemCapabilities.macOSVersion}, Apple Silicon)...`);
+    const serverStarted = await startSpeechAnalyzerServer();
+    if (serverStarted) {
+      console.log('[System] SpeechAnalyzer server ready for ultra-fast local transcription');
+    } else {
+      console.warn('[System] SpeechAnalyzer server failed to start, falling back to WhisperKit...');
+      // Fallback to WhisperKit if SpeechAnalyzer fails
+      const whisperKitStarted = await startWhisperKitServer();
+      if (whisperKitStarted) {
+        console.log('[System] WhisperKit server ready as fallback');
+      } else {
+        console.warn('[System] WhisperKit server also failed, will use Groq');
+      }
+    }
+  } else */ if (systemCapabilities && systemCapabilities.canUseWhisperKit) {
+    // Older Macs: Use WhisperKit (fast on Apple Silicon, acceptable on Intel)
+    const chipType = systemCapabilities.isAppleSilicon ? 'Apple Silicon' : 'Intel';
+    console.log(`[System] Starting WhisperKit server for local transcription (${chipType})...`);
     const serverStarted = await startWhisperKitServer();
     if (serverStarted) {
       console.log('[System] WhisperKit server ready for local transcription');
@@ -331,7 +355,7 @@ async function initialize(): Promise<void> {
       console.warn('[System] WhisperKit server failed to start, will fall back to Groq');
     }
   } else {
-    console.log('[System] Intel chip detected, using Groq for transcription');
+    console.log('[System] System does not support local transcription, using Groq cloud');
   }
 
   // Setup auto-updater

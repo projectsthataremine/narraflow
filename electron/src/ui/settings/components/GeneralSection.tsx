@@ -8,6 +8,7 @@ import { Flex, Text, Box, Select, Switch, Button } from '@radix-ui/themes';
 import { HotkeyConfig, HOTKEY_OPTIONS } from './types';
 import { IPC_CHANNELS } from '../../../types/ipc-contracts';
 import packageJson from '../../../../package.json';
+import { ModelSelector } from './ModelSelector';
 
 interface GeneralSectionProps {
   aiEnabled: boolean;
@@ -15,9 +16,25 @@ interface GeneralSectionProps {
   hotkeyConfig: HotkeyConfig;
   setHotkeyConfig: (config: HotkeyConfig) => void;
   accessStatus: any;
+  downloadingModel: 'large-v3_turbo' | 'small' | null;
+  setDownloadingModel: (model: 'large-v3_turbo' | 'small' | null) => void;
+  installingModel: 'large-v3_turbo' | 'small' | null;
+  setInstallingModel: (model: 'large-v3_turbo' | 'small' | null) => void;
+  modelStatus: Record<string, boolean>; // SINGLE SOURCE OF TRUTH from parent
 }
 
-export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotkeyConfig, accessStatus }: GeneralSectionProps) {
+export function GeneralSection({
+  aiEnabled,
+  setAiEnabled,
+  hotkeyConfig,
+  setHotkeyConfig,
+  accessStatus,
+  downloadingModel,
+  setDownloadingModel,
+  installingModel,
+  setInstallingModel,
+  modelStatus, // SINGLE SOURCE OF TRUTH from parent
+}: GeneralSectionProps) {
   const hasAccess = accessStatus?.hasValidAccess ?? true;
   const [showInDock, setShowInDock] = useState(false);
   const [enableLlamaFormatting, setEnableLlamaFormatting] = useState(false);
@@ -28,6 +45,9 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateCheckCooldown, setUpdateCheckCooldown] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<'large-v3_turbo' | 'small'>('small');
+  // modelStatus is now passed from parent - SINGLE SOURCE OF TRUTH
+  const [switchingModel, setSwitchingModel] = useState<string | null>(null);
 
   // Find the matching option from HOTKEY_OPTIONS based on current config
   const currentOption = HOTKEY_OPTIONS.find(
@@ -91,6 +111,105 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
 
     getLlamaFormatting();
   }, []);
+
+  // Load selected model on mount (modelStatus comes from parent)
+  useEffect(() => {
+    const loadSelectedModel = async () => {
+      if (window.electron) {
+        try {
+          const model = await (window.electron as any).invoke('GET_WHISPERKIT_MODEL');
+          setSelectedModel(model || 'small');
+        } catch (error) {
+          console.error('[Settings] Failed to load selected model:', error);
+        }
+      }
+    };
+
+    loadSelectedModel();
+  }, []);
+
+  // Listen for model changes from backend
+  useEffect(() => {
+    if (window.electron?.on) {
+      const handleModelChanged = (data: any) => {
+        setSelectedModel(data.model);
+        // Clear switching state
+        setSwitchingModel(null);
+      };
+
+      window.electron.on('WHISPERKIT_MODEL_CHANGED', handleModelChanged);
+
+      return () => {
+        // Cleanup listener if needed
+      };
+    }
+  }, []);
+
+  // REMOVED: Download progress listener - modelStatus is now managed by parent (index.tsx)
+
+  // Update selected model when download completes
+  useEffect(() => {
+    const getSelectedModel = async () => {
+      if (window.electron && downloadingModel === null) {
+        try {
+          const model = await (window.electron as any).invoke('GET_WHISPERKIT_MODEL');
+          setSelectedModel(model || 'small');
+          console.log('[Settings] Synced selected model after download:', model);
+        } catch (error) {
+          console.error('[Settings] Failed to sync selected model:', error);
+        }
+      }
+    };
+
+    getSelectedModel();
+  }, [downloadingModel]);
+
+
+  // Handle model change
+  const handleModelChange = async (model: 'large-v3_turbo' | 'small') => {
+    console.log('[Settings] handleModelChange called with:', model);
+    console.log('[Settings] Current selectedModel:', selectedModel);
+
+    // Prevent switching if already downloading or switching
+    if (downloadingModel || switchingModel) {
+      console.log('[Settings] Already processing a model change, ignoring');
+      return;
+    }
+
+    if (window.electron) {
+      try {
+        // Check if the model exists
+        const modelCheck = await (window.electron as any).invoke(IPC_CHANNELS.CHECK_WHISPERKIT_MODEL, { model });
+        console.log('[Settings] Model check result:', modelCheck);
+
+        if (modelCheck.exists) {
+          // Model exists, switch to it
+          console.log('[Settings] Switching to existing model:', model);
+
+          // Optimistic update: immediately select and show as switching
+          setSelectedModel(model);
+          setSwitchingModel(model);
+
+          // Actually switch the model
+          await (window.electron as any).invoke('SET_WHISPERKIT_MODEL', { model });
+          console.log('[Settings] Model switch completed');
+          // The WHISPERKIT_MODEL_CHANGED event will clear switchingModel
+        } else {
+          // Model doesn't exist, trigger download by calling SET_WHISPERKIT_MODEL
+          console.log('[Settings] Model not found, triggering download for:', model);
+          setDownloadingModel(model);
+          // Backend switchModel will detect missing model, download it, and switch to it
+          await (window.electron as any).invoke('SET_WHISPERKIT_MODEL', { model });
+          console.log('[Settings] Download and switch initiated for:', model);
+        }
+      } catch (error) {
+        console.error('[Settings] Failed to change model:', error);
+        // Reset on error
+        setSwitchingModel(null);
+        setDownloadingModel(null);
+      }
+    }
+  };
 
   // Handle dock visibility changes
   const handleDockVisibilityChange = async (visible: boolean) => {
@@ -191,6 +310,11 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
 
   return (
     <div>
+      {/* App Settings Section Header */}
+      <Text size="2" weight="bold" style={{ opacity: 0.7, display: 'block', marginBottom: '16px', letterSpacing: '0.05em' }}>
+        APP SETTINGS
+      </Text>
+
       {/* Keyboard Shortcuts */}
       <Flex justify="between" align="center" mb="5">
         <Text size="3" weight="medium" style={{ opacity: hasAccess ? 1 : 0.4 }}>
@@ -265,6 +389,35 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
         </Box>
       </Flex>
 
+      {/* Show app in dock */}
+      <Flex justify="between" align="center" mb="5">
+        <Text size="3" weight="medium">
+          Show app in dock
+        </Text>
+        <Switch
+          checked={showInDock}
+          onCheckedChange={handleDockVisibilityChange}
+        />
+      </Flex>
+
+      {/* Transcription Section Header */}
+      <Text size="2" weight="bold" style={{ opacity: 0.7, display: 'block', marginTop: '32px', marginBottom: '16px', letterSpacing: '0.05em' }}>
+        TRANSCRIPTION
+      </Text>
+
+      {/* Model Selection - Show all options */}
+      <Box mb="5" style={{ opacity: hasAccess ? 1 : 0.4 }}>
+        <ModelSelector
+          selectedModel={selectedModel}
+          downloadingModel={downloadingModel}
+          installingModel={installingModel}
+          switchingModel={switchingModel}
+          onModelChange={(model) => handleModelChange(model as 'large-v3_turbo' | 'small')}
+          disabled={!hasAccess}
+          modelStatus={modelStatus}
+        />
+      </Box>
+
       {/* Enhanced Formatting (Llama) - TEMPORARILY DISABLED - Coming Soon */}
       {/* <Flex justify="between" align="center" mb="5" style={{ opacity: hasAccess ? 1 : 0.4 }}>
         <Box style={{ flex: 1, maxWidth: '70%' }}>
@@ -282,49 +435,8 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
         />
       </Flex> */}
 
-      {/* Show app in dock */}
-      <Flex justify="between" align="center" mb="5">
-        <Text size="3" weight="medium">
-          Show app in dock
-        </Text>
-        <Switch
-          checked={showInDock}
-          onCheckedChange={handleDockVisibilityChange}
-        />
-      </Flex>
-
-      {/* Reset app */}
-      <Flex justify="between" align="center" mb="5">
-        <Text size="3" weight="medium">
-          Reset app
-        </Text>
-        <Button
-          variant="outline"
-          onClick={async () => {
-            if (confirm('Are you sure you want to reset the app? This will clear all settings and history.')) {
-              if (window.electron) {
-                try {
-                  console.log('[Settings] Invoking RESET_APP...');
-                  await (window.electron as any).invoke(IPC_CHANNELS.RESET_APP);
-                } catch (error) {
-                  console.error('[Settings] Failed to reset app:', error);
-                }
-              }
-            }
-          }}
-        >
-          Reset & restart
-        </Button>
-      </Flex>
-
-      {/* Version & Updates Section */}
-      <Box
-        mt="6"
-        pt="6"
-        style={{
-          borderTop: '1px solid var(--gray-a6)',
-        }}
-      >
+      {/* About Section */}
+      <Box mt="6">
         <Text size="2" weight="bold" style={{ opacity: 0.7, display: 'block', marginBottom: '12px' }}>
           ABOUT
         </Text>
@@ -390,6 +502,38 @@ export function GeneralSection({ aiEnabled, setAiEnabled, hotkeyConfig, setHotke
             </Button>
           </Flex>
         )}
+      </Box>
+
+      {/* Reset App Section */}
+      <Box mt="6">
+        <Text size="2" weight="bold" style={{ opacity: 0.7, display: 'block', marginBottom: '12px', letterSpacing: '0.05em' }}>
+          DEVELOPER SETTINGS
+        </Text>
+        <Flex justify="between" align="center" mb="2">
+          <Text size="3" weight="medium">
+            Reset app
+          </Text>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (confirm('Are you sure you want to reset the app? This will clear all settings and history.')) {
+                if (window.electron) {
+                  try {
+                    console.log('[Settings] Invoking RESET_APP...');
+                    await (window.electron as any).invoke(IPC_CHANNELS.RESET_APP);
+                  } catch (error) {
+                    console.error('[Settings] Failed to reset app:', error);
+                  }
+                }
+              }
+            }}
+          >
+            Reset & restart
+          </Button>
+        </Flex>
+        <Text size="1" style={{ opacity: 0.5, display: 'block', lineHeight: '1.4' }}>
+          Only use if instructed by support
+        </Text>
       </Box>
     </div>
   );
